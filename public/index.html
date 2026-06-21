@@ -9,11 +9,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
     <style>
-        /* --- RESET & BASE (SAMA SEPERTI SEBELUMNYA) --- */
-        * {
-            font-family: 'Inter', sans-serif;
-            box-sizing: border-box;
-        }
+        /* (semua style sama seperti sebelumnya, ditambah sedikit untuk status) */
+        * { font-family: 'Inter', sans-serif; box-sizing: border-box; }
         body {
             background-color: #0f1420;
             color: #e8edf5;
@@ -26,17 +23,13 @@
         .bg-primary { background-color: #B1BCFB !important; }
         .text-primary { color: #B1BCFB !important; }
         .border-primary { border-color: #B1BCFB !important; }
-        .ring-primary { --tw-ring-color: #B1BCFB !important; }
         .bg-secondary { background-color: #94A3BB !important; }
         .text-secondary { color: #94A3BB !important; }
         .bg-tertiary { background-color: #CDBDDD !important; }
         .text-tertiary { color: #CDBDDD !important; }
         .text-error { color: #DF172A !important; }
-        .border-error { border-color: #DF172A !important; }
         .bg-error\/10 { background-color: rgba(223, 23, 42, 0.12) !important; }
         .border-error\/20 { border-color: rgba(223, 23, 42, 0.2) !important; }
-        .bg-error-container\/10 { background-color: rgba(223, 23, 42, 0.1) !important; }
-
         .bg-surface { background-color: #161c2e !important; }
         .bg-surface-low { background-color: #1a2238 !important; }
         .bg-surface-container { background-color: #1e2740 !important; }
@@ -44,31 +37,26 @@
         .bg-surface-container-lowest { background-color: #0f1420 !important; }
         .bg-surface-container-high { background-color: #28324a !important; }
         .bg-surface-container-highest { background-color: #323e5a !important; }
-
         .text-on-surface { color: #e8edf5 !important; }
         .text-on-surface-variant { color: #94a3bb !important; }
         .text-outline { color: #5a6a82 !important; }
         .border-outline-variant { border-color: #2a3550 !important; }
-
         .bg-primary-container { background-color: #B1BCFB !important; }
         .text-on-primary { color: #0f1420 !important; }
         .text-on-primary-container { color: #0f1420 !important; }
         .bg-primary-container\/20 { background-color: rgba(177, 188, 251, 0.15) !important; }
         .bg-primary\/5 { background-color: rgba(177, 188, 251, 0.08) !important; }
-
         .bg-secondary-container\/10 { background-color: rgba(148, 163, 187, 0.1) !important; }
         .bg-secondary-container\/20 { background-color: rgba(148, 163, 187, 0.15) !important; }
         .bg-secondary-container\/50 { background-color: rgba(148, 163, 187, 0.2) !important; }
         .border-secondary\/20 { border-color: rgba(148, 163, 187, 0.2) !important; }
         .bg-tertiary-container\/20 { background-color: rgba(205, 189, 221, 0.1) !important; }
         .bg-outline\/20 { background-color: rgba(90, 106, 130, 0.1) !important; }
-
         .shadow-lg { box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.6) !important; }
         .shadow-sm { box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4) !important; }
         .shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7) !important; }
         .bg-gradient-to-t { background-image: linear-gradient(to top, #0f1420, rgba(15, 20, 32, 0.95), transparent) !important; }
         .bg-gradient-to-r { background-image: linear-gradient(to right, #0f1420, #1a2238) !important; }
-
         header { background-color: #0f1420 !important; border-bottom-color: #2a3550 !important; }
         .bottom-nav { background-color: #0f1420 !important; border-top-color: #2a3550 !important; }
         .bottom-nav a { color: #94a3bb !important; }
@@ -76,7 +64,6 @@
         .bottom-nav a.active .material-symbols-outlined { font-variation-settings: 'FILL' 1; }
         .bottom-nav a .material-symbols-outlined { font-size: 24px; }
         .bottom-nav a span:last-child { font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 2px; }
-
         input, textarea, select {
             background-color: #1a2238 !important;
             color: #e8edf5 !important;
@@ -88,7 +75,6 @@
             outline: none;
             box-shadow: 0 0 0 3px rgba(177, 188, 251, 0.15);
         }
-
         .category-chip .icon-wrap {
             background-color: #1a2238 !important;
             border-color: #2a3550 !important;
@@ -104,7 +90,6 @@
         .icon-wrap { width: 56px; height: 56px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease; }
         .category-chip { cursor: pointer; transition: all 0.15s ease; }
         .category-chip .label { font-size: 12px; line-height: 16px; font-weight: 500; letter-spacing: 0.02em; color: #94a3bb; transition: color 0.15s ease; }
-
         .tab-btn {
             border-color: #2a3550 !important;
             background-color: #1a2238 !important;
@@ -117,7 +102,6 @@
             border-color: #B1BCFB !important;
         }
         .tab-btn .material-symbols-outlined { font-size: 18px; vertical-align: middle; }
-
         .toast {
             position: fixed;
             bottom: 100px;
@@ -137,20 +121,16 @@
             white-space: nowrap;
         }
         .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-
         .empty-state { text-align: center; padding: 40px 20px; color: #5a6a82; }
         .empty-state .material-symbols-outlined { font-size: 56px; color: #2a3550; margin-bottom: 12px; }
-
         ::-webkit-scrollbar { width: 4px; height: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #2a3550; border-radius: 9999px; }
         ::-webkit-scrollbar-thumb:hover { background: #5a6a82; }
-
         .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
         .page { display: none; animation: fadeIn 0.25s ease; }
         .page.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-
         input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         input[type="number"] { -moz-appearance: textfield; }
         .transaction-item:active { transform: scale(0.98); transition: transform 0.08s ease; }
@@ -161,7 +141,6 @@
         .chart-ring svg { transform: rotate(-90deg); }
         .donut-segment { fill: none; stroke-width: 12; transition: stroke-dashoffset 0.5s ease; }
         .glass-card { background: rgba(26, 34, 56, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(42, 53, 80, 0.4); }
-
         .add-amount-section { background: linear-gradient(145deg, #1a2238, #0f1420); border-bottom: 1px solid #2a3550; }
         .add-amount-section .currency-symbol { color: #B1BCFB; font-weight: 600; }
         .add-amount-section input { background: transparent !important; border: none !important; color: #e8edf5 !important; font-size: 42px; font-weight: 700; text-align: center; width: 100%; padding: 0; letter-spacing: -0.02em; }
@@ -191,7 +170,6 @@
         .add-page-header .back-btn:hover { background: rgba(177, 188, 251, 0.08); }
         .add-page-header .title { font-size: 18px; font-weight: 600; color: #e8edf5; }
         .add-page-header .spacer { width: 40px; }
-
         .tips-banner {
             background: linear-gradient(135deg, #2a3550 0%, #1a2238 100%);
             border: 1px solid #B1BCFB;
@@ -228,14 +206,10 @@
             .tips-banner .content p { font-size: 13px; }
             .tips-banner .badge { margin-left: 0; margin-top: 10px; width: 100%; text-align: center; }
         }
-
-        /* --- MODAL EDIT --- */
+        /* modal edit */
         .modal-overlay {
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0,0,0,0.7);
             backdrop-filter: blur(6px);
             z-index: 1000;
@@ -244,9 +218,7 @@
             justify-content: center;
             padding: 20px;
         }
-        .modal-overlay.active {
-            display: flex;
-        }
+        .modal-overlay.active { display: flex; }
         .modal-box {
             background: #1a2238;
             border: 1px solid #B1BCFB;
@@ -258,44 +230,52 @@
             overflow-y: auto;
             box-shadow: 0 20px 60px rgba(0,0,0,0.8);
         }
-        .modal-box h2 {
-            color: #e8edf5;
-            font-size: 20px;
-            font-weight: 600;
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .modal-box .close-modal {
-            margin-left: auto;
-            background: transparent;
-            border: none;
-            color: #94a3bb;
-            font-size: 24px;
-            cursor: pointer;
-            padding: 0 8px;
-        }
+        .modal-box h2 { color: #e8edf5; font-size: 20px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+        .modal-box .close-modal { margin-left: auto; background: transparent; border: none; color: #94a3bb; font-size: 24px; cursor: pointer; padding: 0 8px; }
         .modal-box .close-modal:hover { color: #e8edf5; }
-
-        .edit-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 16px;
-        }
-        .edit-actions button {
-            flex: 1;
-            padding: 12px;
-            border-radius: 10px;
-            border: none;
-            font-weight: 600;
-            cursor: pointer;
-            transition: 0.15s;
-        }
+        .edit-actions { display: flex; gap: 10px; margin-top: 16px; }
+        .edit-actions button { flex: 1; padding: 12px; border-radius: 10px; border: none; font-weight: 600; cursor: pointer; transition: 0.15s; }
         .edit-actions .btn-save { background: #B1BCFB; color: #0f1420; }
         .edit-actions .btn-save:hover { transform: scale(1.02); }
         .edit-actions .btn-cancel { background: #2a3550; color: #94a3bb; }
         .edit-actions .btn-cancel:hover { background: #3a4560; }
+        /* status indicator */
+        .status-badge {
+            font-size: 11px;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+        }
+        .status-online { background: #2e7d32; color: #a5d6a7; }
+        .status-local { background: #b71c1c; color: #ffcdd2; }
+        .user-id-override {
+            background: #1e2740;
+            border: 1px solid #B1BCFB;
+            border-radius: 8px;
+            padding: 10px 16px;
+            margin-bottom: 12px;
+            display: none;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px;
+        }
+        .user-id-override label { color: #94a3bb; font-size: 12px; font-weight: 600; }
+        .user-id-override input {
+            background: #1a2238;
+            color: #e8edf5;
+            border: 1px solid #2a3550;
+            border-radius: 6px;
+            padding: 6px 12px;
+            width: 180px;
+            font-size: 14px;
+        }
+        .user-id-override button {
+            background: #B1BCFB; color: #0f1420; border: none; border-radius: 6px; padding: 6px 16px; font-weight: 600; cursor: pointer; transition: 0.15s;
+        }
+        .user-id-override button:hover { transform: scale(1.02); }
+        .user-id-override .close-btn { background: transparent; color: #94a3bb; padding: 6px 10px; font-size: 18px; }
+        .user-id-override .close-btn:hover { color: #e8edf5; }
     </style>
 </head>
 <body>
@@ -306,10 +286,7 @@
     <!-- ==================== MODAL EDIT ==================== -->
     <div id="edit-modal" class="modal-overlay">
         <div class="modal-box">
-            <h2>
-                <span class="material-symbols-outlined">edit</span> Edit Transaksi
-                <button class="close-modal" onclick="closeEditModal()">✕</button>
-            </h2>
+            <h2><span class="material-symbols-outlined">edit</span> Edit Transaksi <button class="close-modal" onclick="closeEditModal()">✕</button></h2>
             <form id="edit-form" onsubmit="saveEdit(event)">
                 <input type="hidden" id="edit-id" />
                 <div class="form-section">
@@ -332,24 +309,13 @@
                     <div class="category-grid" id="edit-category-grid"></div>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label class="form-label">Tanggal</label>
-                        <input id="edit-date" class="form-input" type="date" required />
-                    </div>
-                    <div>
-                        <label class="form-label">Akun</label>
-                        <select id="edit-account" class="form-select">
-                            <option value="Dompet Utama">Dompet Utama</option>
-                            <option value="Bank BCA">Bank BCA</option>
-                            <option value="Kripto">Kripto</option>
-                            <option value="Tunai">Tunai</option>
-                        </select>
-                    </div>
+                    <div><label class="form-label">Tanggal</label><input id="edit-date" class="form-input" type="date" required /></div>
+                    <div><label class="form-label">Akun</label><select id="edit-account" class="form-select">
+                        <option value="Dompet Utama">Dompet Utama</option><option value="Bank BCA">Bank BCA</option>
+                        <option value="Kripto">Kripto</option><option value="Tunai">Tunai</option>
+                    </select></div>
                 </div>
-                <div class="form-section">
-                    <label class="form-label">Catatan</label>
-                    <textarea id="edit-note" class="form-textarea" rows="2"></textarea>
-                </div>
+                <div class="form-section"><label class="form-label">Catatan</label><textarea id="edit-note" class="form-textarea" rows="2"></textarea></div>
                 <div class="edit-actions">
                     <button type="button" class="btn-cancel" onclick="closeEditModal()">Batal</button>
                     <button type="submit" class="btn-save">Simpan Perubahan</button>
@@ -366,6 +332,7 @@
                 <h1 class="text-lg font-semibold text-on-surface">CatatanKu</h1>
             </div>
             <div class="flex items-center gap-2">
+                <span id="status-badge" class="status-badge status-local">📱 Lokal</span>
                 <button class="p-2 rounded-full hover:bg-surface-low transition-colors" onclick="syncFromBackend()" title="Sinkronisasi">
                     <span class="material-symbols-outlined text-primary">sync</span>
                 </button>
@@ -379,6 +346,13 @@
         </header>
 
         <main class="px-5 mt-6 flex flex-col gap-6 max-w-5xl mx-auto pb-6">
+            <!-- User ID Override (akan muncul jika guest atau ID tidak valid) -->
+            <div id="user-id-override" class="user-id-override">
+                <label>🔑 Masukkan ID Telegram (jika tidak terdeteksi):</label>
+                <input id="manual-user-id" type="text" placeholder="Contoh: 123456789" />
+                <button onclick="setManualUserId()">Set ID</button>
+                <button class="close-btn" onclick="document.getElementById('user-id-override').style.display='none'">✕</button>
+            </div>
 
             <!-- Hero -->
             <section class="relative overflow-hidden rounded-xl p-6 shadow-lg bg-primary-container text-on-primary">
@@ -437,19 +411,14 @@
                     <button class="text-xs font-semibold uppercase tracking-wider hover:underline text-secondary" onclick="navigateTo('history')">Lihat Semua</button>
                 </div>
                 <div id="dash-recent-list" class="flex flex-col gap-2">
-                    <div class="empty-state">
-                        <span class="material-symbols-outlined">receipt_long</span>
-                        <p>Belum ada transaksi. Mulai tambahkan!</p>
-                    </div>
+                    <div class="empty-state"><span class="material-symbols-outlined">receipt_long</span><p>Belum ada transaksi. Mulai tambahkan!</p></div>
                 </div>
             </section>
 
             <!-- Tips Banner -->
             <section class="mt-2">
                 <div class="tips-banner">
-                    <div class="icon-wrapper">
-                        <span class="material-symbols-outlined">lightbulb</span>
-                    </div>
+                    <div class="icon-wrapper"><span class="material-symbols-outlined">lightbulb</span></div>
                     <div class="content">
                         <h4>💡 Tips Menabung Cerdas</h4>
                         <p>Lacak pengeluaran harianmu untuk mencapai tujuan keuangan lebih cepat.</p>
@@ -460,16 +429,13 @@
         </main>
     </div>
 
-    <!-- ==================== PAGE: ADD TRANSACTION ==================== -->
+    <!-- ==================== PAGE: ADD ==================== -->
     <div id="page-add" class="page">
         <div class="add-page-header">
-            <button class="back-btn" onclick="navigateTo('dashboard')">
-                <span class="material-symbols-outlined">arrow_back</span>
-            </button>
+            <button class="back-btn" onclick="navigateTo('dashboard')"><span class="material-symbols-outlined">arrow_back</span></button>
             <span class="title">Tambah Transaksi</span>
             <div class="spacer"></div>
         </div>
-
         <main class="form-container">
             <div class="add-amount-section rounded-xl p-6 mt-4 text-center">
                 <span class="text-xs font-semibold uppercase tracking-widest text-on-surface-variant">Jumlah</span>
@@ -478,50 +444,27 @@
                     <input id="add-amount" class="w-full max-w-[200px] bg-transparent border-none text-center text-4xl font-bold text-on-surface placeholder-on-surface-variant/30 focus:ring-0 appearance-none p-0 amount-input-shadow" type="number" step="1" placeholder="0" autofocus />
                 </div>
             </div>
-
             <form id="add-form" onsubmit="saveTransaction(event)" class="mt-6 space-y-5">
                 <div class="form-section">
                     <label class="form-label">Jenis</label>
                     <div class="type-toggle">
-                        <button type="button" class="tab-btn" data-type="expense" onclick="setTransactionType('expense')">
-                            <span class="material-symbols-outlined">arrow_upward</span> Pengeluaran
-                        </button>
-                        <button type="button" class="tab-btn active" data-type="income" onclick="setTransactionType('income')">
-                            <span class="material-symbols-outlined">arrow_downward</span> Pemasukan
-                        </button>
+                        <button type="button" class="tab-btn" data-type="expense" onclick="setTransactionType('expense')"><span class="material-symbols-outlined">arrow_upward</span> Pengeluaran</button>
+                        <button type="button" class="tab-btn active" data-type="income" onclick="setTransactionType('income')"><span class="material-symbols-outlined">arrow_downward</span> Pemasukan</button>
                     </div>
                 </div>
-
                 <div class="form-section">
                     <label class="form-label">Kategori</label>
                     <div class="category-grid" id="add-category-grid"></div>
                 </div>
-
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label class="form-label">Tanggal</label>
-                        <input id="add-date" class="form-input" type="date" />
-                    </div>
-                    <div>
-                        <label class="form-label">Akun</label>
-                        <select id="add-account" class="form-select">
-                            <option value="Dompet Utama">Dompet Utama</option>
-                            <option value="Bank BCA">Bank BCA</option>
-                            <option value="Kripto">Kripto</option>
-                            <option value="Tunai">Tunai</option>
-                        </select>
-                    </div>
+                    <div><label class="form-label">Tanggal</label><input id="add-date" class="form-input" type="date" /></div>
+                    <div><label class="form-label">Akun</label><select id="add-account" class="form-select">
+                        <option value="Dompet Utama">Dompet Utama</option><option value="Bank BCA">Bank BCA</option>
+                        <option value="Kripto">Kripto</option><option value="Tunai">Tunai</option>
+                    </select></div>
                 </div>
-
-                <div class="form-section">
-                    <label class="form-label">Catatan</label>
-                    <textarea id="add-note" class="form-textarea" placeholder="Tambahkan deskripsi..." rows="2"></textarea>
-                </div>
-
-                <button type="submit" class="btn-primary">
-                    <span class="material-symbols-outlined">check_circle</span>
-                    Simpan Transaksi
-                </button>
+                <div class="form-section"><label class="form-label">Catatan</label><textarea id="add-note" class="form-textarea" placeholder="Tambahkan deskripsi..." rows="2"></textarea></div>
+                <button type="submit" class="btn-primary"><span class="material-symbols-outlined">check_circle</span> Simpan Transaksi</button>
             </form>
         </main>
     </div>
@@ -529,31 +472,20 @@
     <!-- ==================== PAGE: HISTORY ==================== -->
     <div id="page-history" class="page">
         <header class="sticky top-0 z-40 flex justify-between items-center w-full px-5 h-16 border-b border-outline-variant">
-            <div class="flex items-center gap-3">
-                <span class="material-symbols-outlined text-primary">receipt_long</span>
-                <h1 class="text-lg font-semibold text-on-surface">Riwayat</h1>
-            </div>
+            <div class="flex items-center gap-3"><span class="material-symbols-outlined text-primary">receipt_long</span><h1 class="text-lg font-semibold text-on-surface">Riwayat</h1></div>
             <div class="flex items-center gap-2">
-                <button class="p-2 rounded-full hover:bg-surface-low transition-colors" onclick="clearAllData()">
-                    <span class="material-symbols-outlined text-on-surface-variant">delete</span>
-                </button>
-                <button class="p-2 rounded-full hover:bg-surface-low transition-colors" onclick="closeApp()">
-                    <span class="material-symbols-outlined text-primary">close</span>
-                </button>
+                <button class="p-2 rounded-full hover:bg-surface-low transition-colors" onclick="clearAllData()"><span class="material-symbols-outlined text-on-surface-variant">delete</span></button>
+                <button class="p-2 rounded-full hover:bg-surface-low transition-colors" onclick="closeApp()"><span class="material-symbols-outlined text-primary">close</span></button>
             </div>
         </header>
-
         <main class="px-5 mt-4 pb-6 max-w-4xl mx-auto">
             <div class="flex items-center gap-3 mb-4">
                 <div class="relative flex-grow">
                     <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[20px] text-on-surface-variant">search</span>
                     <input id="history-search" class="w-full h-12 pl-12 pr-4 border rounded-xl text-sm bg-surface-container-low text-on-surface placeholder-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Cari transaksi..." oninput="renderHistory()" />
                 </div>
-                <button class="w-12 h-12 flex items-center justify-center rounded-xl transition-colors bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high" onclick="renderHistory()">
-                    <span class="material-symbols-outlined">filter_list</span>
-                </button>
+                <button class="w-12 h-12 flex items-center justify-center rounded-xl transition-colors bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high" onclick="renderHistory()"><span class="material-symbols-outlined">filter_list</span></button>
             </div>
-
             <div class="grid grid-cols-2 gap-3 mb-4">
                 <div class="p-3 rounded-xl flex flex-col bg-secondary-container/10 border border-secondary/20">
                     <span class="text-xs font-semibold uppercase text-secondary">Total Pemasukan</span>
@@ -564,33 +496,19 @@
                     <span class="text-lg font-medium text-error" id="hist-total-expense">-Rp 0</span>
                 </div>
             </div>
-
-            <div id="history-list" class="space-y-4">
-                <div class="empty-state">
-                    <span class="material-symbols-outlined">receipt_long</span>
-                    <p>Tidak ada transaksi ditemukan.</p>
-                </div>
-            </div>
+            <div id="history-list" class="space-y-4"><div class="empty-state"><span class="material-symbols-outlined">receipt_long</span><p>Tidak ada transaksi ditemukan.</p></div></div>
         </main>
     </div>
 
     <!-- ==================== PAGE: REPORTS ==================== -->
     <div id="page-reports" class="page">
         <header class="sticky top-0 z-40 flex justify-between items-center w-full px-5 h-16 border-b border-outline-variant">
-            <div class="flex items-center gap-3">
-                <span class="material-symbols-outlined text-primary">pie_chart</span>
-                <h1 class="text-lg font-semibold text-on-surface">Laporan</h1>
-            </div>
+            <div class="flex items-center gap-3"><span class="material-symbols-outlined text-primary">pie_chart</span><h1 class="text-lg font-semibold text-on-surface">Laporan</h1></div>
             <div class="flex items-center gap-2">
-                <button class="p-2 rounded-full hover:bg-surface-low transition-colors" onclick="showToast('📊 Laporan diperbarui'); renderReports();">
-                    <span class="material-symbols-outlined text-primary">refresh</span>
-                </button>
-                <button class="p-2 rounded-full hover:bg-surface-low transition-colors" onclick="closeApp()">
-                    <span class="material-symbols-outlined text-primary">close</span>
-                </button>
+                <button class="p-2 rounded-full hover:bg-surface-low transition-colors" onclick="showToast('📊 Laporan diperbarui'); renderReports();"><span class="material-symbols-outlined text-primary">refresh</span></button>
+                <button class="p-2 rounded-full hover:bg-surface-low transition-colors" onclick="closeApp()"><span class="material-symbols-outlined text-primary">close</span></button>
             </div>
         </header>
-
         <main class="px-5 mt-4 pb-6 max-w-4xl mx-auto">
             <div class="flex justify-center mb-6">
                 <div class="inline-flex p-1 rounded-full bg-surface-container-low">
@@ -599,13 +517,11 @@
                     <button class="tab-btn px-5 py-2 rounded-full text-xs font-semibold" data-period="yearly" onclick="setReportPeriod('yearly')">Tahunan</button>
                 </div>
             </div>
-
             <div class="rounded-xl p-6 text-center mb-6 bg-surface-container-lowest border border-outline-variant">
                 <p class="text-xs font-semibold uppercase text-on-surface-variant">Total Pengeluaran</p>
                 <p class="text-3xl font-bold text-primary" id="report-total-spending">Rp 0</p>
                 <p class="text-xs mt-1 text-outline" id="report-period-label">Bulan ini</p>
             </div>
-
             <div class="flex flex-col md:flex-row items-center gap-8 mb-6">
                 <div class="chart-ring">
                     <svg viewBox="0 0 100 100" class="w-full h-full">
@@ -619,16 +535,10 @@
                 </div>
                 <div class="flex-1 w-full space-y-2" id="report-legend"></div>
             </div>
-
             <div class="space-y-3" id="report-breakdown"></div>
-
             <div class="mt-6 p-5 rounded-xl shadow-lg bg-primary-container text-on-primary">
-                <div class="flex items-center gap-4">
-                    <span class="material-symbols-outlined text-3xl">lightbulb</span>
-                    <div>
-                        <h4 class="text-xl font-semibold">Wawasan</h4>
-                        <p class="text-sm opacity-80" id="report-insight">Mulai lacak pengeluaranmu untuk mendapatkan wawasan pribadi.</p>
-                    </div>
+                <div class="flex items-center gap-4"><span class="material-symbols-outlined text-3xl">lightbulb</span>
+                    <div><h4 class="text-xl font-semibold">Wawasan</h4><p class="text-sm opacity-80" id="report-insight">Mulai lacak pengeluaranmu untuk mendapatkan wawasan pribadi.</p></div>
                 </div>
             </div>
         </main>
@@ -636,40 +546,31 @@
 
     <!-- ==================== BOTTOM NAV ==================== -->
     <nav class="bottom-nav fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-3 py-2 border-t rounded-t-xl">
-        <a href="#" class="flex flex-col items-center justify-center px-3 py-1 active" data-page="dashboard" onclick="navigateTo('dashboard')">
-            <span class="material-symbols-outlined">home</span>
-            <span>Beranda</span>
-        </a>
-        <a href="#" class="flex flex-col items-center justify-center px-3 py-1" data-page="history" onclick="navigateTo('history')">
-            <span class="material-symbols-outlined">receipt_long</span>
-            <span>Riwayat</span>
-        </a>
-        <a href="#" class="flex flex-col items-center justify-center px-3 py-1" data-page="add" onclick="navigateTo('add')">
-            <span class="material-symbols-outlined text-3xl" style="font-variation-settings:'FILL'1; color: #B1BCFB;">add_circle</span>
-            <span>Tambah</span>
-        </a>
-        <a href="#" class="flex flex-col items-center justify-center px-3 py-1" data-page="reports" onclick="navigateTo('reports')">
-            <span class="material-symbols-outlined">pie_chart</span>
-            <span>Laporan</span>
-        </a>
+        <a href="#" class="flex flex-col items-center justify-center px-3 py-1 active" data-page="dashboard" onclick="navigateTo('dashboard')"><span class="material-symbols-outlined">home</span><span>Beranda</span></a>
+        <a href="#" class="flex flex-col items-center justify-center px-3 py-1" data-page="history" onclick="navigateTo('history')"><span class="material-symbols-outlined">receipt_long</span><span>Riwayat</span></a>
+        <a href="#" class="flex flex-col items-center justify-center px-3 py-1" data-page="add" onclick="navigateTo('add')"><span class="material-symbols-outlined text-3xl" style="font-variation-settings:'FILL'1; color: #B1BCFB;">add_circle</span><span>Tambah</span></a>
+        <a href="#" class="flex flex-col items-center justify-center px-3 py-1" data-page="reports" onclick="navigateTo('reports')"><span class="material-symbols-outlined">pie_chart</span><span>Laporan</span></a>
     </nav>
 
     <script>
         // ============================================================
-        // TELEGRAM INTEGRATION + AUTO-GENERATE ID
+        // TELEGRAM DETEKSI + FALLBACK MANUAL
         // ============================================================
         let tg = null;
         let USER_ID = 'guest';
+        let IS_TELEGRAM = false;
 
         try {
             tg = window.Telegram?.WebApp;
             if (tg) {
                 tg.ready();
                 tg.expand();
+                IS_TELEGRAM = true;
                 let user = tg.initDataUnsafe?.user;
                 if (user?.id) {
                     USER_ID = user.id.toString();
                 } else {
+                    // Coba parse dari initData
                     const params = new URLSearchParams(tg.initData || '');
                     const userStr = params.get('user');
                     if (userStr) {
@@ -685,20 +586,72 @@
             }
         } catch (e) { console.warn('⚠️ Error Telegram init:', e); }
 
-        // --- AUTO-GENERATE ID jika masih 'guest' ---
-        if (USER_ID === 'guest') {
-            let storedId = localStorage.getItem('catatanku_user_id');
+        // --- FALLBACK: coba localStorage atau URL ---
+        if (USER_ID === 'guest' || !USER_ID) {
+            const storedId = localStorage.getItem('catatanku_user_id');
             if (storedId && storedId.match(/^\d+$/)) {
                 USER_ID = storedId;
                 console.log('👤 User ID dari localStorage:', USER_ID);
             } else {
-                // Generate ID unik (misal: guest_timestamp_random)
-                const newId = 'guest_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-                localStorage.setItem('catatanku_user_id', newId);
-                USER_ID = newId;
-                console.log('🆕 User ID baru di-generate:', USER_ID);
+                const urlParams = new URLSearchParams(window.location.search);
+                const paramId = urlParams.get('user_id');
+                if (paramId && paramId.match(/^\d+$/)) {
+                    USER_ID = paramId;
+                    localStorage.setItem('catatanku_user_id', USER_ID);
+                    console.log('👤 User ID dari URL:', USER_ID);
+                }
             }
         }
+
+        // --- Jika masih guest, generate ID lokal ---
+        if (USER_ID === 'guest' || !USER_ID) {
+            const newId = 'guest_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+            localStorage.setItem('catatanku_user_id', newId);
+            USER_ID = newId;
+            console.log('🆕 User ID guest di-generate:', USER_ID);
+        }
+
+        // --- Update status badge ---
+        function updateStatus() {
+            const badge = document.getElementById('status-badge');
+            const isGuest = USER_ID && USER_ID.startsWith('guest_');
+            if (IS_TELEGRAM && !isGuest) {
+                badge.className = 'status-badge status-online';
+                badge.textContent = '🔒 Online';
+            } else {
+                badge.className = 'status-badge status-local';
+                badge.textContent = '📱 Lokal';
+            }
+            // Tampilkan override jika guest
+            const override = document.getElementById('user-id-override');
+            if (isGuest) {
+                override.style.display = 'flex';
+                // Isi placeholder dengan ID guest
+                document.getElementById('manual-user-id').placeholder = 'Guest ID: ' + USER_ID;
+            } else {
+                override.style.display = 'none';
+            }
+        }
+        updateStatus();
+
+        // ============================================================
+        // MANUAL USER ID SET
+        // ============================================================
+        window.setManualUserId = function() {
+            const input = document.getElementById('manual-user-id');
+            const val = input.value.trim();
+            if (val && val.match(/^\d+$/)) {
+                USER_ID = val;
+                localStorage.setItem('catatanku_user_id', USER_ID);
+                showToast('✅ User ID diatur ke: ' + USER_ID);
+                document.getElementById('user-id-override').style.display = 'none';
+                updateStatus();
+                syncFromBackend();
+                renderDashboard();
+            } else {
+                showToast('⚠️ Masukkan ID numerik yang valid (contoh: 123456789)');
+            }
+        };
 
         // ============================================================
         // API BASE URL
@@ -741,34 +694,24 @@
         }
 
         // ============================================================
-        // SYNC DENGAN BACKEND
+        // SYNC
         // ============================================================
         async function syncFromBackend() {
-            if (USER_ID === 'guest' || !USER_ID) {
-                console.warn('⚠️ User ID tidak valid, skip sync');
+            if (!USER_ID || USER_ID.startsWith('guest_')) {
+                showToast('⚠️ Mode lokal, data tidak tersimpan di server. Masukkan ID Telegram untuk sync.');
                 return;
             }
-
             const url = `${API_BASE}/api/transactions/${USER_ID}`;
             console.log('🔄 Syncing from:', url);
-
             try {
                 const res = await fetch(url);
-                console.log('📡 Response status:', res.status);
-
-                if (!res.ok) {
-                    const text = await res.text();
-                    console.error('❌ Response error:', text);
-                    showToast('❌ Gagal sync: ' + res.status);
-                    return;
-                }
-
+                if (!res.ok) throw new Error('Gagal sync');
                 const data = await res.json();
-                console.log('✅ Data diterima:', data.length, 'transactions');
                 saveLocalTransactions(data);
                 renderDashboard();
                 renderHistory();
                 renderReports();
+                showToast('✅ Data tersinkronisasi!');
             } catch (e) {
                 console.error('❌ Sync error:', e.message);
                 showToast('❌ Gagal sync: ' + e.message);
@@ -776,7 +719,7 @@
         }
 
         async function pushToBackend(tx) {
-            if (USER_ID === 'guest' || !USER_ID) return false;
+            if (!USER_ID || USER_ID.startsWith('guest_')) return false;
             try {
                 const res = await fetch(`${API_BASE}/api/transactions`, {
                     method: 'POST',
@@ -792,11 +735,9 @@
         }
 
         async function deleteFromBackend(txId) {
-            if (USER_ID === 'guest' || !USER_ID) return false;
+            if (!USER_ID || USER_ID.startsWith('guest_')) return false;
             try {
-                const res = await fetch(`${API_BASE}/api/transactions/${USER_ID}/${txId}`, {
-                    method: 'DELETE'
-                });
+                const res = await fetch(`${API_BASE}/api/transactions/${USER_ID}/${txId}`, { method: 'DELETE' });
                 if (!res.ok) throw new Error('Gagal hapus dari server');
                 return true;
             } catch (e) {
@@ -806,15 +747,12 @@
         }
 
         async function updateToBackend(txId, updatedTx) {
-            if (USER_ID === 'guest' || !USER_ID) return false;
+            if (!USER_ID || USER_ID.startsWith('guest_')) return false;
             try {
-                // Karena kita tidak punya endpoint PUT/PATCH, kita hapus dulu lalu POST ulang
-                // Tapi lebih efisien: kita update di lokal dan sync ulang
-                // Untuk saat ini, kita akan hapus dan tambah baru (simple)
-                const deleteOk = await deleteFromBackend(txId);
-                if (!deleteOk) return false;
-                const pushOk = await pushToBackend(updatedTx);
-                return pushOk;
+                // Hapus lama, tambah baru
+                const del = await deleteFromBackend(txId);
+                if (!del) return false;
+                return await pushToBackend(updatedTx);
             } catch (e) {
                 console.error(e);
                 return false;
@@ -822,11 +760,9 @@
         }
 
         async function clearAllFromBackend() {
-            if (USER_ID === 'guest' || !USER_ID) return false;
+            if (!USER_ID || USER_ID.startsWith('guest_')) return false;
             try {
-                const res = await fetch(`${API_BASE}/api/transactions/${USER_ID}`, {
-                    method: 'DELETE'
-                });
+                const res = await fetch(`${API_BASE}/api/transactions/${USER_ID}`, { method: 'DELETE' });
                 if (!res.ok) throw new Error('Gagal hapus semua');
                 return true;
             } catch (e) {
@@ -836,56 +772,29 @@
         }
 
         // ============================================================
-        // FUNGSI UTAMA DATA
+        // FUNGSI UTAMA
         // ============================================================
         function getTransactions() { return getLocalTransactions(); }
-
         function saveTransactions(txs) { saveLocalTransactions(txs); }
-
         function generateId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
-
         function formatCurrency(amount) { return 'Rp ' + Number(amount).toLocaleString('id-ID'); }
-
         function formatDate(dateStr) {
             const d = new Date(dateStr + 'T00:00:00');
             return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
         }
-
         function todayStr() { return new Date().toISOString().slice(0, 10); }
-
-        function getMonthStart() {
-            const d = new Date();
-            return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
-        }
-
-        function getMonthEnd() {
-            const d = new Date();
-            return new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10);
-        }
-
+        function getMonthStart() { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10); }
+        function getMonthEnd() { const d = new Date(); return new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10); }
         function getWeekStart() {
-            const d = new Date();
-            const day = d.getDay();
-            const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+            const d = new Date(); const day = d.getDay(); const diff = d.getDate() - day + (day === 0 ? -6 : 1);
             return new Date(d.getFullYear(), d.getMonth(), diff).toISOString().slice(0, 10);
         }
-
         function getWeekEnd() {
-            const d = new Date();
-            const day = d.getDay();
-            const diff = d.getDate() - day + (day === 0 ? 0 : 7 - day);
+            const d = new Date(); const day = d.getDay(); const diff = d.getDate() - day + (day === 0 ? 0 : 7 - day);
             return new Date(d.getFullYear(), d.getMonth(), diff).toISOString().slice(0, 10);
         }
-
-        function getYearStart() {
-            const d = new Date();
-            return new Date(d.getFullYear(), 0, 1).toISOString().slice(0, 10);
-        }
-
-        function getYearEnd() {
-            const d = new Date();
-            return new Date(d.getFullYear(), 11, 31).toISOString().slice(0, 10);
-        }
+        function getYearStart() { const d = new Date(); return new Date(d.getFullYear(), 0, 1).toISOString().slice(0, 10); }
+        function getYearEnd() { const d = new Date(); return new Date(d.getFullYear(), 11, 31).toISOString().slice(0, 10); }
 
         // ============================================================
         // CATEGORIES
@@ -900,16 +809,8 @@
             { id: 'gift', label: 'Hadiah', icon: 'redeem' },
             { id: 'other', label: 'Lainnya', icon: 'more_horiz' },
         ];
-
-        function getCategoryIcon(id) {
-            const c = CATEGORIES.find(c => c.id === id);
-            return c ? c.icon : 'more_horiz';
-        }
-
-        function getCategoryLabel(id) {
-            const c = CATEGORIES.find(c => c.id === id);
-            return c ? c.label : 'Lainnya';
-        }
+        function getCategoryIcon(id) { const c = CATEGORIES.find(c => c.id === id); return c ? c.icon : 'more_horiz'; }
+        function getCategoryLabel(id) { const c = CATEGORIES.find(c => c.id === id); return c ? c.label : 'Lainnya'; }
 
         // ============================================================
         // STATE
@@ -935,19 +836,15 @@
                 renderCategoryChips();
                 setTimeout(() => document.getElementById('add-amount').focus(), 100);
             }
-
             document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
             const target = document.getElementById('page-' + page);
             if (target) target.classList.add('active');
-
             document.querySelectorAll('.bottom-nav a').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.bottom-nav a[data-page="' + page + '"]').forEach(el => el.classList.add('active'));
-
             currentPage = page;
-
             if (page === 'dashboard') {
                 renderDashboard();
-                if (USER_ID && USER_ID !== 'guest') {
+                if (USER_ID && !USER_ID.startsWith('guest_')) {
                     syncFromBackend();
                     startAutoSync();
                 }
@@ -956,13 +853,12 @@
                 if (page === 'history') renderHistory();
                 if (page === 'reports') renderReports();
             }
-
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         function startAutoSync() {
             if (syncInterval) clearInterval(syncInterval);
-            if (USER_ID === 'guest' || !USER_ID) return;
+            if (!USER_ID || USER_ID.startsWith('guest_')) return;
             syncInterval = setInterval(() => {
                 if (currentPage === 'dashboard') syncFromBackend();
             }, 15000);
@@ -981,11 +877,9 @@
             const now = new Date();
             const monthStart = getMonthStart();
             const monthEnd = getMonthEnd();
-
             const monthTxs = txs.filter(t => t.date >= monthStart && t.date <= monthEnd);
             const totalIncome = monthTxs.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
             const totalExpense = monthTxs.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
-
             const allIncome = txs.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
             const allExpense = txs.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
             const allBalance = allIncome - allExpense;
@@ -1000,7 +894,6 @@
             document.getElementById('dash-spending-bar').style.width = pct + '%';
             document.getElementById('dash-spending-label').textContent = Math.round(pct) + '% dari batas Rp 2.000.000';
 
-            // Top category
             const catMap = {};
             monthTxs.filter(t => t.type === 'expense').forEach(t => {
                 catMap[t.category] = (catMap[t.category] || 0) + Number(t.amount);
@@ -1022,7 +915,6 @@
                 document.getElementById('dash-top-icon').innerHTML = `<span class="material-symbols-outlined">restaurant</span>`;
             }
 
-            // Recent
             const sorted = [...txs].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
             const recent = sorted.slice(0, 5);
             const container = document.getElementById('dash-recent-list');
@@ -1057,7 +949,6 @@
                 }).join('');
             }
 
-            // Change indicator
             const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().slice(0, 10);
             const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().slice(0, 10);
             const prevTxs = txs.filter(t => t.date >= prevMonthStart && t.date <= prevMonthEnd);
@@ -1073,21 +964,17 @@
         }
 
         // ============================================================
-        // ADD TRANSACTION
+        // ADD, EDIT, DELETE (sama seperti sebelumnya, saya singkat agar tidak terlalu panjang, tapi fungsional)
         // ============================================================
         function renderCategoryChips() {
             const grid = document.getElementById('add-category-grid');
             if (!grid) return;
             grid.innerHTML = CATEGORIES.map(cat => {
                 const active = selectedCategory === cat.id ? 'active' : '';
-                return `
-                    <div class="category-chip ${active}" onclick="selectCategory('${cat.id}')">
-                        <div class="icon-wrap">
-                            <span class="material-symbols-outlined">${cat.icon}</span>
-                        </div>
+                return `<div class="category-chip ${active}" onclick="selectCategory('${cat.id}')">
+                        <div class="icon-wrap"><span class="material-symbols-outlined">${cat.icon}</span></div>
                         <span class="label">${cat.label}</span>
-                    </div>
-                `;
+                    </div>`;
             }).join('');
         }
 
@@ -1100,41 +987,29 @@
             transactionType = type;
             document.querySelectorAll('#add-form .tab-btn').forEach(btn => {
                 btn.classList.remove('active');
-                if (btn.dataset.type === type) {
-                    btn.classList.add('active');
-                }
+                if (btn.dataset.type === type) btn.classList.add('active');
             });
         }
 
         async function saveTransaction(e) {
             e.preventDefault();
             const amount = parseFloat(document.getElementById('add-amount').value);
-            if (!amount || amount <= 0) {
-                showToast('⚠️ Masukkan jumlah yang valid');
-                return;
-            }
+            if (!amount || amount <= 0) { showToast('⚠️ Masukkan jumlah yang valid'); return; }
             const date = document.getElementById('add-date').value;
-            if (!date) {
-                showToast('⚠️ Pilih tanggal');
-                return;
-            }
+            if (!date) { showToast('⚠️ Pilih tanggal'); return; }
             const account = document.getElementById('add-account').value;
             const note = document.getElementById('add-note').value.trim() || getCategoryLabel(selectedCategory);
-
             const tx = { amount, type: transactionType, category: selectedCategory, date, account, note };
-
             const txs = getTransactions();
             const newTx = { ...tx, id: generateId(), created_at: new Date().toISOString(), user_id: USER_ID };
             txs.push(newTx);
             saveTransactions(txs);
-
             const success = await pushToBackend(tx);
             if (!success) {
                 showToast('⚠️ Tersimpan lokal, tapi gagal sync ke server');
             } else {
                 showToast('✅ Transaksi tersimpan!');
             }
-
             document.getElementById('add-amount').value = '';
             document.getElementById('add-note').value = '';
             document.getElementById('add-date').value = todayStr();
@@ -1142,9 +1017,7 @@
             navigateTo('dashboard');
         }
 
-        // ============================================================
-        // EDIT TRANSACTION
-        // ============================================================
+        // --- EDIT ---
         let editTxId = null;
         let editType = 'income';
         let editCategory = 'transport';
@@ -1153,37 +1026,26 @@
             const txs = getTransactions();
             const tx = txs.find(t => t.id === id);
             if (!tx) { showToast('❌ Transaksi tidak ditemukan'); return; }
-
             editTxId = id;
             document.getElementById('edit-id').value = id;
             document.getElementById('edit-amount').value = tx.amount;
             document.getElementById('edit-date').value = tx.date;
             document.getElementById('edit-account').value = tx.account || 'Dompet Utama';
             document.getElementById('edit-note').value = tx.note || '';
-
             editType = tx.type;
             editCategory = tx.category;
-
-            // Set type toggle
             document.querySelectorAll('#edit-type-toggle .tab-btn').forEach(btn => {
                 btn.classList.remove('active');
                 if (btn.dataset.type === tx.type) btn.classList.add('active');
             });
-
-            // Render category chips
             const grid = document.getElementById('edit-category-grid');
             grid.innerHTML = CATEGORIES.map(cat => {
                 const active = editCategory === cat.id ? 'active' : '';
-                return `
-                    <div class="category-chip ${active}" onclick="setEditCategory('${cat.id}')">
-                        <div class="icon-wrap">
-                            <span class="material-symbols-outlined">${cat.icon}</span>
-                        </div>
+                return `<div class="category-chip ${active}" onclick="setEditCategory('${cat.id}')">
+                        <div class="icon-wrap"><span class="material-symbols-outlined">${cat.icon}</span></div>
                         <span class="label">${cat.label}</span>
-                    </div>
-                `;
+                    </div>`;
             }).join('');
-
             document.getElementById('edit-modal').classList.add('active');
         }
 
@@ -1213,49 +1075,52 @@
             e.preventDefault();
             const id = document.getElementById('edit-id').value;
             const amount = parseFloat(document.getElementById('edit-amount').value);
-            if (!amount || amount <= 0) {
-                showToast('⚠️ Jumlah harus lebih dari 0');
-                return;
-            }
+            if (!amount || amount <= 0) { showToast('⚠️ Jumlah harus lebih dari 0'); return; }
             const date = document.getElementById('edit-date').value;
-            if (!date) {
-                showToast('⚠️ Pilih tanggal');
-                return;
-            }
+            if (!date) { showToast('⚠️ Pilih tanggal'); return; }
             const account = document.getElementById('edit-account').value;
             const note = document.getElementById('edit-note').value.trim() || getCategoryLabel(editCategory);
-
-            const updatedTx = {
-                amount,
-                type: editType,
-                category: editCategory,
-                date,
-                account,
-                note
-            };
-
-            // Update lokal
+            const updatedTx = { amount, type: editType, category: editCategory, date, account, note };
             let txs = getTransactions();
             const index = txs.findIndex(t => t.id === id);
             if (index === -1) { showToast('❌ Transaksi tidak ditemukan'); return; }
             txs[index] = { ...txs[index], ...updatedTx };
             saveTransactions(txs);
-
-            // Update ke backend (delete + create baru)
             const success = await updateToBackend(id, { ...updatedTx, id: generateId() });
             if (!success) {
                 showToast('⚠️ Tersimpan lokal, tapi gagal sync ke server');
             } else {
                 showToast('✅ Transaksi diperbarui!');
             }
-
             closeEditModal();
             renderDashboard();
             renderHistory();
         }
 
+        // --- DELETE ---
+        async function deleteTransaction(id) {
+            if (!confirm('Hapus transaksi ini?')) return;
+            let txs = getTransactions();
+            txs = txs.filter(t => t.id !== id);
+            saveTransactions(txs);
+            await deleteFromBackend(id);
+            showToast('🗑️ Transaksi dihapus');
+            renderHistory();
+            if (currentPage === 'dashboard') renderDashboard();
+        }
+
+        async function clearAllData() {
+            if (!confirm('Hapus semua data keuangan?')) return;
+            saveTransactions([]);
+            await clearAllFromBackend();
+            showToast('🗑️ Semua data dihapus');
+            renderHistory();
+            renderDashboard();
+            renderReports();
+        }
+
         // ============================================================
-        // HISTORY
+        // HISTORY & REPORTS (sama, tidak diubah)
         // ============================================================
         function renderHistory() {
             const txs = getTransactions();
@@ -1273,7 +1138,6 @@
             const totalExpense = filtered.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
             document.getElementById('hist-total-income').textContent = '+' + formatCurrency(totalIncome);
             document.getElementById('hist-total-expense').textContent = '-' + formatCurrency(totalExpense);
-
             const container = document.getElementById('history-list');
             if (sorted.length === 0) {
                 container.innerHTML =
@@ -1322,33 +1186,6 @@
             }).join('');
         }
 
-        // ============================================================
-        // DELETE TRANSACTION
-        // ============================================================
-        async function deleteTransaction(id) {
-            if (!confirm('Hapus transaksi ini?')) return;
-            let txs = getTransactions();
-            txs = txs.filter(t => t.id !== id);
-            saveTransactions(txs);
-            await deleteFromBackend(id);
-            showToast('🗑️ Transaksi dihapus');
-            renderHistory();
-            if (currentPage === 'dashboard') renderDashboard();
-        }
-
-        async function clearAllData() {
-            if (!confirm('Hapus semua data keuangan?')) return;
-            saveTransactions([]);
-            await clearAllFromBackend();
-            showToast('🗑️ Semua data dihapus');
-            renderHistory();
-            renderDashboard();
-            renderReports();
-        }
-
-        // ============================================================
-        // REPORTS
-        // ============================================================
         function setReportPeriod(period) {
             reportPeriod = period;
             document.querySelectorAll('#page-reports .tab-btn').forEach(btn => {
@@ -1471,13 +1308,15 @@
         renderDashboard();
 
         setTimeout(() => {
-            if (USER_ID && USER_ID !== 'guest') {
+            if (USER_ID && !USER_ID.startsWith('guest_')) {
                 syncFromBackend();
                 startAutoSync();
             } else {
-                console.warn('⚠️ Guest user, data hanya lokal');
-                // Tampilkan notifikasi guest
-                showToast('⚠️ Mode Guest - Data hanya tersimpan lokal');
+                // Tampilkan notifikasi
+                const msg = '⚠️ Mode Guest – data hanya tersimpan lokal. Untuk sinkronisasi antar perangkat, masukkan ID Telegram atau buka dari Telegram.';
+                showToast(msg);
+                // Tampilkan override
+                document.getElementById('user-id-override').style.display = 'flex';
             }
         }, 1000);
 
@@ -1486,7 +1325,7 @@
                 if (currentPage === 'dashboard') renderDashboard();
                 if (currentPage === 'history') renderHistory();
                 if (currentPage === 'reports') renderReports();
-                if (currentPage === 'dashboard' && USER_ID && USER_ID !== 'guest') syncFromBackend();
+                if (currentPage === 'dashboard' && USER_ID && !USER_ID.startsWith('guest_')) syncFromBackend();
             }
         });
 
