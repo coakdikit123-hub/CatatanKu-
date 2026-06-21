@@ -156,6 +156,9 @@ async function clearAllTransactions(userId) {
 const bot = new Telegraf(BOT_TOKEN || 'dummy', { handlerTimeout: 90000 });
 const appUrl = process.env.VERCEL_URL || 'catatan-ku-silk.vercel.app';
 
+// ============================================================
+// MIDDLEWARE: Cek login
+// ============================================================
 bot.use(async (ctx, next) => {
   if (!ctx.from) return next();
   const userId = ctx.from.id.toString();
@@ -166,29 +169,39 @@ bot.use(async (ctx, next) => {
 
   const registered = await isUserRegistered(userId);
   if (!registered) {
-    await ctx.reply(
-      `⚠️ *Anda belum login!*\n\nSilakan login terlebih dahulu melalui Mini App.`,
-      {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '🔑 Login via Mini App', url: `https://${appUrl}/login.html` }],
-            [{ text: '📊 Buka CatatanKu', url: `https://${appUrl}` }]
-          ]
-        }
+    const loginMsg =
+      `⚠️ *Anda belum login!*\n\n` +
+      `Untuk menggunakan bot ini, silakan login terlebih dahulu melalui Mini App.\n\n` +
+      `🔑 Klik tombol di bawah untuk membuka halaman login.`;
+
+    await ctx.reply(loginMsg, {
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🔑 Login via Mini App', url: `https://${appUrl}/login.html` }],
+          [{ text: '📊 Buka CatatanKu', url: `https://${appUrl}` }]
+        ]
       }
-    );
+    });
     return;
   }
+
   return next();
 });
 
 bot.start(async (ctx) => {
   const userId = ctx.from.id.toString();
   const registered = await isUserRegistered(userId);
+
   let message, buttons;
   if (registered) {
-    message = `👋 Halo! Selamat datang kembali di CatatanKu!\n\nKirim pesan seperti:\n\n➜ -5000 (pengeluaran Rp 5.000)\n➜ +20000 makan siang (pemasukan Rp 20.000)\n➜ -15000 transport (pengeluaran transportasi)\n\n📊 Buka Mini App untuk melihat laporan keuanganmu.`;
+    message =
+      `👋 Halo! Selamat datang kembali di CatatanKu!\n\n` +
+      `Kirim pesan seperti:\n\n` +
+      `➜ -5000 (pengeluaran Rp 5.000)\n` +
+      `➜ +20000 makan siang (pemasukan Rp 20.000)\n` +
+      `➜ -15000 transport (pengeluaran transportasi)\n\n` +
+      `📊 Buka Mini App untuk melihat laporan keuanganmu.`;
     buttons = {
       inline_keyboard: [
         [{ text: '📊 Buka CatatanKu', url: `https://${appUrl}` }],
@@ -196,7 +209,9 @@ bot.start(async (ctx) => {
       ]
     };
   } else {
-    message = `⚠️ *Anda belum login!*\n\nUntuk mulai menggunakan CatatanKu, silakan login terlebih dahulu.\n\n🔑 Klik tombol di bawah untuk membuka halaman login.`;
+    message =
+      `⚠️ *Anda belum login!*\n\n` +
+      `Untuk mulai menggunakan CatatanKu, silakan login terlebih dahulu.`;
     buttons = {
       inline_keyboard: [
         [{ text: '🔑 Login via Mini App', url: `https://${appUrl}/login.html` }],
@@ -204,13 +219,18 @@ bot.start(async (ctx) => {
       ]
     };
   }
-  await ctx.reply(message, { parse_mode: 'Markdown', reply_markup: buttons });
+
+  await ctx.reply(message, {
+    parse_mode: 'Markdown',
+    reply_markup: buttons
+  });
 });
 
 bot.on('text', async (ctx) => {
   try {
     const text = ctx.message.text;
     const userId = ctx.from.id.toString();
+
     if (text.startsWith('/start')) return;
 
     const registered = await isUserRegistered(userId);
@@ -244,7 +264,12 @@ bot.on('text', async (ctx) => {
     const emoji = tx.type === 'income' ? '✅' : '📤';
     const typeLabel = tx.type === 'income' ? 'Pemasukan' : 'Pengeluaran';
     await ctx.reply(
-      `${emoji} *Transaksi berhasil dicatat!*\n\n💳 ${typeLabel}: Rp ${tx.amount.toLocaleString('id-ID')}\n📂 Kategori: ${tx.category}\n📝 Catatan: ${tx.note}\n📅 Tanggal: ${tx.date}\n\n📊 [Lihat di CatatanKu](https://${appUrl})`,
+      `${emoji} *Transaksi berhasil dicatat!*\n\n` +
+      `💳 ${typeLabel}: Rp ${tx.amount.toLocaleString('id-ID')}\n` +
+      `📂 Kategori: ${tx.category}\n` +
+      `📝 Catatan: ${tx.note}\n` +
+      `📅 Tanggal: ${tx.date}\n\n` +
+      `📊 [Lihat di CatatanKu](https://${appUrl})`,
       {
         parse_mode: 'Markdown',
         reply_markup: {
@@ -267,11 +292,9 @@ app.post('/api/webhook', async (req, res) => {
   console.log('📥 Webhook received');
   try {
     if (!BOT_TOKEN) {
-      console.error('❌ BOT_TOKEN tidak ada');
       return res.status(500).json({ error: 'BOT_TOKEN missing' });
     }
     await bot.handleUpdate(req.body);
-    console.log('✅ Webhook processed successfully');
     res.status(200).json({ ok: true });
   } catch (err) {
     console.error('❌ Webhook error:', err.message);
@@ -283,6 +306,7 @@ app.post('/api/webhook', async (req, res) => {
 // API ENDPOINTS
 // ============================================================
 
+// REGISTER USER
 app.post('/api/register', async (req, res) => {
   console.log('📥 Register request:', req.body);
   try {
@@ -292,17 +316,27 @@ app.post('/api/register', async (req, res) => {
     }
     const user = await registerUser(userId);
     if (user) {
-      console.log(`✅ User ${userId} berhasil register`);
       res.json({ success: true, user });
     } else {
       res.status(500).json({ error: 'Gagal registrasi user' });
     }
   } catch (e) {
-    console.error('❌ Error register:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
 
+// CEK SESSION (validasi login)
+app.get('/api/check-session/:userId', async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const registered = await isUserRegistered(userId);
+    res.json({ valid: registered });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// CEK USER (untuk keperluan lain)
 app.get('/api/check-user/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
@@ -314,14 +348,10 @@ app.get('/api/check-user/:userId', async (req, res) => {
   }
 });
 
+// GET transaksi
 app.get('/api/transactions/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
-    // Bolehkan baca data tanpa cek ketat, tapi untuk aman kita tetap cek
-    const registered = await isUserRegistered(userId);
-    if (!registered) {
-      return res.status(401).json({ error: 'User tidak terdaftar' });
-    }
     const txs = await getTransactions(userId);
     res.json(txs);
   } catch (e) {
@@ -329,16 +359,20 @@ app.get('/api/transactions/:userId', async (req, res) => {
   }
 });
 
+// POST transaksi (dengan validasi)
 app.post('/api/transactions', async (req, res) => {
   try {
     const { userId, ...tx } = req.body;
     if (!userId || !tx.amount) {
       return res.status(400).json({ error: 'userId dan amount wajib diisi' });
     }
+
+    // Validasi session
     const registered = await isUserRegistered(userId);
     if (!registered) {
-      return res.status(401).json({ error: 'User tidak terdaftar' });
+      return res.status(401).json({ error: 'Unauthorized: user not registered' });
     }
+
     const newTx = {
       ...tx,
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
@@ -348,18 +382,14 @@ app.post('/api/transactions', async (req, res) => {
     await addTransaction(userId, newTx);
     res.json({ success: true, transaction: newTx });
   } catch (e) {
-    console.error('❌ Error POST /transactions:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
 
+// DELETE transaksi
 app.delete('/api/transactions/:userId/:txId', async (req, res) => {
   try {
     const { userId, txId } = req.params;
-    const registered = await isUserRegistered(userId);
-    if (!registered) {
-      return res.status(401).json({ error: 'User tidak terdaftar' });
-    }
     await deleteTransaction(userId, txId);
     res.json({ success: true });
   } catch (e) {
@@ -367,13 +397,10 @@ app.delete('/api/transactions/:userId/:txId', async (req, res) => {
   }
 });
 
+// DELETE semua
 app.delete('/api/transactions/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
-    const registered = await isUserRegistered(userId);
-    if (!registered) {
-      return res.status(401).json({ error: 'User tidak terdaftar' });
-    }
     await clearAllTransactions(userId);
     res.json({ success: true });
   } catch (e) {
@@ -381,13 +408,10 @@ app.delete('/api/transactions/:userId', async (req, res) => {
   }
 });
 
+// SUMMARY
 app.get('/api/summary/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
-    const registered = await isUserRegistered(userId);
-    if (!registered) {
-      return res.status(401).json({ error: 'User tidak terdaftar' });
-    }
     const txs = await getTransactions(userId);
     const total_income = txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
     const total_expense = txs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
@@ -414,6 +438,9 @@ app.get('/api/test', (req, res) => {
   });
 });
 
+// ============================================================
+// ADMIN
+// ============================================================
 app.get('/api/admin/users', async (req, res) => {
   const token = req.headers['x-admin-token'];
   if (token !== ADMIN_TOKEN) {
