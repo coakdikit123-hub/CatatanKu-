@@ -221,7 +221,6 @@ bot.start(async (ctx) => {
         parse_mode: 'Markdown',
         reply_markup: miniAppKeyboard([
           [{ text: '📊 Buka CatatanKu', path: '/' }],
-          [{ text: '📈 Lihat Riwayat', path: '/#history' }]
         ])
       }
     );
