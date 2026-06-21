@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport" />
+    <title>CatatanKu - Login</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries">
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <style>
+        * {
+            font-family: 'Inter', sans-serif;
+            box-sizing: border-box;
+        }
+        body {
+            background-color: #0f1420;
+            color: #e8edf5;
+            min-height: 100dvh;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .login-box {
+            background: #1a2238;
+            border: 1px solid #B1BCFB;
+            border-radius: 20px;
+            padding: 40px 32px;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+        }
+        .login-box h1 {
+            color: #B1BCFB;
+            font-size: 28px;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 4px;
+        }
+        .login-box .sub {
+            color: #94a3bb;
+            text-align: center;
+            font-size: 14px;
+            margin-bottom: 28px;
+        }
+        .login-box label {
+            color: #94a3bb;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            display: block;
+            margin-bottom: 6px;
+        }
+        .login-box input {
+            width: 100%;
+            padding: 14px 16px;
+            border-radius: 12px;
+            border: 1px solid #2a3550;
+            background: #0f1420;
+            color: #e8edf5;
+            font-size: 16px;
+            transition: border-color 0.2s;
+        }
+        .login-box input:focus {
+            border-color: #B1BCFB;
+            outline: none;
+        }
+        .login-box .btn-login {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            background: #B1BCFB;
+            color: #0f1420;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            transition: 0.15s;
+            margin-top: 16px;
+        }
+        .login-box .btn-login:hover {
+            transform: scale(1.01);
+            box-shadow: 0 8px 25px rgba(177, 188, 251, 0.25);
+        }
+        .login-box .btn-login:active {
+            transform: scale(0.97);
+        }
+        .login-box .error-msg {
+            color: #DF172A;
+            font-size: 13px;
+            text-align: center;
+            margin-top: 12px;
+            display: none;
+        }
+        .login-box .info-msg {
+            color: #94a3bb;
+            font-size: 13px;
+            text-align: center;
+            margin-top: 16px;
+            border-top: 1px solid #2a3550;
+            padding-top: 16px;
+        }
+        .login-box .info-msg a {
+            color: #B1BCFB;
+            text-decoration: none;
+        }
+        .login-box .info-msg a:hover {
+            text-decoration: underline;
+        }
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: #1e2740;
+            color: #e8edf5;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 500;
+            font-size: 14px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+            opacity: 0;
+            transition: all 0.35s ease;
+            z-index: 999;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="toast" class="toast"></div>
+
+    <div class="login-box">
+        <h1>📊 CatatanKu</h1>
+        <p class="sub">Masukkan ID Telegram kamu untuk sinkronisasi</p>
+        <form id="login-form" onsubmit="handleLogin(event)">
+            <label for="login-user-id">ID Telegram</label>
+            <input id="login-user-id" type="text" placeholder="Contoh: 123456789" autofocus />
+            <div id="login-error" class="error-msg">⚠️ ID harus berupa angka</div>
+            <button type="submit" class="btn-login">Masuk</button>
+        </form>
+        <div class="info-msg">
+            💡 Dapatkan ID Telegram dari bot <a href="https://t.me/userinfobot" target="_blank">@userinfobot</a>
+            <br /><span style="color:#5a6a82;font-size:12px;">Data tersimpan aman di server.</span>
+        </div>
+    </div>
+
+    <script>
+        // Cek jika sudah login, langsung redirect ke index.html
+        const storedId = localStorage.getItem('catatanku_user_id');
+        if (storedId && storedId.match(/^\d+$/)) {
+            window.location.href = '/';
+        }
+
+        function showToast(msg) {
+            const el = document.getElementById('toast');
+            el.textContent = msg;
+            el.classList.add('show');
+            clearTimeout(window.toastTimeout);
+            window.toastTimeout = setTimeout(() => el.classList.remove('show'), 2500);
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const input = document.getElementById('login-user-id');
+            const val = input.value.trim();
+            const errorEl = document.getElementById('login-error');
+
+            if (!val || !val.match(/^\d+$/)) {
+                errorEl.style.display = 'block';
+                return;
+            }
+            errorEl.style.display = 'none';
+
+            localStorage.setItem('catatanku_user_id', val);
+            showToast('✅ Login berhasil!');
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 500);
+        }
+    </script>
+</body>
+</html>
