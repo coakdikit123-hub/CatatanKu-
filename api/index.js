@@ -7,9 +7,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ============================================================
-// 1. KONFIGURASI & LOGGING
-// ============================================================
 const BOT_TOKEN = process.env.BOT_TOKEN;
 console.log('🔍 BOT_TOKEN exists?', !!BOT_TOKEN);
 
@@ -18,7 +15,7 @@ if (!BOT_TOKEN) {
 }
 
 // ============================================================
-// 2. FUNGSI PARSING PESAN
+// FUNGSI PARSING PESAN
 // ============================================================
 function parseTransaction(text, userId) {
   const trimmed = text.trim();
@@ -40,7 +37,6 @@ function parseTransaction(text, userId) {
   const amount = parseInt(match[1]);
   note = match[2] || (type === 'income' ? 'Pemasukan' : 'Pengeluaran');
 
-  // Deteksi kategori
   const lowerNote = note.toLowerCase();
   let category = 'other';
   if (lowerNote.includes('makan') || lowerNote.includes('resto') || lowerNote.includes('food')) category = 'dining';
@@ -65,7 +61,7 @@ function parseTransaction(text, userId) {
 }
 
 // ============================================================
-// 3. FUNGSI DATABASE (Upstash Redis) dengan error handling
+// FUNGSI DATABASE
 // ============================================================
 async function getTransactions(userId) {
   const key = `transactions:${userId}`;
@@ -115,13 +111,10 @@ async function clearAllTransactions(userId) {
 }
 
 // ============================================================
-// 4. BOT TELEGRAM HANDLER (dengan error handling)
+// BOT HANDLER
 // ============================================================
-const bot = new Telegraf(BOT_TOKEN || 'dummy', {
-  handlerTimeout: 90000 // timeout lebih lama untuk serverless
-});
+const bot = new Telegraf(BOT_TOKEN || 'dummy', { handlerTimeout: 90000 });
 
-// Handler untuk /start
 bot.start(async (ctx) => {
   try {
     const appUrl = process.env.VERCEL_URL || 'catatan-ku-silk.vercel.app';
@@ -138,7 +131,6 @@ bot.start(async (ctx) => {
   }
 });
 
-// Handler untuk pesan teks
 bot.on('text', async (ctx) => {
   try {
     const text = ctx.message.text;
@@ -175,48 +167,37 @@ bot.on('text', async (ctx) => {
 });
 
 // ============================================================
-// 5. WEBHOOK ENDPOINT (dengan error handling & logging)
+// WEBHOOK
 // ============================================================
 app.post('/api/webhook', async (req, res) => {
   console.log('📥 Webhook received');
   try {
-    // Logging body untuk debugging
-    console.log('📦 Body:', JSON.stringify(req.body).slice(0, 200));
-
-    // Pastikan bot token valid
     if (!BOT_TOKEN) {
       console.error('❌ BOT_TOKEN tidak ada');
       return res.status(500).json({ error: 'BOT_TOKEN missing' });
     }
-
-    // Handle update
     await bot.handleUpdate(req.body);
     console.log('✅ Webhook processed successfully');
     res.status(200).json({ ok: true });
   } catch (err) {
     console.error('❌ Webhook error:', err.message);
-    console.error('Stack:', err.stack);
     res.status(500).json({ error: err.message });
   }
 });
 
 // ============================================================
-// 6. API ENDPOINTS UNTUK MINI APP
+// API ENDPOINTS UNTUK MINI APP
 // ============================================================
-
-// GET semua transaksi
 app.get('/api/transactions/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
     const txs = await getTransactions(userId);
     res.json(txs);
   } catch (e) {
-    console.error('❌ Error GET /transactions:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
 
-// POST tambah transaksi
 app.post('/api/transactions', async (req, res) => {
   try {
     const { userId, ...tx } = req.body;
@@ -232,36 +213,30 @@ app.post('/api/transactions', async (req, res) => {
     await addTransaction(userId, newTx);
     res.json({ success: true, transaction: newTx });
   } catch (e) {
-    console.error('❌ Error POST /transactions:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
 
-// DELETE transaksi
 app.delete('/api/transactions/:userId/:txId', async (req, res) => {
   try {
     const { userId, txId } = req.params;
     await deleteTransaction(userId, txId);
     res.json({ success: true });
   } catch (e) {
-    console.error('❌ Error DELETE /transactions:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
 
-// DELETE semua transaksi
 app.delete('/api/transactions/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
     await clearAllTransactions(userId);
     res.json({ success: true });
   } catch (e) {
-    console.error('❌ Error DELETE all /transactions:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
 
-// GET summary
 app.get('/api/summary/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
@@ -270,17 +245,14 @@ app.get('/api/summary/:userId', async (req, res) => {
     const total_expense = txs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
     res.json({ total_income, total_expense, balance: total_income - total_expense });
   } catch (e) {
-    console.error('❌ Error GET /summary:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
 
-// Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString(), bot_token_set: !!BOT_TOKEN });
 });
 
-// Test endpoint untuk verifikasi webhook
 app.get('/api/test', (req, res) => {
   res.json({
     message: 'API is working',
@@ -294,12 +266,43 @@ app.get('/api/test', (req, res) => {
   });
 });
 
-// Root redirect ke index.html
+// ============================================================
+// ADMIN ENDPOINTS
+// ============================================================
+app.get('/api/admin/users', async (req, res) => {
+  const token = req.headers['x-admin-token'];
+  if (token !== process.env.ADMIN_TOKEN) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  try {
+    const keys = await kv.keys('transactions:*');
+    const users = keys.map(key => key.replace('transactions:', ''));
+    const userData = await Promise.all(users.map(async (userId) => {
+      const txs = await getTransactions(userId);
+      return { userId, count: txs.length };
+    }));
+    res.json({ users: userData });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/api/admin/users/:userId', async (req, res) => {
+  const token = req.headers['x-admin-token'];
+  if (token !== process.env.ADMIN_TOKEN) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  try {
+    const userId = req.params.userId;
+    await kv.del(`transactions:${userId}`);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/', (req, res) => {
   res.redirect('/index.html');
 });
 
-// ============================================================
-// 7. EKSPOR UNTUK VERCEL
-// ============================================================
 module.exports = app;
