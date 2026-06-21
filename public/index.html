@@ -262,12 +262,23 @@
         .form-textarea { resize: none; min-height: 80px; }
         .form-select {
             appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238fa0bc' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") !important;
-            background-repeat: no-repeat;
-            background-position: right 16px center;
+            background-repeat: no-repeat !important;
+            background-position: right 16px center !important;
             padding-right: 44px;
+            cursor: pointer;
         }
-        .form-select option { background-color: var(--surface-2); color: var(--text-1); }
+        .form-select option {
+            background-color: #1c2640;
+            color: #e2e8f4;
+            padding: 10px;
+        }
+        .form-select:focus option:checked {
+            background-color: #B1BCFB;
+            color: #0a0e1a;
+        }
         .form-section { margin-bottom: 20px; }
         .form-container { max-width: 480px; margin: 0 auto; padding: 0 20px 100px; }
         input[type="date"] { color-scheme: dark; }
@@ -591,10 +602,9 @@
                     <div>
                         <label class="form-label">Akun</label>
                         <select id="edit-account" class="form-select">
-                            <option value="Dompet Utama">Dompet Utama</option>
-                            <option value="Bank BCA">Bank BCA</option>
-                            <option value="Kripto">Kripto</option>
+                            <option value="Bank">Bank</option>
                             <option value="Tunai">Tunai</option>
+                            <option value="Tabungan">Tabungan</option>
                         </select>
                     </div>
                 </div>
@@ -781,10 +791,9 @@
                     <div>
                         <label class="form-label">Akun</label>
                         <select id="add-account" class="form-select">
-                            <option value="Dompet Utama">Dompet Utama</option>
-                            <option value="Bank BCA">Bank BCA</option>
-                            <option value="Kripto">Kripto</option>
+                            <option value="Bank">Bank</option>
                             <option value="Tunai">Tunai</option>
+                            <option value="Tabungan">Tabungan</option>
                         </select>
                     </div>
                 </div>
