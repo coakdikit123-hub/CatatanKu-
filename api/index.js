@@ -111,30 +111,113 @@ async function clearAllTransactions(userId) {
 }
 
 // ============================================================
+// LOGIN / SESSION
+// ============================================================
+const SESSION_KEY = 'users:login';
+
+async function isUserLoggedIn(userId) {
+  try {
+    const users = await kv.get(SESSION_KEY) || [];
+    return users.includes(userId);
+  } catch (e) {
+    console.error('❌ Gagal cek login:', e.message);
+    return false;
+  }
+}
+
+async function loginUser(userId) {
+  try {
+    let users = await kv.get(SESSION_KEY) || [];
+    if (!users.includes(userId)) {
+      users.push(userId);
+      await kv.set(SESSION_KEY, users);
+    }
+    return true;
+  } catch (e) {
+    console.error('❌ Gagal login:', e.message);
+    return false;
+  }
+}
+
+async function logoutUser(userId) {
+  try {
+    let users = await kv.get(SESSION_KEY) || [];
+    users = users.filter(id => id !== userId);
+    await kv.set(SESSION_KEY, users);
+    return true;
+  } catch (e) {
+    console.error('❌ Gagal logout:', e.message);
+    return false;
+  }
+}
+
+// ============================================================
 // BOT HANDLER
 // ============================================================
 const bot = new Telegraf(BOT_TOKEN || 'dummy', { handlerTimeout: 90000 });
 
-bot.start(async (ctx) => {
-  try {
+// Middleware untuk cek login
+bot.use(async (ctx, next) => {
+  // Skip untuk command /start dan /login
+  if (ctx.message && ctx.message.text && ctx.message.text.startsWith('/start')) {
+    return next();
+  }
+  if (ctx.message && ctx.message.text && ctx.message.text.startsWith('/login')) {
+    return next();
+  }
+
+  const userId = ctx.from.id.toString();
+  const loggedIn = await isUserLoggedIn(userId);
+  if (!loggedIn) {
     const appUrl = process.env.VERCEL_URL || 'catatan-ku-silk.vercel.app';
     await ctx.reply(
-      `👋 Halo! Kirim pesan seperti:\n\n` +
-      `➜ -5000 (pengeluaran Rp 5.000)\n` +
-      `➜ +20000 makan siang (pemasukan Rp 20.000)\n` +
-      `➜ -15000 transport (pengeluaran transportasi)\n\n` +
-      `📊 Buka Mini App: [Buka CatatanKu](https://${appUrl})`,
+      `⚠️ *Anda belum login!*\n\n` +
+      `Silakan login terlebih dahulu untuk menggunakan bot ini.\n\n` +
+      `🔑 [Login di sini](https://${appUrl}/login.html)\n\n` +
+      `Atau ketik /login untuk mendapatkan link login.`,
       { parse_mode: 'Markdown' }
     );
-  } catch (e) {
-    console.error('❌ Error di /start:', e.message);
+    return;
   }
+  return next();
 });
 
+bot.start(async (ctx) => {
+  const appUrl = process.env.VERCEL_URL || 'catatan-ku-silk.vercel.app';
+  await ctx.reply(
+    `👋 *Selamat datang di CatatanKu!*\n\n` +
+    `Bot ini membantu mencatat keuangan pribadimu.\n\n` +
+    `📌 *Cara pakai:*\n` +
+    `➜ -5000 (pengeluaran Rp 5.000)\n` +
+    `➜ +20000 makan siang (pemasukan Rp 20.000)\n` +
+    `➜ -15000 transport (pengeluaran transportasi)\n\n` +
+    `🔐 *Pastikan kamu sudah login:*\n` +
+    `Ketik /login untuk mendapatkan link login.\n\n` +
+    `📊 Buka Mini App: [Buka CatatanKu](https://${appUrl})`,
+    { parse_mode: 'Markdown' }
+  );
+});
+
+bot.command('login', async (ctx) => {
+  const appUrl = process.env.VERCEL_URL || 'catatan-ku-silk.vercel.app';
+  await ctx.reply(
+    `🔑 *Login ke CatatanKu*\n\n` +
+    `Klik link di bawah untuk login:\n` +
+    `[Login Sekarang](https://${appUrl}/login.html)\n\n` +
+    `Setelah login, kamu bisa langsung mencatat transaksi melalui bot ini.`,
+    { parse_mode: 'Markdown' }
+  );
+});
+
+// Handler untuk pesan teks (hanya jika sudah login)
 bot.on('text', async (ctx) => {
   try {
     const text = ctx.message.text;
     const userId = ctx.from.id.toString();
+
+    // Cek login lagi (sudah di middleware, tapi untuk amannya)
+    const loggedIn = await isUserLoggedIn(userId);
+    if (!loggedIn) return;
 
     if (!/\d/.test(text)) {
       await ctx.reply('❌ Kirim pesan dengan nominal, contoh: `-5000` atau `+20000 makan`', { parse_mode: 'Markdown' });
@@ -249,6 +332,45 @@ app.get('/api/summary/:userId', async (req, res) => {
   }
 });
 
+// ============================================================
+// API LOGIN / LOGOUT
+// ============================================================
+app.post('/api/login', async (req, res) => {
+  try {
+    const { userId } = req.body;
+    if (!userId || !userId.match(/^\d+$/)) {
+      return res.status(400).json({ error: 'userId harus berupa angka' });
+    }
+    await loginUser(userId);
+    res.json({ success: true, message: 'Login berhasil' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/logout', async (req, res) => {
+  try {
+    const { userId } = req.body;
+    if (!userId || !userId.match(/^\d+$/)) {
+      return res.status(400).json({ error: 'userId harus berupa angka' });
+    }
+    await logoutUser(userId);
+    res.json({ success: true, message: 'Logout berhasil' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/check-login/:userId', async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const loggedIn = await isUserLoggedIn(userId);
+    res.json({ loggedIn });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString(), bot_token_set: !!BOT_TOKEN });
 });
@@ -264,41 +386,6 @@ app.get('/api/test', (req, res) => {
       KV_REST_API_TOKEN: process.env.KV_REST_API_TOKEN ? '✅' : '❌'
     }
   });
-});
-
-// ============================================================
-// ADMIN ENDPOINTS
-// ============================================================
-app.get('/api/admin/users', async (req, res) => {
-  const token = req.headers['x-admin-token'];
-  if (token !== process.env.ADMIN_TOKEN) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  try {
-    const keys = await kv.keys('transactions:*');
-    const users = keys.map(key => key.replace('transactions:', ''));
-    const userData = await Promise.all(users.map(async (userId) => {
-      const txs = await getTransactions(userId);
-      return { userId, count: txs.length };
-    }));
-    res.json({ users: userData });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-app.delete('/api/admin/users/:userId', async (req, res) => {
-  const token = req.headers['x-admin-token'];
-  if (token !== process.env.ADMIN_TOKEN) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  try {
-    const userId = req.params.userId;
-    await kv.del(`transactions:${userId}`);
-    res.json({ success: true });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
 });
 
 app.get('/', (req, res) => {
