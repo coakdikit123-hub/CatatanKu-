@@ -155,7 +155,7 @@ async function clearAllTransactions(userId) {
 // ============================================================
 const bot = new Telegraf(BOT_TOKEN || 'dummy', { handlerTimeout: 90000 });
 const appUrl = process.env.VERCEL_URL
-  ? `https://${process.env.VERCEL_URL}`
+  ? `https://catatan-ku-silk.vercel.app`
   : 'https://catatan-ku-silk.vercel.app';
 
 // ============================================================
