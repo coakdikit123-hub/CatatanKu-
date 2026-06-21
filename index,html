@@ -1,0 +1,1641 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport" />
+    <title>CatatanKu - By Lekszy</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries">
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <style>
+        /* ============================================================
+           TEMA DARK - Lumina Finance Dark
+           Primary: #B1BCFB
+           Secondary: #94A3BB
+           Tertiary: #CDBDDD
+           Neutral/Error: #DF172A
+           ============================================================ */
+        * {
+            font-family: 'Inter', sans-serif;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #0f1420;
+            color: #e8edf5;
+            -webkit-tap-highlight-color: transparent;
+            min-height: 100dvh;
+            margin: 0;
+            padding: 0;
+            padding-bottom: 80px;
+        }
+
+        /* --- WARNA DASAR --- */
+        .bg-primary {
+            background-color: #B1BCFB !important;
+        }
+        .text-primary {
+            color: #B1BCFB !important;
+        }
+        .border-primary {
+            border-color: #B1BCFB !important;
+        }
+        .ring-primary {
+            --tw-ring-color: #B1BCFB !important;
+        }
+
+        .bg-secondary {
+            background-color: #94A3BB !important;
+        }
+        .text-secondary {
+            color: #94A3BB !important;
+        }
+        .border-secondary {
+            border-color: #94A3BB !important;
+        }
+
+        .bg-tertiary {
+            background-color: #CDBDDD !important;
+        }
+        .text-tertiary {
+            color: #CDBDDD !important;
+        }
+
+        .text-error {
+            color: #DF172A !important;
+        }
+        .border-error {
+            border-color: #DF172A !important;
+        }
+        .bg-error\/10 {
+            background-color: rgba(223, 23, 42, 0.12) !important;
+        }
+        .border-error\/20 {
+            border-color: rgba(223, 23, 42, 0.2) !important;
+        }
+        .bg-error-container\/10 {
+            background-color: rgba(223, 23, 42, 0.1) !important;
+        }
+
+        .bg-surface {
+            background-color: #161c2e !important;
+        }
+        .bg-surface-low {
+            background-color: #1a2238 !important;
+        }
+        .bg-surface-container {
+            background-color: #1e2740 !important;
+        }
+        .bg-surface-container-low {
+            background-color: #1a2238 !important;
+        }
+        .bg-surface-container-lowest {
+            background-color: #0f1420 !important;
+        }
+        .bg-surface-container-high {
+            background-color: #28324a !important;
+        }
+        .bg-surface-container-highest {
+            background-color: #323e5a !important;
+        }
+
+        .text-on-surface {
+            color: #e8edf5 !important;
+        }
+        .text-on-surface-variant {
+            color: #94a3bb !important;
+        }
+        .text-outline {
+            color: #5a6a82 !important;
+        }
+        .border-outline-variant {
+            border-color: #2a3550 !important;
+        }
+
+        .bg-primary-container {
+            background-color: #B1BCFB !important;
+        }
+        .text-on-primary {
+            color: #0f1420 !important;
+        }
+        .text-on-primary-container {
+            color: #0f1420 !important;
+        }
+        .bg-primary-container\/20 {
+            background-color: rgba(177, 188, 251, 0.15) !important;
+        }
+        .bg-primary\/5 {
+            background-color: rgba(177, 188, 251, 0.08) !important;
+        }
+
+        .bg-secondary-container\/10 {
+            background-color: rgba(148, 163, 187, 0.1) !important;
+        }
+        .bg-secondary-container\/20 {
+            background-color: rgba(148, 163, 187, 0.15) !important;
+        }
+        .bg-secondary-container\/50 {
+            background-color: rgba(148, 163, 187, 0.2) !important;
+        }
+        .border-secondary\/20 {
+            border-color: rgba(148, 163, 187, 0.2) !important;
+        }
+
+        .bg-tertiary-container\/20 {
+            background-color: rgba(205, 189, 221, 0.1) !important;
+        }
+
+        .bg-outline\/20 {
+            background-color: rgba(90, 106, 130, 0.1) !important;
+        }
+
+        /* --- SHADOW & GRADIENT --- */
+        .shadow-lg {
+            box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.6) !important;
+        }
+        .shadow-sm {
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4) !important;
+        }
+        .shadow-2xl {
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7) !important;
+        }
+        .bg-gradient-to-t {
+            background-image: linear-gradient(to top, #0f1420, rgba(15, 20, 32, 0.95), transparent) !important;
+        }
+        .bg-gradient-to-r {
+            background-image: linear-gradient(to right, #0f1420, #1a2238) !important;
+        }
+
+        /* --- HEADER & NAV --- */
+        header {
+            background-color: #0f1420 !important;
+            border-bottom-color: #2a3550 !important;
+        }
+        .bottom-nav {
+            background-color: #0f1420 !important;
+            border-top-color: #2a3550 !important;
+        }
+        .bottom-nav a {
+            color: #94a3bb !important;
+        }
+        .bottom-nav a.active {
+            color: #B1BCFB !important;
+        }
+        .bottom-nav a.active .material-symbols-outlined {
+            font-variation-settings: 'FILL' 1;
+        }
+        .bottom-nav a .material-symbols-outlined {
+            font-size: 24px;
+        }
+        .bottom-nav a span:last-child {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin-top: 2px;
+        }
+
+        /* --- INPUT, TEXTAREA, SELECT --- */
+        input,
+        textarea,
+        select {
+            background-color: #1a2238 !important;
+            color: #e8edf5 !important;
+            border-color: #2a3550 !important;
+        }
+        input::placeholder,
+        textarea::placeholder {
+            color: #5a6a82 !important;
+        }
+        input:focus,
+        textarea:focus,
+        select:focus {
+            border-color: #B1BCFB !important;
+            outline: none;
+            ring: 2px solid #B1BCFB;
+        }
+
+        /* --- CATEGORY CHIPS --- */
+        .category-chip .icon-wrap {
+            background-color: #1a2238 !important;
+            border-color: #2a3550 !important;
+        }
+        .category-chip .icon-wrap .material-symbols-outlined {
+            color: #94a3bb !important;
+        }
+        .category-chip.active .icon-wrap {
+            background-color: #B1BCFB !important;
+            border-color: #B1BCFB !important;
+        }
+        .category-chip.active .icon-wrap .material-symbols-outlined {
+            color: #0f1420 !important;
+        }
+        .category-chip.active .label {
+            color: #B1BCFB !important;
+        }
+        .category-chip:hover .icon-wrap {
+            background-color: #28324a !important;
+        }
+        .icon-wrap {
+            width: 56px;
+            height: 56px;
+            border-radius: 9999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s ease;
+        }
+        .category-chip {
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .category-chip .label {
+            font-size: 12px;
+            line-height: 16px;
+            font-weight: 500;
+            letter-spacing: 0.02em;
+            color: #94a3bb;
+            transition: color 0.15s ease;
+        }
+
+        /* --- TAB BUTTONS --- */
+        .tab-btn {
+            border-color: #2a3550 !important;
+            background-color: #1a2238 !important;
+            color: #94a3bb !important;
+            transition: all 0.15s ease;
+        }
+        .tab-btn.active {
+            background-color: #B1BCFB !important;
+            color: #0f1420 !important;
+            border-color: #B1BCFB !important;
+        }
+        .tab-btn .material-symbols-outlined {
+            font-size: 18px;
+            vertical-align: middle;
+        }
+
+        /* --- TOAST --- */
+        .toast {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: #1e2740;
+            color: #e8edf5;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 500;
+            font-size: 14px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+            opacity: 0;
+            transition: all 0.35s ease;
+            z-index: 999;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* --- EMPTY STATE --- */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #5a6a82;
+        }
+        .empty-state .material-symbols-outlined {
+            font-size: 56px;
+            color: #2a3550;
+            margin-bottom: 12px;
+        }
+
+        /* --- SCROLLBAR --- */
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #2a3550;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #5a6a82;
+        }
+
+        /* --- COMMON --- */
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        .page {
+            display: none;
+            animation: fadeIn 0.25s ease;
+        }
+        .page.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+
+        .transaction-item:active {
+            transform: scale(0.98);
+            transition: transform 0.08s ease;
+        }
+
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .amount-input-shadow {
+            text-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .chart-ring {
+            position: relative;
+            width: 200px;
+            height: 200px;
+        }
+        .chart-ring svg {
+            transform: rotate(-90deg);
+        }
+
+        .donut-segment {
+            fill: none;
+            stroke-width: 12;
+            transition: stroke-dashoffset 0.5s ease;
+        }
+
+        .glass-card {
+            background: rgba(26, 34, 56, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(42, 53, 80, 0.4);
+        }
+
+        /* --- BAGIAN TAMBAH TRANSAKSI --- */
+        .add-amount-section {
+            background: linear-gradient(145deg, #1a2238, #0f1420);
+            border-bottom: 1px solid #2a3550;
+        }
+
+        .add-amount-section .currency-symbol {
+            color: #B1BCFB;
+            font-weight: 600;
+        }
+
+        .add-amount-section input {
+            background: transparent !important;
+            border: none !important;
+            color: #e8edf5 !important;
+            font-size: 42px;
+            font-weight: 700;
+            text-align: center;
+            width: 100%;
+            padding: 0;
+            letter-spacing: -0.02em;
+        }
+
+        .add-amount-section input::placeholder {
+            color: #5a6a82 !important;
+        }
+
+        .form-label {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #94a3bb;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .form-input,
+        .form-select,
+        .form-textarea {
+            width: 100%;
+            padding: 14px 16px;
+            border-radius: 12px;
+            border: 1px solid #2a3550;
+            background-color: #1a2238;
+            color: #e8edf5;
+            font-size: 16px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .form-input:focus,
+        .form-select:focus,
+        .form-textarea:focus {
+            border-color: #B1BCFB;
+            box-shadow: 0 0 0 3px rgba(177, 188, 251, 0.15);
+            outline: none;
+        }
+
+        .form-textarea {
+            resize: none;
+            min-height: 80px;
+        }
+
+        .form-select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2394a3bb' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+            padding-right: 44px;
+        }
+
+        .form-select option {
+            background-color: #1a2238;
+            color: #e8edf5;
+        }
+
+        .btn-primary {
+            background-color: #B1BCFB;
+            color: #0f1420;
+            font-weight: 600;
+            padding: 16px;
+            border-radius: 12px;
+            border: none;
+            width: 100%;
+            font-size: 16px;
+            transition: transform 0.15s, box-shadow 0.15s;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-primary:hover {
+            transform: scale(1.01);
+            box-shadow: 0 8px 25px rgba(177, 188, 251, 0.25);
+        }
+
+        .btn-primary:active {
+            transform: scale(0.97);
+        }
+
+        .btn-primary .material-symbols-outlined {
+            font-size: 22px;
+        }
+
+        .account-pill {
+            padding: 10px 20px;
+            border-radius: 9999px;
+            border: 1px solid #2a3550;
+            background-color: #1a2238;
+            color: #94a3bb;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.15s ease;
+            cursor: pointer;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .account-pill.active {
+            background-color: #B1BCFB;
+            color: #0f1420;
+            border-color: #B1BCFB;
+        }
+
+        .account-pill:hover:not(.active) {
+            border-color: #94a3bb;
+            color: #e8edf5;
+        }
+
+        .category-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }
+
+        @media (max-width: 400px) {
+            .category-grid {
+                gap: 8px;
+            }
+            .icon-wrap {
+                width: 48px;
+                height: 48px;
+            }
+            .icon-wrap .material-symbols-outlined {
+                font-size: 22px;
+            }
+        }
+
+        .type-toggle {
+            display: flex;
+            gap: 10px;
+        }
+
+        .type-toggle .tab-btn {
+            flex: 1;
+            padding: 12px 16px;
+            border-radius: 12px;
+            border: 1px solid #2a3550;
+            background-color: #1a2238;
+            color: #94a3bb;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.15s ease;
+            cursor: pointer;
+            text-align: center;
+        }
+
+        .type-toggle .tab-btn.active {
+            background-color: #B1BCFB;
+            color: #0f1420;
+            border-color: #B1BCFB;
+        }
+
+        .type-toggle .tab-btn .material-symbols-outlined {
+            font-size: 18px;
+            vertical-align: middle;
+        }
+
+        .form-container {
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 0 20px 100px;
+        }
+
+        .form-section {
+            margin-bottom: 24px;
+        }
+
+        input[type="date"] {
+            color-scheme: dark;
+        }
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(0.7);
+        }
+
+        .add-page-header {
+            background-color: #0f1420;
+            border-bottom: 1px solid #2a3550;
+            padding: 0 20px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 40;
+        }
+
+        .add-page-header .back-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 9999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s;
+            cursor: pointer;
+            background: transparent;
+            border: none;
+            color: #B1BCFB;
+        }
+
+        .add-page-header .back-btn:hover {
+            background: rgba(177, 188, 251, 0.08);
+        }
+
+        .add-page-header .title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #e8edf5;
+        }
+
+        .add-page-header .spacer {
+            width: 40px;
+        }
+
+        /* ============================================================
+           BANNER TIPS MENABUNG - DIPERBAIKI
+           ============================================================ */
+        .tips-banner {
+            background: linear-gradient(135deg, #2a3550 0%, #1a2238 100%);
+            border: 1px solid #B1BCFB;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+            padding: 24px 28px;
+            min-height: 120px;
+            display: flex;
+            align-items: center;
+        }
+
+        .tips-banner::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, rgba(177, 188, 251, 0.08) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        .tips-banner .icon-wrapper {
+            flex-shrink: 0;
+            width: 52px;
+            height: 52px;
+            border-radius: 9999px;
+            background: rgba(177, 188, 251, 0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 16px;
+            border: 1px solid rgba(177, 188, 251, 0.2);
+        }
+
+        .tips-banner .icon-wrapper .material-symbols-outlined {
+            font-size: 32px;
+            color: #B1BCFB;
+        }
+
+        .tips-banner .content {
+            flex: 1;
+            z-index: 1;
+        }
+
+        .tips-banner .content h4 {
+            font-size: 18px;
+            font-weight: 700;
+            color: #e8edf5;
+            margin-bottom: 4px;
+            letter-spacing: -0.01em;
+        }
+
+        .tips-banner .content p {
+            font-size: 14px;
+            color: #94a3bb;
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        .tips-banner .badge {
+            flex-shrink: 0;
+            background: #B1BCFB;
+            color: #0f1420;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 6px 14px;
+            border-radius: 9999px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-left: 12px;
+        }
+
+        @media (max-width: 480px) {
+            .tips-banner {
+                flex-wrap: wrap;
+                padding: 18px 20px;
+            }
+            .tips-banner .icon-wrapper {
+                width: 44px;
+                height: 44px;
+                margin-right: 12px;
+            }
+            .tips-banner .icon-wrapper .material-symbols-outlined {
+                font-size: 26px;
+            }
+            .tips-banner .content h4 {
+                font-size: 16px;
+            }
+            .tips-banner .content p {
+                font-size: 13px;
+            }
+            .tips-banner .badge {
+                margin-left: 0;
+                margin-top: 10px;
+                width: 100%;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ==================== TOAST ==================== -->
+    <div id="toast" class="toast"></div>
+
+    <!-- ==================== PAGE: DASHBOARD ==================== -->
+    <div id="page-dashboard" class="page active">
+        <header class="sticky top-0 z-40 flex justify-between items-center w-full px-5 h-16 border-b border-outline-variant">
+            <div class="flex items-center gap-3">
+                <span class="material-symbols-outlined text-primary">account_balance_wallet</span>
+                <h1 class="text-lg font-semibold text-on-surface">CatatanKu</h1>
+            </div>
+            <div class="flex items-center gap-2">
+                <button class="p-2 rounded-full hover:bg-surface-low transition-colors" onclick="showToast('📬 Tidak ada notifikasi')">
+                    <span class="material-symbols-outlined text-primary">notifications</span>
+                </button>
+                <button class="p-2 rounded-full hover:bg-surface-low transition-colors" onclick="closeApp()">
+                    <span class="material-symbols-outlined text-primary">close</span>
+                </button>
+            </div>
+        </header>
+
+        <main class="px-5 mt-6 flex flex-col gap-6 max-w-5xl mx-auto pb-6">
+            <!-- Hero: Total Balance -->
+            <section class="relative overflow-hidden rounded-xl p-6 shadow-lg bg-primary-container text-on-primary">
+                <div class="absolute -right-8 -top-8 w-48 h-48 bg-white/20 rounded-full blur-3xl"></div>
+                <div class="absolute -left-8 -bottom-8 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
+                <div class="relative z-10">
+                    <p class="text-xs font-semibold uppercase tracking-widest mb-1 text-on-primary/80">Saldo Total</p>
+                    <div class="flex items-baseline gap-2">
+                        <span class="text-3xl font-bold lg:text-4xl text-on-primary" id="dash-total-balance">Rp 0</span>
+                        <span class="text-sm text-secondary" id="dash-change">+0%</span>
+                    </div>
+                    <div class="mt-6 grid grid-cols-2 gap-3">
+                        <div class="rounded-lg p-3 backdrop-blur-sm border border-white/10 bg-surface-container-lowest/30">
+                            <p class="text-xs font-semibold uppercase text-on-primary/70">Pemasukan</p>
+                            <p class="text-lg font-medium text-on-primary" id="dash-income">Rp 0</p>
+                        </div>
+                        <div class="rounded-lg p-3 backdrop-blur-sm border border-white/10 bg-surface-container-lowest/30">
+                            <p class="text-xs font-semibold uppercase text-on-primary/70">Pengeluaran</p>
+                            <p class="text-lg font-medium text-on-primary" id="dash-expenses">Rp 0</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Monthly Spending + Top Category -->
+            <section class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="p-5 rounded-xl shadow-sm bg-surface-container-low border border-outline-variant">
+                    <h3 class="text-sm font-medium text-on-surface-variant">Pengeluaran Bulanan</h3>
+                    <p class="text-xl font-semibold text-primary" id="dash-monthly-spending">Rp 0</p>
+                    <div class="mt-3 w-full h-2 rounded-full overflow-hidden bg-surface-container">
+                        <div class="h-full rounded-full bg-primary-container" style="width:0%;" id="dash-spending-bar"></div>
+                    </div>
+                    <p class="text-xs mt-1 text-outline" id="dash-spending-label">0% dari batas</p>
+                </div>
+                <div class="p-5 rounded-xl shadow-sm hover:border-primary transition-colors cursor-pointer bg-surface-container-low border border-outline-variant" onclick="navigateTo('reports')">
+                    <div class="flex justify-between items-start mb-3">
+                        <h3 class="text-sm font-medium text-on-surface-variant">Kategori Teratas</h3>
+                        <span class="material-symbols-outlined text-outline">trending_up</span>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-full flex items-center justify-center bg-secondary-container/20 text-secondary" id="dash-top-icon">
+                            <span class="material-symbols-outlined">restaurant</span>
+                        </div>
+                        <div>
+                            <p class="text-xl font-semibold text-primary" id="dash-top-name">—</p>
+                            <p class="text-xs text-outline" id="dash-top-amount">Rp 0 bulan ini</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Recent Transactions -->
+            <section>
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-semibold text-primary">Transaksi Terbaru</h2>
+                    <button class="text-xs font-semibold uppercase tracking-wider hover:underline text-secondary" onclick="navigateTo('history')">Lihat Semua</button>
+                </div>
+                <div id="dash-recent-list" class="flex flex-col gap-2">
+                    <div class="empty-state">
+                        <span class="material-symbols-outlined">receipt_long</span>
+                        <p>Belum ada transaksi. Mulai tambahkan!</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ============================================================
+                 BANNER TIPS MENABUNG - VERSI BARU YANG TERLIHAT
+                 ============================================================ -->
+            <section class="mt-2">
+                <div class="tips-banner">
+                    <div class="icon-wrapper">
+                        <span class="material-symbols-outlined">lightbulb</span>
+                    </div>
+                    <div class="content">
+                        <h4>💡 Tips Menabung Cerdas</h4>
+                        <p>Lacak pengeluaran harianmu untuk mencapai tujuan keuangan lebih cepat.</p>
+                    </div>
+                    <div class="badge">Tips</div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- ==================== PAGE: ADD TRANSACTION ==================== -->
+    <div id="page-add" class="page">
+        <div class="add-page-header">
+            <button class="back-btn" onclick="navigateTo('dashboard')">
+                <span class="material-symbols-outlined">arrow_back</span>
+            </button>
+            <span class="title">Tambah Transaksi</span>
+            <div class="spacer"></div>
+        </div>
+
+        <main class="form-container">
+            <div class="add-amount-section rounded-xl p-6 mt-4 text-center">
+                <span class="text-xs font-semibold uppercase tracking-widest text-on-surface-variant">Jumlah</span>
+                <div class="flex items-center justify-center gap-2 mt-1">
+                    <span class="currency-symbol text-2xl font-bold">Rp</span>
+                    <input id="add-amount" class="w-full max-w-[200px] bg-transparent border-none text-center text-4xl font-bold text-on-surface placeholder-on-surface-variant/30 focus:ring-0 appearance-none p-0 amount-input-shadow" type="number" step="1" placeholder="0" autofocus />
+                </div>
+            </div>
+
+            <form id="add-form" onsubmit="saveTransaction(event)" class="mt-6 space-y-5">
+                <div class="form-section">
+                    <label class="form-label">Jenis</label>
+                    <div class="type-toggle">
+                        <button type="button" class="tab-btn" data-type="expense" onclick="setTransactionType('expense')">
+                            <span class="material-symbols-outlined">arrow_upward</span> Pengeluaran
+                        </button>
+                        <button type="button" class="tab-btn active" data-type="income" onclick="setTransactionType('income')">
+                            <span class="material-symbols-outlined">arrow_downward</span> Pemasukan
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <label class="form-label">Kategori</label>
+                    <div class="category-grid" id="add-category-grid"></div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="form-label">Tanggal</label>
+                        <input id="add-date" class="form-input" type="date" />
+                    </div>
+                    <div>
+                        <label class="form-label">Akun</label>
+                        <select id="add-account" class="form-select">
+                            <option value="Dompet Utama">Dompet Utama</option>
+                            <option value="Bank BCA">Bank BCA</option>
+                            <option value="Kripto">Kripto</option>
+                            <option value="Tunai">Tunai</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <label class="form-label">Catatan</label>
+                    <textarea id="add-note" class="form-textarea" placeholder="Tambahkan deskripsi..." rows="2"></textarea>
+                </div>
+
+                <button type="submit" class="btn-primary">
+                    <span class="material-symbols-outlined">check_circle</span>
+                    Simpan Transaksi
+                </button>
+            </form>
+        </main>
+    </div>
+
+    <!-- ==================== PAGE: HISTORY ==================== -->
+    <div id="page-history" class="page">
+        <header class="sticky top-0 z-40 flex justify-between items-center w-full px-5 h-16 border-b border-outline-variant">
+            <div class="flex items-center gap-3">
+                <span class="material-symbols-outlined text-primary">receipt_long</span>
+                <h1 class="text-lg font-semibold text-on-surface">Riwayat</h1>
+            </div>
+            <div class="flex items-center gap-2">
+                <button class="p-2 rounded-full hover:bg-surface-low transition-colors" onclick="clearAllData()">
+                    <span class="material-symbols-outlined text-on-surface-variant">delete</span>
+                </button>
+                <button class="p-2 rounded-full hover:bg-surface-low transition-colors" onclick="closeApp()">
+                    <span class="material-symbols-outlined text-primary">close</span>
+                </button>
+            </div>
+        </header>
+
+        <main class="px-5 mt-4 pb-6 max-w-4xl mx-auto">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="relative flex-grow">
+                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[20px] text-on-surface-variant">search</span>
+                    <input id="history-search" class="w-full h-12 pl-12 pr-4 border rounded-xl text-sm bg-surface-container-low text-on-surface placeholder-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Cari transaksi..." oninput="renderHistory()" />
+                </div>
+                <button class="w-12 h-12 flex items-center justify-center rounded-xl transition-colors bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high" onclick="renderHistory()">
+                    <span class="material-symbols-outlined">filter_list</span>
+                </button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 mb-4">
+                <div class="p-3 rounded-xl flex flex-col bg-secondary-container/10 border border-secondary/20">
+                    <span class="text-xs font-semibold uppercase text-secondary">Total Pemasukan</span>
+                    <span class="text-lg font-medium text-secondary" id="hist-total-income">+Rp 0</span>
+                </div>
+                <div class="p-3 rounded-xl flex flex-col bg-error/10 border border-error/20">
+                    <span class="text-xs font-semibold uppercase text-error">Total Pengeluaran</span>
+                    <span class="text-lg font-medium text-error" id="hist-total-expense">-Rp 0</span>
+                </div>
+            </div>
+
+            <div id="history-list" class="space-y-4">
+                <div class="empty-state">
+                    <span class="material-symbols-outlined">receipt_long</span>
+                    <p>Tidak ada transaksi ditemukan.</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ==================== PAGE: REPORTS ==================== -->
+    <div id="page-reports" class="page">
+        <header class="sticky top-0 z-40 flex justify-between items-center w-full px-5 h-16 border-b border-outline-variant">
+            <div class="flex items-center gap-3">
+                <span class="material-symbols-outlined text-primary">pie_chart</span>
+                <h1 class="text-lg font-semibold text-on-surface">Laporan</h1>
+            </div>
+            <div class="flex items-center gap-2">
+                <button class="p-2 rounded-full hover:bg-surface-low transition-colors" onclick="showToast('📊 Laporan diperbarui'); renderReports();">
+                    <span class="material-symbols-outlined text-primary">refresh</span>
+                </button>
+                <button class="p-2 rounded-full hover:bg-surface-low transition-colors" onclick="closeApp()">
+                    <span class="material-symbols-outlined text-primary">close</span>
+                </button>
+            </div>
+        </header>
+
+        <main class="px-5 mt-4 pb-6 max-w-4xl mx-auto">
+            <div class="flex justify-center mb-6">
+                <div class="inline-flex p-1 rounded-full bg-surface-container-low">
+                    <button class="tab-btn px-5 py-2 rounded-full text-xs font-semibold" data-period="weekly" onclick="setReportPeriod('weekly')">Mingguan</button>
+                    <button class="tab-btn px-5 py-2 rounded-full text-xs font-semibold active" data-period="monthly" onclick="setReportPeriod('monthly')">Bulanan</button>
+                    <button class="tab-btn px-5 py-2 rounded-full text-xs font-semibold" data-period="yearly" onclick="setReportPeriod('yearly')">Tahunan</button>
+                </div>
+            </div>
+
+            <div class="rounded-xl p-6 text-center mb-6 bg-surface-container-lowest border border-outline-variant">
+                <p class="text-xs font-semibold uppercase text-on-surface-variant">Total Pengeluaran</p>
+                <p class="text-3xl font-bold text-primary" id="report-total-spending">Rp 0</p>
+                <p class="text-xs mt-1 text-outline" id="report-period-label">Bulan ini</p>
+            </div>
+
+            <div class="flex flex-col md:flex-row items-center gap-8 mb-6">
+                <div class="chart-ring">
+                    <svg viewBox="0 0 100 100" class="w-full h-full">
+                        <circle cx="50" cy="50" r="40" fill="transparent" stroke="#1e2740" stroke-width="12" />
+                        <g id="report-ring-segments"></g>
+                    </svg>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center">
+                        <span class="text-xs text-on-surface-variant">Pengeluaran</span>
+                        <span class="text-xl font-semibold text-primary" id="report-ring-total">Rp 0</span>
+                    </div>
+                </div>
+                <div class="flex-1 w-full space-y-2" id="report-legend"></div>
+            </div>
+
+            <div class="space-y-3" id="report-breakdown"></div>
+
+            <div class="mt-6 p-5 rounded-xl shadow-lg bg-primary-container text-on-primary">
+                <div class="flex items-center gap-4">
+                    <span class="material-symbols-outlined text-3xl">lightbulb</span>
+                    <div>
+                        <h4 class="text-xl font-semibold">Wawasan</h4>
+                        <p class="text-sm opacity-80" id="report-insight">Mulai lacak pengeluaranmu untuk mendapatkan wawasan pribadi.</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ==================== BOTTOM NAVIGATION ==================== -->
+    <nav class="bottom-nav fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-3 py-2 border-t rounded-t-xl">
+        <a href="#" class="flex flex-col items-center justify-center px-3 py-1 active" data-page="dashboard" onclick="navigateTo('dashboard')">
+            <span class="material-symbols-outlined">home</span>
+            <span>Beranda</span>
+        </a>
+        <a href="#" class="flex flex-col items-center justify-center px-3 py-1" data-page="history" onclick="navigateTo('history')">
+            <span class="material-symbols-outlined">receipt_long</span>
+            <span>Riwayat</span>
+        </a>
+        <a href="#" class="flex flex-col items-center justify-center px-3 py-1" data-page="add" onclick="navigateTo('add')">
+            <span class="material-symbols-outlined text-3xl" style="font-variation-settings:'FILL'1; color: #B1BCFB;">add_circle</span>
+            <span>Tambah</span>
+        </a>
+        <a href="#" class="flex flex-col items-center justify-center px-3 py-1" data-page="reports" onclick="navigateTo('reports')">
+            <span class="material-symbols-outlined">pie_chart</span>
+            <span>Laporan</span>
+        </a>
+    </nav>
+
+    <script>
+        // ============================================================
+        // TELEGRAM INTEGRATION (opsional)
+        // ============================================================
+        let tg = null;
+        try {
+            tg = window.Telegram?.WebApp;
+            if (tg) {
+                tg.ready();
+                tg.expand();
+            }
+        } catch (e) { console.warn('Not running in Telegram WebApp'); }
+
+        // ============================================================
+        // FUNGSI UTAMA
+        // ============================================================
+        function closeApp() {
+            if (tg) { tg.close(); } else { window.close(); }
+        }
+
+        function showToast(msg) {
+            if (tg) {
+                tg.showPopup({ title: 'CatatanKu', message: msg, buttons: [{ type: 'ok' }] });
+            } else {
+                const el = document.getElementById('toast');
+                el.textContent = msg;
+                el.classList.add('show');
+                clearTimeout(window.toastTimeout);
+                window.toastTimeout = setTimeout(() => el.classList.remove('show'), 2500);
+            }
+        }
+
+        // ============================================================
+        // DATA LAYER
+        // ============================================================
+        const STORAGE_KEY = 'catatanku_transactions';
+
+        function getTransactions() {
+            try {
+                const data = localStorage.getItem(STORAGE_KEY);
+                return data ? JSON.parse(data) : [];
+            } catch { return []; }
+        }
+
+        function saveTransactions(txs) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(txs));
+        }
+
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+        }
+
+        function formatCurrency(amount) {
+            return 'Rp ' + Number(amount).toLocaleString('id-ID');
+        }
+
+        function formatDate(dateStr) {
+            const d = new Date(dateStr + 'T00:00:00');
+            return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+        }
+
+        function todayStr() {
+            return new Date().toISOString().slice(0, 10);
+        }
+
+        function getMonthStart() {
+            const d = new Date();
+            return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+        }
+
+        function getMonthEnd() {
+            const d = new Date();
+            return new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10);
+        }
+
+        function getWeekStart() {
+            const d = new Date();
+            const day = d.getDay();
+            const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+            return new Date(d.getFullYear(), d.getMonth(), diff).toISOString().slice(0, 10);
+        }
+
+        function getWeekEnd() {
+            const d = new Date();
+            const day = d.getDay();
+            const diff = d.getDate() - day + (day === 0 ? 0 : 7 - day);
+            return new Date(d.getFullYear(), d.getMonth(), diff).toISOString().slice(0, 10);
+        }
+
+        function getYearStart() {
+            const d = new Date();
+            return new Date(d.getFullYear(), 0, 1).toISOString().slice(0, 10);
+        }
+
+        function getYearEnd() {
+            const d = new Date();
+            return new Date(d.getFullYear(), 11, 31).toISOString().slice(0, 10);
+        }
+
+        // ============================================================
+        // CATEGORIES
+        // ============================================================
+        const CATEGORIES = [
+            { id: 'shopping', label: 'Belanja', icon: 'shopping_bag' },
+            { id: 'dining', label: 'Makan', icon: 'restaurant' },
+            { id: 'transport', label: 'Transportasi', icon: 'commute' },
+            { id: 'bills', label: 'Tagihan', icon: 'bolt' },
+            { id: 'fun', label: 'Hiburan', icon: 'assignment_ind' },
+            { id: 'health', label: 'Kesehatan', icon: 'health_and_safety' },
+            { id: 'gift', label: 'Hadiah', icon: 'redeem' },
+            { id: 'other', label: 'Lainnya', icon: 'more_horiz' },
+        ];
+
+        const CATEGORY_COLORS = {
+            shopping: '#94a3bb',
+            dining: '#B1BCFB',
+            transport: '#CDBDDD',
+            bills: '#DF172A',
+            fun: '#94a3bb',
+            health: '#B1BCFB',
+            gift: '#CDBDDD',
+            other: '#5a6a82',
+        };
+
+        function getCategoryIcon(id) {
+            const c = CATEGORIES.find(c => c.id === id);
+            return c ? c.icon : 'more_horiz';
+        }
+
+        function getCategoryLabel(id) {
+            const c = CATEGORIES.find(c => c.id === id);
+            return c ? c.label : 'Lainnya';
+        }
+
+        function getCategoryColor(id) {
+            return CATEGORY_COLORS[id] || '#5a6a82';
+        }
+
+        // ============================================================
+        // STATE
+        // ============================================================
+        let currentPage = 'dashboard';
+        let transactionType = 'income';
+        let selectedCategory = 'transport';
+        let reportPeriod = 'monthly';
+
+        // ============================================================
+        // NAVIGATION
+        // ============================================================
+        function navigateTo(page) {
+            if (page === 'add') {
+                document.getElementById('add-amount').value = '';
+                document.getElementById('add-note').value = '';
+                document.getElementById('add-date').value = todayStr();
+                document.getElementById('add-account').value = 'Dompet Utama';
+                selectedCategory = 'transport';
+                transactionType = 'income';
+                setTransactionType('income');
+                renderCategoryChips();
+                setTimeout(() => document.getElementById('add-amount').focus(), 100);
+            }
+
+            document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+            const target = document.getElementById('page-' + page);
+            if (target) target.classList.add('active');
+
+            document.querySelectorAll('.bottom-nav a').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.bottom-nav a[data-page="' + page + '"]').forEach(el => el.classList.add('active'));
+
+            currentPage = page;
+
+            if (page === 'dashboard') renderDashboard();
+            if (page === 'history') renderHistory();
+            if (page === 'reports') renderReports();
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // ============================================================
+        // DASHBOARD
+        // ============================================================
+        function renderDashboard() {
+            const txs = getTransactions();
+            const now = new Date();
+            const monthStart = getMonthStart();
+            const monthEnd = getMonthEnd();
+
+            const monthTxs = txs.filter(t => t.date >= monthStart && t.date <= monthEnd);
+            const totalIncome = monthTxs.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
+            const totalExpense = monthTxs.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
+
+            const allIncome = txs.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
+            const allExpense = txs.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
+            const allBalance = allIncome - allExpense;
+
+            document.getElementById('dash-total-balance').textContent = formatCurrency(allBalance);
+            document.getElementById('dash-income').textContent = formatCurrency(allIncome);
+            document.getElementById('dash-expenses').textContent = formatCurrency(allExpense);
+
+            document.getElementById('dash-monthly-spending').textContent = formatCurrency(totalExpense);
+
+            const limit = 2000000;
+            const pct = Math.min((totalExpense / limit) * 100, 100);
+            document.getElementById('dash-spending-bar').style.width = pct + '%';
+            document.getElementById('dash-spending-label').textContent = Math.round(pct) + '% dari batas Rp 2.000.000';
+
+            // Top category
+            const catMap = {};
+            monthTxs.filter(t => t.type === 'expense').forEach(t => {
+                catMap[t.category] = (catMap[t.category] || 0) + Number(t.amount);
+            });
+            let topCat = null;
+            let topAmt = 0;
+            for (const [cat, amt] of Object.entries(catMap)) {
+                if (amt > topAmt) { topAmt = amt;
+                    topCat = cat; }
+            }
+            if (topCat) {
+                document.getElementById('dash-top-name').textContent = getCategoryLabel(topCat);
+                document.getElementById('dash-top-amount').textContent = formatCurrency(topAmt) + ' bulan ini';
+                document.getElementById('dash-top-icon').innerHTML =
+                    `<span class="material-symbols-outlined">${getCategoryIcon(topCat)}</span>`;
+            } else {
+                document.getElementById('dash-top-name').textContent = '—';
+                document.getElementById('dash-top-amount').textContent = 'Rp 0 bulan ini';
+                document.getElementById('dash-top-icon').innerHTML = `<span class="material-symbols-outlined">restaurant</span>`;
+            }
+
+            // Recent
+            const sorted = [...txs].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+            const recent = sorted.slice(0, 5);
+            const container = document.getElementById('dash-recent-list');
+            if (recent.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <span class="material-symbols-outlined">receipt_long</span>
+                        <p>Belum ada transaksi. Mulai tambahkan!</p>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = recent.map(t => {
+                    const isIncome = t.type === 'income';
+                    const sign = isIncome ? '+' : '-';
+                    const color = isIncome ? 'text-secondary' : 'text-on-surface';
+                    const iconColor = isIncome ? 'text-secondary' : 'text-primary';
+                    const bgColor = isIncome ? 'bg-secondary-container/20' : 'bg-primary/5';
+                    return `
+                        <div class="transaction-item flex items-center justify-between p-4 rounded-xl hover:bg-surface-container-high transition-colors cursor-pointer bg-surface-container-lowest border border-outline-variant">
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 rounded-full flex items-center justify-center ${bgColor} ${iconColor}">
+                                    <span class="material-symbols-outlined">${getCategoryIcon(t.category)}</span>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-semibold text-on-surface">${t.note || getCategoryLabel(t.category)}</p>
+                                    <p class="text-xs text-on-surface-variant">${formatDate(t.date)} • ${getCategoryLabel(t.category)}</p>
+                                </div>
+                            </div>
+                            <p class="text-base font-medium ${color}">${sign}${formatCurrency(Math.abs(t.amount))}</p>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // Change indicator
+            const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().slice(0, 10);
+            const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().slice(0, 10);
+            const prevTxs = txs.filter(t => t.date >= prevMonthStart && t.date <= prevMonthEnd);
+            const prevIncome = prevTxs.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
+            const prevExpense = prevTxs.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
+            const prevBalance = prevIncome - prevExpense;
+            if (prevBalance !== 0 && allBalance !== 0) {
+                const change = ((allBalance - prevBalance) / Math.abs(prevBalance) * 100);
+                document.getElementById('dash-change').textContent = (change > 0 ? '+' : '') + change.toFixed(1) + '%';
+            } else {
+                document.getElementById('dash-change').textContent = '—';
+            }
+        }
+
+        // ============================================================
+        // ADD TRANSACTION
+        // ============================================================
+        function renderCategoryChips() {
+            const grid = document.getElementById('add-category-grid');
+            grid.innerHTML = CATEGORIES.map(cat => {
+                const active = selectedCategory === cat.id ? 'active' : '';
+                return `
+                    <div class="category-chip ${active}" onclick="selectCategory('${cat.id}')">
+                        <div class="icon-wrap">
+                            <span class="material-symbols-outlined">${cat.icon}</span>
+                        </div>
+                        <span class="label">${cat.label}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function selectCategory(id) {
+            selectedCategory = id;
+            renderCategoryChips();
+        }
+
+        function setTransactionType(type) {
+            transactionType = type;
+            document.querySelectorAll('#add-form .tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.type === type) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+
+        function saveTransaction(e) {
+            e.preventDefault();
+            const amount = parseFloat(document.getElementById('add-amount').value);
+            if (!amount || amount <= 0) {
+                showToast('⚠️ Masukkan jumlah yang valid');
+                return;
+            }
+            const date = document.getElementById('add-date').value;
+            if (!date) {
+                showToast('⚠️ Pilih tanggal');
+                return;
+            }
+            const account = document.getElementById('add-account').value;
+            const note = document.getElementById('add-note').value.trim() || getCategoryLabel(selectedCategory);
+
+            const tx = {
+                id: generateId(),
+                amount: amount,
+                type: transactionType,
+                category: selectedCategory,
+                date: date,
+                account: account,
+                note: note,
+                createdAt: new Date().toISOString()
+            };
+
+            const txs = getTransactions();
+            txs.push(tx);
+            saveTransactions(txs);
+            showToast('✅ Transaksi tersimpan!');
+            document.getElementById('add-amount').value = '';
+            document.getElementById('add-note').value = '';
+            document.getElementById('add-date').value = todayStr();
+            document.getElementById('add-amount').focus();
+            navigateTo('dashboard');
+        }
+
+        // ============================================================
+        // HISTORY
+        // ============================================================
+        function renderHistory() {
+            const txs = getTransactions();
+            const search = document.getElementById('history-search').value.toLowerCase().trim();
+
+            let filtered = txs;
+            if (search) {
+                filtered = txs.filter(t =>
+                    (t.note || '').toLowerCase().includes(search) ||
+                    getCategoryLabel(t.category).toLowerCase().includes(search) ||
+                    t.account.toLowerCase().includes(search)
+                );
+            }
+
+            const sorted = [...filtered].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+
+            const totalIncome = filtered.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
+            const totalExpense = filtered.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
+
+            document.getElementById('hist-total-income').textContent = '+' + formatCurrency(totalIncome);
+            document.getElementById('hist-total-expense').textContent = '-' + formatCurrency(totalExpense);
+
+            const container = document.getElementById('history-list');
+            if (sorted.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <span class="material-symbols-outlined">receipt_long</span>
+                        <p>${search ? 'Tidak ada transaksi yang cocok.' : 'Tidak ada transaksi ditemukan.'}</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const groups = {};
+            sorted.forEach(t => {
+                if (!groups[t.date]) groups[t.date] = [];
+                groups[t.date].push(t);
+            });
+
+            const dateKeys = Object.keys(groups).sort((a, b) => b.localeCompare(a));
+
+            container.innerHTML = dateKeys.map(date => {
+                const items = groups[date];
+                return `
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center px-1">
+                            <h3 class="text-xs font-semibold uppercase tracking-widest text-on-surface-variant">${formatDate(date)}</h3>
+                            <span class="text-xs text-outline">${items.length} transaksi</span>
+                        </div>
+                        ${items.map(t => {
+                            const isIncome = t.type === 'income';
+                            const sign = isIncome ? '+' : '-';
+                            const color = isIncome ? 'text-secondary' : 'text-on-surface';
+                            const iconColor = isIncome ? 'text-secondary' : 'text-primary';
+                            const bgColor = isIncome ? 'bg-secondary-container/20' : 'bg-primary/5';
+                            return `
+                                <div class="transaction-item flex items-center justify-between p-4 rounded-xl hover:bg-surface-container-high transition-colors bg-surface-container-lowest border border-outline-variant">
+                                    <div class="flex items-center gap-4">
+                                        <div class="w-12 h-12 rounded-full flex items-center justify-center ${bgColor} ${iconColor}">
+                                            <span class="material-symbols-outlined">${getCategoryIcon(t.category)}</span>
+                                        </div>
+                                        <div>
+                                            <p class="text-sm font-semibold text-on-surface">${t.note || getCategoryLabel(t.category)}</p>
+                                            <p class="text-xs text-on-surface-variant">${getCategoryLabel(t.category)} • ${t.account}</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="text-base font-medium ${color}">${sign}${formatCurrency(Math.abs(t.amount))}</p>
+                                        <button class="text-xs hover:underline text-error" onclick="deleteTransaction('${t.id}')">Hapus</button>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function deleteTransaction(id) {
+            if (!confirm('Hapus transaksi ini?')) return;
+            let txs = getTransactions();
+            txs = txs.filter(t => t.id !== id);
+            saveTransactions(txs);
+            showToast('🗑️ Transaksi dihapus');
+            renderHistory();
+            if (currentPage === 'dashboard') renderDashboard();
+        }
+
+        function clearAllData() {
+            if (!confirm('Hapus semua data keuangan?')) return;
+            saveTransactions([]);
+            showToast('🗑️ Semua data dihapus');
+            renderHistory();
+            renderDashboard();
+            renderReports();
+        }
+
+        // ============================================================
+        // REPORTS
+        // ============================================================
+        function setReportPeriod(period) {
+            reportPeriod = period;
+            document.querySelectorAll('#page-reports .tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.period === period) {
+                    btn.classList.add('active');
+                }
+            });
+            renderReports();
+        }
+
+        function getPeriodRange() {
+            const now = new Date();
+            if (reportPeriod === 'weekly') {
+                return { start: getWeekStart(), end: getWeekEnd(), label: 'Minggu ini' };
+            } else if (reportPeriod === 'yearly') {
+                return { start: getYearStart(), end: getYearEnd(), label: 'Tahun ini' };
+            } else {
+                return { start: getMonthStart(), end: getMonthEnd(), label: 'Bulan ini' };
+            }
+        }
+
+        function renderReports() {
+            const txs = getTransactions();
+            const { start, end, label } = getPeriodRange();
+
+            const periodTxs = txs.filter(t => t.date >= start && t.date <= end);
+            const totalSpending = periodTxs.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
+
+            document.getElementById('report-total-spending').textContent = formatCurrency(totalSpending);
+            document.getElementById('report-period-label').textContent = label;
+            document.getElementById('report-ring-total').textContent = formatCurrency(totalSpending);
+
+            const catMap = {};
+            periodTxs.filter(t => t.type === 'expense').forEach(t => {
+                catMap[t.category] = (catMap[t.category] || 0) + Number(t.amount);
+            });
+
+            const sortedCats = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
+            const total = sortedCats.reduce((s, [, amt]) => s + amt, 0);
+
+            const ring = document.getElementById('report-ring-segments');
+            ring.innerHTML = '';
+            const colors = ['#B1BCFB', '#CDBDDD', '#94A3BB', '#DF172A', '#5a6a82', '#B1BCFB', '#CDBDDD', '#94A3BB'];
+            let cumulative = 0;
+            sortedCats.forEach(([cat, amt], i) => {
+                const pct = total > 0 ? amt / total : 0;
+                const dashArray = 2 * Math.PI * 40;
+                const seg = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                seg.setAttribute('cx', '50');
+                seg.setAttribute('cy', '50');
+                seg.setAttribute('r', '40');
+                seg.setAttribute('fill', 'transparent');
+                seg.setAttribute('stroke', colors[i % colors.length]);
+                seg.setAttribute('stroke-width', '12');
+                seg.setAttribute('stroke-dasharray', dashArray);
+                seg.setAttribute('stroke-dashoffset', dashArray * (1 - cumulative - pct));
+                seg.setAttribute('transform', `rotate(${cumulative * 360}, 50, 50)`);
+                ring.appendChild(seg);
+                cumulative += pct;
+            });
+
+            const legend = document.getElementById('report-legend');
+            if (sortedCats.length === 0) {
+                legend.innerHTML = `<p class="text-sm text-outline">Tidak ada data pengeluaran untuk periode ini.</p>`;
+            } else {
+                legend.innerHTML = sortedCats.map(([cat, amt], i) => {
+                    const pct = total > 0 ? ((amt / total) * 100).toFixed(1) : 0;
+                    return `
+                        <div class="flex items-center justify-between gap-4">
+                            <div class="flex items-center gap-2">
+                                <span class="w-3 h-3 rounded-full" style="background:${colors[i % colors.length]}"></span>
+                                <span class="text-sm font-medium text-on-surface">${getCategoryLabel(cat)}</span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="text-sm text-outline">${pct}%</span>
+                                <span class="text-base font-medium text-primary">${formatCurrency(amt)}</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            const breakdown = document.getElementById('report-breakdown');
+            if (sortedCats.length === 0) {
+                breakdown.innerHTML = `<p class="text-sm text-center py-4 text-outline">Tidak ada pengeluaran tercatat untuk periode ini.</p>`;
+            } else {
+                breakdown.innerHTML = sortedCats.map(([cat, amt], i) => {
+                    const pct = total > 0 ? ((amt / total) * 100) : 0;
+                    return `
+                        <div class="flex items-center justify-between p-4 rounded-xl hover:border-primary transition-all bg-surface-container-lowest border border-outline-variant">
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 rounded-full flex items-center justify-center" style="background:${colors[i % colors.length]}20; color:${colors[i % colors.length]}">
+                                    <span class="material-symbols-outlined">${getCategoryIcon(cat)}</span>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-semibold text-on-surface">${getCategoryLabel(cat)}</p>
+                                    <p class="text-xs text-on-surface-variant">${pct.toFixed(1)}% dari pengeluaran</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-base font-medium text-primary">${formatCurrency(amt)}</p>
+                                <div class="w-24 h-1.5 mt-2 rounded-full overflow-hidden bg-surface-container">
+                                    <div class="h-full rounded-full" style="width:${pct}%; background:${colors[i % colors.length]}"></div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            const insight = document.getElementById('report-insight');
+            if (sortedCats.length === 0) {
+                insight.textContent = 'Tambahkan beberapa pengeluaran untuk melihat wawasan di sini.';
+            } else {
+                const top = sortedCats[0];
+                const topPct = total > 0 ? ((top[1] / total) * 100).toFixed(0) : 0;
+                insight.textContent =
+                    `Kategori pengeluaran teratas Anda adalah ${getCategoryLabel(top[0])} sebesar ${topPct}% dari total pengeluaran (${formatCurrency(top[1])}). ${topPct > 40 ? 'Pertimbangkan untuk menetapkan anggaran untuk kategori ini.' : 'Kerja bagus menjaga keseimbangan kategori ini!'}`;
+            }
+        }
+
+        // ============================================================
+        // INIT
+        // ============================================================
+        document.getElementById('add-date').value = todayStr();
+        renderCategoryChips();
+        setTransactionType('income');
+        renderDashboard();
+
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                if (currentPage === 'dashboard') renderDashboard();
+                if (currentPage === 'history') renderHistory();
+                if (currentPage === 'reports') renderReports();
+            }
+        });
+
+        if (tg) {
+            tg.sendData(JSON.stringify({ event: 'web_app_ready', version: '1.0', app: 'CatatanKu' }));
+        }
+
+        console.log('🚀 CatatanKu siap digunakan!');
+        console.log('📊 Data tersimpan di LocalStorage.');
+    </script>
+</body>
+</html>
