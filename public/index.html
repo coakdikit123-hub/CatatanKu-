@@ -9,7 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
     <style>
-        /* (SAMA SEPERTI SEBELUMNYA, TIDAK DIUBAH) */
+        /* --- TEMA DARK (LUMINA) --- */
         * { font-family: 'Inter', sans-serif; box-sizing: border-box; }
         body {
             background-color: #0f1420;
@@ -197,29 +197,17 @@
             .tips-banner .content p { font-size: 13px; }
             .tips-banner .badge { margin-left: 0; margin-top: 10px; width: 100%; text-align: center; }
         }
-        /* tambahan untuk debugging */
-        .debug-badge {
-            position: fixed;
-            bottom: 76px;
-            left: 10px;
-            background: #DF172A;
-            color: white;
-            font-size: 10px;
-            padding: 2px 8px;
-            border-radius: 10px;
-            z-index: 999;
-            display: none;
-            font-weight: bold;
-        }
+        .debug-badge { position: fixed; bottom: 76px; left: 10px; background: #DF172A; color: white; font-size: 10px; padding: 2px 8px; border-radius: 10px; z-index: 999; display: none; font-weight: bold; }
         .debug-badge.show { display: block; }
     </style>
 </head>
 <body>
-    <!-- TOAST -->
+
+    <!-- TOAST & DEBUG -->
     <div id="toast" class="toast"></div>
     <div id="debug-badge" class="debug-badge">🔴 Error</div>
 
-    <!-- PAGE: DASHBOARD (SAMA) -->
+    <!-- ==================== PAGE: DASHBOARD ==================== -->
     <div id="page-dashboard" class="page active">
         <header class="sticky top-0 z-40 flex justify-between items-center w-full px-5 h-16 border-b border-outline-variant">
             <div class="flex items-center gap-3">
@@ -320,11 +308,181 @@
         </main>
     </div>
 
-    <!-- PAGE: ADD, HISTORY, REPORTS (SAMA, TIDAK DIUBAH) -->
-    <!-- ... (saya singkat agar tidak terlalu panjang, tapi Anda bisa salin dari kode sebelumnya) ... -->
-    <!-- Untuk kepraktisan, saya akan berikan link download file lengkap nanti -->
+    <!-- ==================== PAGE: ADD TRANSACTION ==================== -->
+    <div id="page-add" class="page">
+        <div class="add-page-header">
+            <button class="back-btn" onclick="navigateTo('dashboard')">
+                <span class="material-symbols-outlined">arrow_back</span>
+            </button>
+            <span class="title">Tambah Transaksi</span>
+            <div class="spacer"></div>
+        </div>
 
-    <!-- ==================== BOTTOM NAV ==================== -->
+        <main class="form-container">
+            <div class="add-amount-section rounded-xl p-6 mt-4 text-center">
+                <span class="text-xs font-semibold uppercase tracking-widest text-on-surface-variant">Jumlah</span>
+                <div class="flex items-center justify-center gap-2 mt-1">
+                    <span class="currency-symbol text-2xl font-bold">Rp</span>
+                    <input id="add-amount" class="w-full max-w-[200px] bg-transparent border-none text-center text-4xl font-bold text-on-surface placeholder-on-surface-variant/30 focus:ring-0 appearance-none p-0 amount-input-shadow" type="number" step="1" placeholder="0" autofocus />
+                </div>
+            </div>
+
+            <form id="add-form" onsubmit="saveTransaction(event)" class="mt-6 space-y-5">
+                <div class="form-section">
+                    <label class="form-label">Jenis</label>
+                    <div class="type-toggle">
+                        <button type="button" class="tab-btn" data-type="expense" onclick="setTransactionType('expense')">
+                            <span class="material-symbols-outlined">arrow_upward</span> Pengeluaran
+                        </button>
+                        <button type="button" class="tab-btn active" data-type="income" onclick="setTransactionType('income')">
+                            <span class="material-symbols-outlined">arrow_downward</span> Pemasukan
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <label class="form-label">Kategori</label>
+                    <div class="category-grid" id="add-category-grid"></div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="form-label">Tanggal</label>
+                        <input id="add-date" class="form-input" type="date" />
+                    </div>
+                    <div>
+                        <label class="form-label">Akun</label>
+                        <select id="add-account" class="form-select">
+                            <option value="Dompet Utama">Dompet Utama</option>
+                            <option value="Bank BCA">Bank BCA</option>
+                            <option value="Kripto">Kripto</option>
+                            <option value="Tunai">Tunai</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <label class="form-label">Catatan</label>
+                    <textarea id="add-note" class="form-textarea" placeholder="Tambahkan deskripsi..." rows="2"></textarea>
+                </div>
+
+                <button type="submit" class="btn-primary">
+                    <span class="material-symbols-outlined">check_circle</span>
+                    Simpan Transaksi
+                </button>
+            </form>
+        </main>
+    </div>
+
+    <!-- ==================== PAGE: HISTORY ==================== -->
+    <div id="page-history" class="page">
+        <header class="sticky top-0 z-40 flex justify-between items-center w-full px-5 h-16 border-b border-outline-variant">
+            <div class="flex items-center gap-3">
+                <span class="material-symbols-outlined text-primary">receipt_long</span>
+                <h1 class="text-lg font-semibold text-on-surface">Riwayat</h1>
+            </div>
+            <div class="flex items-center gap-2">
+                <button class="p-2 rounded-full hover:bg-surface-low transition-colors" onclick="clearAllData()">
+                    <span class="material-symbols-outlined text-on-surface-variant">delete</span>
+                </button>
+                <button class="p-2 rounded-full hover:bg-surface-low transition-colors" onclick="closeApp()">
+                    <span class="material-symbols-outlined text-primary">close</span>
+                </button>
+            </div>
+        </header>
+
+        <main class="px-5 mt-4 pb-6 max-w-4xl mx-auto">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="relative flex-grow">
+                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[20px] text-on-surface-variant">search</span>
+                    <input id="history-search" class="w-full h-12 pl-12 pr-4 border rounded-xl text-sm bg-surface-container-low text-on-surface placeholder-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Cari transaksi..." oninput="renderHistory()" />
+                </div>
+                <button class="w-12 h-12 flex items-center justify-center rounded-xl transition-colors bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high" onclick="renderHistory()">
+                    <span class="material-symbols-outlined">filter_list</span>
+                </button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 mb-4">
+                <div class="p-3 rounded-xl flex flex-col bg-secondary-container/10 border border-secondary/20">
+                    <span class="text-xs font-semibold uppercase text-secondary">Total Pemasukan</span>
+                    <span class="text-lg font-medium text-secondary" id="hist-total-income">+Rp 0</span>
+                </div>
+                <div class="p-3 rounded-xl flex flex-col bg-error/10 border border-error/20">
+                    <span class="text-xs font-semibold uppercase text-error">Total Pengeluaran</span>
+                    <span class="text-lg font-medium text-error" id="hist-total-expense">-Rp 0</span>
+                </div>
+            </div>
+
+            <div id="history-list" class="space-y-4">
+                <div class="empty-state">
+                    <span class="material-symbols-outlined">receipt_long</span>
+                    <p>Tidak ada transaksi ditemukan.</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ==================== PAGE: REPORTS ==================== -->
+    <div id="page-reports" class="page">
+        <header class="sticky top-0 z-40 flex justify-between items-center w-full px-5 h-16 border-b border-outline-variant">
+            <div class="flex items-center gap-3">
+                <span class="material-symbols-outlined text-primary">pie_chart</span>
+                <h1 class="text-lg font-semibold text-on-surface">Laporan</h1>
+            </div>
+            <div class="flex items-center gap-2">
+                <button class="p-2 rounded-full hover:bg-surface-low transition-colors" onclick="showToast('📊 Laporan diperbarui'); renderReports();">
+                    <span class="material-symbols-outlined text-primary">refresh</span>
+                </button>
+                <button class="p-2 rounded-full hover:bg-surface-low transition-colors" onclick="closeApp()">
+                    <span class="material-symbols-outlined text-primary">close</span>
+                </button>
+            </div>
+        </header>
+
+        <main class="px-5 mt-4 pb-6 max-w-4xl mx-auto">
+            <div class="flex justify-center mb-6">
+                <div class="inline-flex p-1 rounded-full bg-surface-container-low">
+                    <button class="tab-btn px-5 py-2 rounded-full text-xs font-semibold" data-period="weekly" onclick="setReportPeriod('weekly')">Mingguan</button>
+                    <button class="tab-btn px-5 py-2 rounded-full text-xs font-semibold active" data-period="monthly" onclick="setReportPeriod('monthly')">Bulanan</button>
+                    <button class="tab-btn px-5 py-2 rounded-full text-xs font-semibold" data-period="yearly" onclick="setReportPeriod('yearly')">Tahunan</button>
+                </div>
+            </div>
+
+            <div class="rounded-xl p-6 text-center mb-6 bg-surface-container-lowest border border-outline-variant">
+                <p class="text-xs font-semibold uppercase text-on-surface-variant">Total Pengeluaran</p>
+                <p class="text-3xl font-bold text-primary" id="report-total-spending">Rp 0</p>
+                <p class="text-xs mt-1 text-outline" id="report-period-label">Bulan ini</p>
+            </div>
+
+            <div class="flex flex-col md:flex-row items-center gap-8 mb-6">
+                <div class="chart-ring">
+                    <svg viewBox="0 0 100 100" class="w-full h-full">
+                        <circle cx="50" cy="50" r="40" fill="transparent" stroke="#1e2740" stroke-width="12" />
+                        <g id="report-ring-segments"></g>
+                    </svg>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center">
+                        <span class="text-xs text-on-surface-variant">Pengeluaran</span>
+                        <span class="text-xl font-semibold text-primary" id="report-ring-total">Rp 0</span>
+                    </div>
+                </div>
+                <div class="flex-1 w-full space-y-2" id="report-legend"></div>
+            </div>
+
+            <div class="space-y-3" id="report-breakdown"></div>
+
+            <div class="mt-6 p-5 rounded-xl shadow-lg bg-primary-container text-on-primary">
+                <div class="flex items-center gap-4">
+                    <span class="material-symbols-outlined text-3xl">lightbulb</span>
+                    <div>
+                        <h4 class="text-xl font-semibold">Wawasan</h4>
+                        <p class="text-sm opacity-80" id="report-insight">Mulai lacak pengeluaranmu untuk mendapatkan wawasan pribadi.</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ==================== BOTTOM NAVIGATION ==================== -->
     <nav class="bottom-nav fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-3 py-2 border-t rounded-t-xl">
         <a href="#" class="flex flex-col items-center justify-center px-3 py-1 active" data-page="dashboard" onclick="navigateTo('dashboard')">
             <span class="material-symbols-outlined">home</span>
@@ -371,7 +529,7 @@
         console.log('🔗 API_BASE:', API_BASE);
 
         // ============================================================
-        // TOAST
+        // TOAST & UTILITY
         // ============================================================
         function showToast(msg) {
             if (tg) {
@@ -406,12 +564,11 @@
         }
 
         // ============================================================
-        // SYNC DENGAN BACKEND (dengan logging)
+        // SYNC DENGAN BACKEND
         // ============================================================
         async function syncFromBackend() {
             if (USER_ID === 'guest') {
                 console.warn('⚠️ Guest user, skip sync');
-                showToast('⚠️ Login dulu lewat Telegram untuk sync');
                 return;
             }
 
@@ -425,7 +582,6 @@
                 if (!res.ok) {
                     const text = await res.text();
                     console.error('❌ Response error:', text);
-                    showToast('❌ Gagal sync: ' + res.status);
                     return;
                 }
 
@@ -435,17 +591,11 @@
                 renderDashboard();
                 renderHistory();
                 renderReports();
-                // tampilkan toast hanya jika manual sync (bisa tambahkan flag)
-                // showToast('✅ Data tersinkronisasi!');
             } catch (e) {
                 console.error('❌ Sync error:', e.message);
-                showToast('❌ Gagal sync: ' + e.message);
             }
         }
 
-        // ============================================================
-        // PUSH ke backend
-        // ============================================================
         async function pushToBackend(tx) {
             if (USER_ID === 'guest') return false;
             try {
@@ -491,32 +641,22 @@
         }
 
         // ============================================================
-        // FUNGSI UTAMA DATA
+        // FUNGSI UTAMA
         // ============================================================
-        function getTransactions() {
-            return getLocalTransactions();
-        }
+        function getTransactions() { return getLocalTransactions(); }
 
-        function saveTransactions(txs) {
-            saveLocalTransactions(txs);
-        }
+        function saveTransactions(txs) { saveLocalTransactions(txs); }
 
-        function generateId() {
-            return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-        }
+        function generateId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 
-        function formatCurrency(amount) {
-            return 'Rp ' + Number(amount).toLocaleString('id-ID');
-        }
+        function formatCurrency(amount) { return 'Rp ' + Number(amount).toLocaleString('id-ID'); }
 
         function formatDate(dateStr) {
             const d = new Date(dateStr + 'T00:00:00');
             return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
         }
 
-        function todayStr() {
-            return new Date().toISOString().slice(0, 10);
-        }
+        function todayStr() { return new Date().toISOString().slice(0, 10); }
 
         function getMonthStart() {
             const d = new Date();
@@ -645,7 +785,7 @@
         }
 
         // ============================================================
-        // DASHBOARD
+        // RENDER DASHBOARD
         // ============================================================
         function renderDashboard() {
             const txs = getTransactions();
@@ -744,47 +884,7 @@
         }
 
         // ============================================================
-        // ADD, HISTORY, REPORTS (sama seperti sebelumnya, disingkat)
-        // ============================================================
-        // Fungsi renderCategoryChips, selectCategory, setTransactionType, saveTransaction, renderHistory, deleteTransaction, clearAllData, setReportPeriod, renderReports
-        // (sama dengan kode sebelumnya, tidak saya tulis ulang agar jawaban tidak terlalu panjang. Anda bisa salin dari kode sebelumnya.)
-
-        // ============================================================
-        // INIT
-        // ============================================================
-        document.getElementById('add-date').value = todayStr();
-        renderCategoryChips();
-        setTransactionType('income');
-        renderDashboard();
-
-        // Coba sync setelah 1 detik
-        setTimeout(() => {
-            if (USER_ID !== 'guest') {
-                syncFromBackend();
-                startAutoSync();
-            } else {
-                console.warn('⚠️ Guest user, data hanya lokal');
-                // Tampilkan pesan di UI jika perlu
-            }
-        }, 1000);
-
-        document.addEventListener('visibilitychange', () => {
-            if (!document.hidden) {
-                if (currentPage === 'dashboard') renderDashboard();
-                if (currentPage === 'history') renderHistory();
-                if (currentPage === 'reports') renderReports();
-                if (currentPage === 'dashboard' && USER_ID !== 'guest') {
-                    syncFromBackend();
-                }
-            }
-        });
-
-        console.log('🚀 CatatanKu siap!');
-        console.log('👤 User ID:', USER_ID);
-        console.log('🔄 Auto-sync every 10s');
-
-        // ============================================================
-        // TEMPLATE FUNGSI YANG HARUS ADA (agar tidak error)
+        // RENDER CATEGORY CHIPS
         // ============================================================
         function renderCategoryChips() {
             const grid = document.getElementById('add-category-grid');
@@ -816,6 +916,9 @@
             });
         }
 
+        // ============================================================
+        // SAVE TRANSACTION
+        // ============================================================
         async function saveTransaction(e) {
             e.preventDefault();
             const amount = parseFloat(document.getElementById('add-amount').value);
@@ -864,6 +967,9 @@
             navigateTo('dashboard');
         }
 
+        // ============================================================
+        // RENDER HISTORY
+        // ============================================================
         function renderHistory() {
             const txs = getTransactions();
             const search = document.getElementById('history-search').value.toLowerCase().trim();
@@ -883,7 +989,8 @@
 
             const container = document.getElementById('history-list');
             if (sorted.length === 0) {
-                container.innerHTML = `<div class="empty-state"><span class="material-symbols-outlined">receipt_long</span><p>${search ? 'Tidak ada transaksi yang cocok.' : 'Tidak ada transaksi ditemukan.'}</p></div>`;
+                container.innerHTML =
+                    `<div class="empty-state"><span class="material-symbols-outlined">receipt_long</span><p>${search ? 'Tidak ada transaksi yang cocok.' : 'Tidak ada transaksi ditemukan.'}</p></div>`;
                 return;
             }
             const groups = {};
@@ -948,6 +1055,9 @@
             renderReports();
         }
 
+        // ============================================================
+        // RENDER REPORTS
+        // ============================================================
         function setReportPeriod(period) {
             reportPeriod = period;
             document.querySelectorAll('#page-reports .tab-btn').forEach(btn => {
@@ -1024,7 +1134,7 @@
             const breakdown = document.getElementById('report-breakdown');
             if (sortedCats.length === 0) {
                 breakdown.innerHTML =
-                `<p class="text-sm text-center py-4 text-outline">Tidak ada pengeluaran tercatat untuk periode ini.</p>`;
+                    `<p class="text-sm text-center py-4 text-outline">Tidak ada pengeluaran tercatat untuk periode ini.</p>`;
             } else {
                 breakdown.innerHTML = sortedCats.map(([cat, amt], i) => {
                     const pct = total > 0 ? ((amt / total) * 100) : 0;
@@ -1062,9 +1172,36 @@
         }
 
         // ============================================================
-        // PASTIKAN ELEMEN UNTUK ADD, HISTORY, REPORTS ADA DI HTML
-        // (jika tidak, fungsi akan error, tapi kita sudah punya di HTML)
+        // INIT
         // ============================================================
+        document.getElementById('add-date').value = todayStr();
+        renderCategoryChips();
+        setTransactionType('income');
+        renderDashboard();
+
+        setTimeout(() => {
+            if (USER_ID !== 'guest') {
+                syncFromBackend();
+                startAutoSync();
+            } else {
+                console.warn('⚠️ Guest user, data hanya lokal');
+            }
+        }, 1000);
+
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                if (currentPage === 'dashboard') renderDashboard();
+                if (currentPage === 'history') renderHistory();
+                if (currentPage === 'reports') renderReports();
+                if (currentPage === 'dashboard' && USER_ID !== 'guest') {
+                    syncFromBackend();
+                }
+            }
+        });
+
+        console.log('🚀 CatatanKu siap!');
+        console.log('👤 User ID:', USER_ID);
+        console.log('🔄 Auto-sync every 10s');
     </script>
 </body>
 </html>
