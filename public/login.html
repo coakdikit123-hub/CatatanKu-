@@ -105,7 +105,7 @@
             }
             errorEl.style.display = 'none';
 
-            // 1. Register ke server
+            // Register ke server
             try {
                 const res = await fetch('/api/register', {
                     method: 'POST',
@@ -126,10 +126,10 @@
                 return;
             }
 
-            // 2. Simpan ke localStorage
+            // Simpan ke localStorage
             localStorage.setItem('catatanku_user_id', val);
 
-            // 3. Redirect ke index
+            // Redirect
             showToast('✅ Login berhasil!');
             setTimeout(() => {
                 window.location.href = '/';
