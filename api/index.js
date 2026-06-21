@@ -58,8 +58,6 @@ async function isUserRegistered(userId) {
 // FUNGSI PARSING PESAN
 // ============================================================
 function parseTransaction(text, userId) {
-  // ... (sama seperti sebelumnya)
-  // (saya singkat, tapi tetap sama)
   const trimmed = text.trim();
   let type = 'expense';
   let amountText = trimmed;
@@ -158,67 +156,39 @@ async function clearAllTransactions(userId) {
 const bot = new Telegraf(BOT_TOKEN || 'dummy', { handlerTimeout: 90000 });
 const appUrl = process.env.VERCEL_URL || 'catatan-ku-silk.vercel.app';
 
-// ============================================================
-// MIDDLEWARE: Cek login (dengan log)
-// ============================================================
 bot.use(async (ctx, next) => {
-  if (!ctx.from) {
-    console.log('⏭️ Tidak ada ctx.from, skip');
-    return next();
-  }
+  if (!ctx.from) return next();
   const userId = ctx.from.id.toString();
 
-  // Skip check untuk /start (tetap jalan)
   if (ctx.message?.text?.startsWith('/start')) {
-    console.log(`⏭️ Skip middleware untuk /start dari ${userId}`);
     return next();
   }
 
-  // Cek apakah user terdaftar
   const registered = await isUserRegistered(userId);
-  console.log(`🔐 User ${userId} registered: ${registered}`);
-
   if (!registered) {
-    console.log(`🚫 Blokir pesan dari user ${userId} (belum login)`);
-    const loginMsg =
-      `⚠️ *Anda belum login!*\n\n` +
-      `Untuk menggunakan bot ini, silakan login terlebih dahulu melalui Mini App.\n\n` +
-      `🔑 Klik tombol di bawah untuk membuka halaman login.`;
-
-    await ctx.reply(loginMsg, {
-      parse_mode: 'Markdown',
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '🔑 Login via Mini App', url: `https://${appUrl}/login.html` }],
-          [{ text: '📊 Buka CatatanKu', url: `https://${appUrl}` }]
-        ]
+    await ctx.reply(
+      `⚠️ *Anda belum login!*\n\nSilakan login terlebih dahulu melalui Mini App.`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔑 Login via Mini App', url: `https://${appUrl}/login.html` }],
+            [{ text: '📊 Buka CatatanKu', url: `https://${appUrl}` }]
+          ]
+        }
       }
-    });
-    // TIDAK memanggil next(), sehingga handler tidak dijalankan
+    );
     return;
   }
-
-  console.log(`✅ User ${userId} lolos middleware, lanjut ke handler`);
   return next();
 });
 
-// Handler /start
 bot.start(async (ctx) => {
   const userId = ctx.from.id.toString();
   const registered = await isUserRegistered(userId);
-
-  let message;
-  let buttons;
-
+  let message, buttons;
   if (registered) {
-    message =
-      `👋 Halo! Selamat datang kembali di CatatanKu!\n\n` +
-      `Kirim pesan seperti:\n\n` +
-      `➜ -5000 (pengeluaran Rp 5.000)\n` +
-      `➜ +20000 makan siang (pemasukan Rp 20.000)\n` +
-      `➜ -15000 transport (pengeluaran transportasi)\n\n` +
-      `📊 Buka Mini App untuk melihat laporan keuanganmu.`;
-
+    message = `👋 Halo! Selamat datang kembali di CatatanKu!\n\nKirim pesan seperti:\n\n➜ -5000 (pengeluaran Rp 5.000)\n➜ +20000 makan siang (pemasukan Rp 20.000)\n➜ -15000 transport (pengeluaran transportasi)\n\n📊 Buka Mini App untuk melihat laporan keuanganmu.`;
     buttons = {
       inline_keyboard: [
         [{ text: '📊 Buka CatatanKu', url: `https://${appUrl}` }],
@@ -226,11 +196,7 @@ bot.start(async (ctx) => {
       ]
     };
   } else {
-    message =
-      `⚠️ *Anda belum login!*\n\n` +
-      `Untuk mulai menggunakan CatatanKu, silakan login terlebih dahulu.\n\n` +
-      `🔑 Klik tombol di bawah untuk membuka halaman login.`;
-
+    message = `⚠️ *Anda belum login!*\n\nUntuk mulai menggunakan CatatanKu, silakan login terlebih dahulu.\n\n🔑 Klik tombol di bawah untuk membuka halaman login.`;
     buttons = {
       inline_keyboard: [
         [{ text: '🔑 Login via Mini App', url: `https://${appUrl}/login.html` }],
@@ -238,55 +204,39 @@ bot.start(async (ctx) => {
       ]
     };
   }
-
-  await ctx.reply(message, {
-    parse_mode: 'Markdown',
-    reply_markup: buttons
-  });
+  await ctx.reply(message, { parse_mode: 'Markdown', reply_markup: buttons });
 });
 
-// Handler pesan teks (dengan pengecekan ganda)
 bot.on('text', async (ctx) => {
   try {
     const text = ctx.message.text;
     const userId = ctx.from.id.toString();
-
-    // Skip perintah /start (sudah dihandle di atas)
     if (text.startsWith('/start')) return;
 
-    // Pengecekan ganda (safety) – jika middleware gagal, ini akan mencegah
     const registered = await isUserRegistered(userId);
     if (!registered) {
-      console.log(`🚫 User ${userId} mencoba transaksi tapi belum login (handler check)`);
-      const loginMsg =
-        `⚠️ *Anda belum login!*\n\n` +
-        `Silakan login terlebih dahulu melalui Mini App.`;
-
-      await ctx.reply(loginMsg, {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '🔑 Login via Mini App', url: `https://${appUrl}/login.html` }]
-          ]
+      await ctx.reply(
+        `⚠️ *Anda belum login!*\n\nSilakan login terlebih dahulu.`,
+        {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🔑 Login via Mini App', url: `https://${appUrl}/login.html` }]
+            ]
+          }
         }
-      });
+      );
       return;
     }
 
     if (!/\d/.test(text)) {
-      await ctx.reply(
-        '❌ Kirim pesan dengan nominal, contoh: `-5000` atau `+20000 makan`',
-        { parse_mode: 'Markdown' }
-      );
+      await ctx.reply('❌ Kirim pesan dengan nominal, contoh: `-5000` atau `+20000 makan`', { parse_mode: 'Markdown' });
       return;
     }
 
     const tx = parseTransaction(text, userId);
     if (!tx) {
-      await ctx.reply(
-        '❌ Format tidak dikenali. Contoh: `-5000` atau `+20000 makan siang`',
-        { parse_mode: 'Markdown' }
-      );
+      await ctx.reply('❌ Format tidak dikenali. Contoh: `-5000` atau `+20000 makan siang`', { parse_mode: 'Markdown' });
       return;
     }
 
@@ -294,12 +244,7 @@ bot.on('text', async (ctx) => {
     const emoji = tx.type === 'income' ? '✅' : '📤';
     const typeLabel = tx.type === 'income' ? 'Pemasukan' : 'Pengeluaran';
     await ctx.reply(
-      `${emoji} *Transaksi berhasil dicatat!*\n\n` +
-      `💳 ${typeLabel}: Rp ${tx.amount.toLocaleString('id-ID')}\n` +
-      `📂 Kategori: ${tx.category}\n` +
-      `📝 Catatan: ${tx.note}\n` +
-      `📅 Tanggal: ${tx.date}\n\n` +
-      `📊 [Lihat di CatatanKu](https://${appUrl})`,
+      `${emoji} *Transaksi berhasil dicatat!*\n\n💳 ${typeLabel}: Rp ${tx.amount.toLocaleString('id-ID')}\n📂 Kategori: ${tx.category}\n📝 Catatan: ${tx.note}\n📅 Tanggal: ${tx.date}\n\n📊 [Lihat di CatatanKu](https://${appUrl})`,
       {
         parse_mode: 'Markdown',
         reply_markup: {
@@ -338,7 +283,6 @@ app.post('/api/webhook', async (req, res) => {
 // API ENDPOINTS
 // ============================================================
 
-// REGISTER USER
 app.post('/api/register', async (req, res) => {
   console.log('📥 Register request:', req.body);
   try {
@@ -359,7 +303,6 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-// CEK USER
 app.get('/api/check-user/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
@@ -371,10 +314,14 @@ app.get('/api/check-user/:userId', async (req, res) => {
   }
 });
 
-// GET semua transaksi
 app.get('/api/transactions/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
+    // Bolehkan baca data tanpa cek ketat, tapi untuk aman kita tetap cek
+    const registered = await isUserRegistered(userId);
+    if (!registered) {
+      return res.status(401).json({ error: 'User tidak terdaftar' });
+    }
     const txs = await getTransactions(userId);
     res.json(txs);
   } catch (e) {
@@ -382,12 +329,15 @@ app.get('/api/transactions/:userId', async (req, res) => {
   }
 });
 
-// POST tambah transaksi
 app.post('/api/transactions', async (req, res) => {
   try {
     const { userId, ...tx } = req.body;
     if (!userId || !tx.amount) {
       return res.status(400).json({ error: 'userId dan amount wajib diisi' });
+    }
+    const registered = await isUserRegistered(userId);
+    if (!registered) {
+      return res.status(401).json({ error: 'User tidak terdaftar' });
     }
     const newTx = {
       ...tx,
@@ -398,14 +348,18 @@ app.post('/api/transactions', async (req, res) => {
     await addTransaction(userId, newTx);
     res.json({ success: true, transaction: newTx });
   } catch (e) {
+    console.error('❌ Error POST /transactions:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
 
-// DELETE transaksi
 app.delete('/api/transactions/:userId/:txId', async (req, res) => {
   try {
     const { userId, txId } = req.params;
+    const registered = await isUserRegistered(userId);
+    if (!registered) {
+      return res.status(401).json({ error: 'User tidak terdaftar' });
+    }
     await deleteTransaction(userId, txId);
     res.json({ success: true });
   } catch (e) {
@@ -413,10 +367,13 @@ app.delete('/api/transactions/:userId/:txId', async (req, res) => {
   }
 });
 
-// DELETE semua transaksi
 app.delete('/api/transactions/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
+    const registered = await isUserRegistered(userId);
+    if (!registered) {
+      return res.status(401).json({ error: 'User tidak terdaftar' });
+    }
     await clearAllTransactions(userId);
     res.json({ success: true });
   } catch (e) {
@@ -424,10 +381,13 @@ app.delete('/api/transactions/:userId', async (req, res) => {
   }
 });
 
-// GET summary
 app.get('/api/summary/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
+    const registered = await isUserRegistered(userId);
+    if (!registered) {
+      return res.status(401).json({ error: 'User tidak terdaftar' });
+    }
     const txs = await getTransactions(userId);
     const total_income = txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
     const total_expense = txs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
@@ -454,9 +414,6 @@ app.get('/api/test', (req, res) => {
   });
 });
 
-// ============================================================
-// ADMIN ENDPOINTS
-// ============================================================
 app.get('/api/admin/users', async (req, res) => {
   const token = req.headers['x-admin-token'];
   if (token !== ADMIN_TOKEN) {
