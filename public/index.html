@@ -579,7 +579,7 @@
 
         async function syncFromBackend() {
             if (USER_ID === 'guest') {
-                showToast('⚠️ Login dulu lewat Telegram');
+                console.log('⚠️ Guest user, skip sync');
                 return;
             }
             try {
@@ -590,10 +590,11 @@
                 renderDashboard();
                 renderHistory();
                 renderReports();
-                showToast('✅ Data berhasil disinkronkan!');
+                // Tampilkan toast hanya jika bukan auto-sync (bisa ditandai)
+                // Kita tidak tampilkan toast setiap kali agar tidak mengganggu
             } catch (e) {
-                console.error(e);
-                showToast('❌ Gagal sinkronisasi, gunakan data lokal');
+                console.error('❌ Sync error:', e);
+                // Jangan tampilkan toast setiap kali gagal, cukup di log
             }
         }
 
@@ -760,11 +761,46 @@
 
             currentPage = page;
 
-            if (page === 'dashboard') renderDashboard();
-            if (page === 'history') renderHistory();
-            if (page === 'reports') renderReports();
+            if (page === 'dashboard') {
+                renderDashboard();
+                // Auto sync saat masuk dashboard
+                if (USER_ID !== 'guest') {
+                    syncFromBackend();
+                }
+                // Mulai polling
+                startAutoSync();
+            } else {
+                // Hentikan polling saat bukan dashboard
+                stopAutoSync();
+                if (page === 'history') renderHistory();
+                if (page === 'reports') renderReports();
+            }
 
             window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // ============================================================
+        // AUTO-SYNC & POLLING
+        // ============================================================
+        let syncInterval = null;
+
+        function startAutoSync() {
+            if (syncInterval) clearInterval(syncInterval);
+            if (USER_ID === 'guest') return;
+            syncInterval = setInterval(() => {
+                if (currentPage === 'dashboard') {
+                    syncFromBackend();
+                }
+            }, 10000); // setiap 10 detik
+            console.log('🔄 Auto-sync started');
+        }
+
+        function stopAutoSync() {
+            if (syncInterval) {
+                clearInterval(syncInterval);
+                syncInterval = null;
+                console.log('⏹️ Auto-sync stopped');
+            }
         }
 
         // ============================================================
@@ -1193,10 +1229,15 @@
         setTimeout(() => {
             if (USER_ID !== 'guest') {
                 syncFromBackend();
+                startAutoSync();
             }
         }, 500);
 
+        // Event listener untuk visibility change (kembali ke tab)
         document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && currentPage === 'dashboard' && USER_ID !== 'guest') {
+                syncFromBackend();
+            }
             if (!document.hidden) {
                 if (currentPage === 'dashboard') renderDashboard();
                 if (currentPage === 'history') renderHistory();
@@ -1206,6 +1247,7 @@
 
         console.log('🚀 CatatanKu siap digunakan!');
         console.log('👤 User ID:', USER_ID);
+        console.log('🔄 Auto-sync enabled (every 10 seconds)');
     </script>
 </body>
 </html>
