@@ -154,8 +154,31 @@ async function clearAllTransactions(userId) {
 // BOT TELEGRAM HANDLER
 // ============================================================
 const bot = new Telegraf(BOT_TOKEN || 'dummy', { handlerTimeout: 90000 });
-const appUrl = process.env.VERCEL_URL || 'catatan-ku-silk.vercel.app';
+const appUrl = process.env.VERCEL_URL
+  ? `https://${process.env.VERCEL_URL}`
+  : 'https://catatan-ku-silk.vercel.app';
 
+// ============================================================
+// HELPER: Buat keyboard Mini App (web_app button)
+// Semua button menggunakan type: web_app agar terbuka
+// sebagai Telegram Mini App, bukan browser eksternal.
+// ============================================================
+function miniAppKeyboard(buttons) {
+  // buttons: array of array of { text, path? }
+  // path opsional, default ke '/'
+  return {
+    inline_keyboard: buttons.map(row =>
+      row.map(btn => ({
+        text: btn.text,
+        web_app: { url: `${appUrl}${btn.path || '/'}` }
+      }))
+    )
+  };
+}
+
+// ============================================================
+// MIDDLEWARE: cek login sebelum semua pesan (kecuali /start)
+// ============================================================
 bot.use(async (ctx, next) => {
   if (!ctx.from) return next();
   const userId = ctx.from.id.toString();
@@ -167,15 +190,12 @@ bot.use(async (ctx, next) => {
   const registered = await isUserRegistered(userId);
   if (!registered) {
     await ctx.reply(
-      `⚠️ *Anda belum login!*\n\nSilakan login terlebih dahulu melalui Mini App.`,
+      `⚠️ *Anda belum login!*\n\nSilakan login terlebih dahulu melalui Mini App CatatanKu.`,
       {
         parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '🔑 Login via Mini App', url: `https://${appUrl}/login.html` }],
-            [{ text: '📊 Buka CatatanKu', url: `https://${appUrl}` }]
-          ]
-        }
+        reply_markup: miniAppKeyboard([
+          [{ text: '🔑 Login ke CatatanKu', path: '/login.html' }]
+        ])
       }
     );
     return;
@@ -183,35 +203,52 @@ bot.use(async (ctx, next) => {
   return next();
 });
 
+// ============================================================
+// COMMAND: /start
+// ============================================================
 bot.start(async (ctx) => {
   const userId = ctx.from.id.toString();
   const registered = await isUserRegistered(userId);
-  let message, buttons;
+
   if (registered) {
-    message = `👋 Halo! Selamat datang kembali di CatatanKu!\n\nKirim pesan seperti:\n\n➜ -5000 (pengeluaran Rp 5.000)\n➜ +20000 makan siang (pemasukan Rp 20.000)\n➜ -15000 transport (pengeluaran transportasi)\n\n📊 Buka Mini App untuk melihat laporan keuanganmu.`;
-    buttons = {
-      inline_keyboard: [
-        [{ text: '📊 Buka CatatanKu', url: `https://${appUrl}` }],
-        [{ text: '📈 Lihat Riwayat', url: `https://${appUrl}/#history` }]
-      ]
-    };
+    await ctx.reply(
+      `👋 *Halo! Selamat datang kembali di CatatanKu!*\n\nCatat transaksi langsung dari sini:\n\n` +
+      `➜ \`-5000\` → pengeluaran Rp 5.000\n` +
+      `➜ \`+20000 makan siang\` → pemasukan Rp 20.000\n` +
+      `➜ \`-15000 transport\` → pengeluaran transportasi\n\n` +
+      `📊 Buka Mini App untuk melihat laporan lengkap.`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: miniAppKeyboard([
+          [{ text: '📊 Buka CatatanKu', path: '/' }],
+          [{ text: '📈 Lihat Riwayat', path: '/#history' }]
+        ])
+      }
+    );
   } else {
-    message = `⚠️ *Anda belum login!*\n\nUntuk mulai menggunakan CatatanKu, silakan login terlebih dahulu.\n\n🔑 Klik tombol di bawah untuk membuka halaman login.`;
-    buttons = {
-      inline_keyboard: [
-        [{ text: '🔑 Login via Mini App', url: `https://${appUrl}/login.html` }],
-        [{ text: '📊 Buka CatatanKu', url: `https://${appUrl}` }]
-      ]
-    };
+    await ctx.reply(
+      `👋 *Selamat datang di CatatanKu!*\n\n` +
+      `CatatanKu membantu kamu mencatat keuangan langsung dari Telegram.\n\n` +
+      `🔑 Login terlebih dahulu untuk mulai mencatat.`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: miniAppKeyboard([
+          [{ text: '🔑 Login ke CatatanKu', path: '/login.html' }]
+        ])
+      }
+    );
   }
-  await ctx.reply(message, { parse_mode: 'Markdown', reply_markup: buttons });
 });
 
+// ============================================================
+// HANDLER: pesan teks (input transaksi)
+// ============================================================
 bot.on('text', async (ctx) => {
   try {
     const text = ctx.message.text;
     const userId = ctx.from.id.toString();
-    if (text.startsWith('/start')) return;
+
+    if (text.startsWith('/')) return; // abaikan semua command lain
 
     const registered = await isUserRegistered(userId);
     if (!registered) {
@@ -219,39 +256,52 @@ bot.on('text', async (ctx) => {
         `⚠️ *Anda belum login!*\n\nSilakan login terlebih dahulu.`,
         {
           parse_mode: 'Markdown',
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '🔑 Login via Mini App', url: `https://${appUrl}/login.html` }]
-            ]
-          }
+          reply_markup: miniAppKeyboard([
+            [{ text: '🔑 Login ke CatatanKu', path: '/login.html' }]
+          ])
         }
       );
       return;
     }
 
     if (!/\d/.test(text)) {
-      await ctx.reply('❌ Kirim pesan dengan nominal, contoh: `-5000` atau `+20000 makan`', { parse_mode: 'Markdown' });
+      await ctx.reply(
+        '❓ Format tidak dikenali.\n\nContoh:\n`-5000 makan siang`\n`+50000 gaji`',
+        { parse_mode: 'Markdown' }
+      );
       return;
     }
 
     const tx = parseTransaction(text, userId);
     if (!tx) {
-      await ctx.reply('❌ Format tidak dikenali. Contoh: `-5000` atau `+20000 makan siang`', { parse_mode: 'Markdown' });
+      await ctx.reply(
+        '❌ Format tidak dikenali.\n\nContoh: `-5000` atau `+20000 makan siang`',
+        { parse_mode: 'Markdown' }
+      );
       return;
     }
 
     await addTransaction(userId, tx);
+
     const emoji = tx.type === 'income' ? '✅' : '📤';
     const typeLabel = tx.type === 'income' ? 'Pemasukan' : 'Pengeluaran';
+    const categoryMap = {
+      dining: 'Makan', shopping: 'Belanja', transport: 'Transportasi',
+      bills: 'Tagihan', fun: 'Hiburan', health: 'Kesehatan',
+      gift: 'Hadiah', other: 'Lainnya'
+    };
+
     await ctx.reply(
-      `${emoji} *Transaksi berhasil dicatat!*\n\n💳 ${typeLabel}: Rp ${tx.amount.toLocaleString('id-ID')}\n📂 Kategori: ${tx.category}\n📝 Catatan: ${tx.note}\n📅 Tanggal: ${tx.date}\n\n📊 [Lihat di CatatanKu](https://${appUrl})`,
+      `${emoji} *Transaksi berhasil dicatat!*\n\n` +
+      `💳 *${typeLabel}:* Rp ${tx.amount.toLocaleString('id-ID')}\n` +
+      `📂 *Kategori:* ${categoryMap[tx.category] || tx.category}\n` +
+      `📝 *Catatan:* ${tx.note}\n` +
+      `📅 *Tanggal:* ${tx.date}`,
       {
         parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '📊 Buka CatatanKu', url: `https://${appUrl}` }]
-          ]
-        }
+        reply_markup: miniAppKeyboard([
+          [{ text: '📊 Lihat di CatatanKu', path: '/' }]
+        ])
       }
     );
   } catch (e) {
@@ -317,7 +367,6 @@ app.get('/api/check-user/:userId', async (req, res) => {
 app.get('/api/transactions/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
-    // Bolehkan baca data tanpa cek ketat, tapi untuk aman kita tetap cek
     const registered = await isUserRegistered(userId);
     if (!registered) {
       return res.status(401).json({ error: 'User tidak terdaftar' });
@@ -406,6 +455,7 @@ app.get('/api/test', (req, res) => {
     message: 'API is working',
     bot_token_set: !!BOT_TOKEN,
     vercel_url: process.env.VERCEL_URL,
+    app_url: appUrl,
     env_vars: {
       BOT_TOKEN: BOT_TOKEN ? '✅' : '❌',
       KV_REST_API_URL: process.env.KV_REST_API_URL ? '✅' : '❌',
