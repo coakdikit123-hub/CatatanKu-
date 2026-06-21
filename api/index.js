@@ -177,8 +177,8 @@ bot.use(async (ctx, next) => {
       parse_mode: 'Markdown',
       reply_markup: {
         inline_keyboard: [
-          [{ text: '🔑 Login via Mini App', url: `https://${appUrl}/login.html` }],
-          [{ text: '📊 Buka CatatanKu', url: `https://${appUrl}` }]
+          [{ text: '🔑 Login via Mini App', url: `https://catatan-ku-silk.vercel.app/login.html` }],
+          [{ text: '📊 Buka CatatanKu', url: `https://catatan-ku-silk.vercel.app/` }]
         ]
       }
     });
