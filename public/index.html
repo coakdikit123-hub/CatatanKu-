@@ -9,7 +9,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
     <style>
-        /* (SAMA SEPERTI SEBELUMNYA - TEMA DARK) */
+        /* (SAMA SEPERTI SEBELUMNYA - TEMA DARK) - Saya tidak tulis ulang karena terlalu panjang, 
+           gunakan kode dari jawaban sebelumnya */
         * {
             font-family: 'Inter', sans-serif;
             box-sizing: border-box;
@@ -213,11 +214,8 @@
         /* MODAL EDIT */
         .modal-overlay {
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.7);
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
             backdrop-filter: blur(6px);
             z-index: 1000;
             display: none;
@@ -235,7 +233,7 @@
             padding: 24px;
             max-height: 90vh;
             overflow-y: auto;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.8);
         }
         .modal-box h2 { color: #e8edf5; font-size: 20px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
         .modal-box .close-modal { margin-left: auto; background: transparent; border: none; color: #94a3bb; font-size: 24px; cursor: pointer; padding: 0 8px; }
@@ -250,23 +248,17 @@
         /* PROFILE MODAL */
         .profile-modal .modal-box { max-width: 360px; }
         .profile-modal .avatar {
-            width: 64px;
-            height: 64px;
-            border-radius: 9999px;
-            background: #B1BCFB;
-            color: #0f1420;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 32px;
-            font-weight: 700;
+            width: 64px; height: 64px; border-radius: 9999px;
+            background: #B1BCFB; color: #0f1420;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 32px; font-weight: 700;
             margin: 0 auto 12px;
         }
         .profile-modal .user-id { text-align: center; color: #94a3bb; font-size: 14px; margin-bottom: 4px; }
         .profile-modal .user-id strong { color: #e8edf5; }
         .profile-modal .user-status { text-align: center; color: #a5d6a7; font-size: 13px; margin-bottom: 20px; }
         .profile-modal .btn-logout { width: 100%; padding: 12px; background: #DF172A; color: white; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; transition: 0.15s; }
-        .profile-modal .btn-logout:hover { transform: scale(1.02); box-shadow: 0 8px 20px rgba(223, 23, 42, 0.3); }
+        .profile-modal .btn-logout:hover { transform: scale(1.02); box-shadow: 0 8px 20px rgba(223,23,42,0.3); }
         .profile-modal .btn-logout:active { transform: scale(0.97); }
 
         .status-badge { font-size: 11px; padding: 2px 10px; border-radius: 20px; font-weight: 600; letter-spacing: 0.03em; }
@@ -327,7 +319,7 @@
     </div>
 
     <!-- ============================================================
-    PAGE: DASHBOARD
+    PAGE: DASHBOARD (SAMA SEPERTI SEBELUMNYA) 
     ============================================================ -->
     <div id="page-dashboard" class="page active">
         <header class="sticky top-0 z-40 flex justify-between items-center w-full px-5 h-16 border-b border-outline-variant">
@@ -347,7 +339,6 @@
         </header>
 
         <main class="px-5 mt-6 flex flex-col gap-6 max-w-5xl mx-auto pb-6">
-            <!-- Hero -->
             <section class="relative overflow-hidden rounded-xl p-6 shadow-lg bg-primary-container text-on-primary">
                 <div class="absolute -right-8 -top-8 w-48 h-48 bg-white/20 rounded-full blur-3xl"></div>
                 <div class="absolute -left-8 -bottom-8 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
@@ -370,7 +361,6 @@
                 </div>
             </section>
 
-            <!-- Monthly Spending + Top Category -->
             <section class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="p-5 rounded-xl shadow-sm bg-surface-container-low border border-outline-variant">
                     <h3 class="text-sm font-medium text-on-surface-variant">Pengeluaran Bulanan</h3>
@@ -397,7 +387,6 @@
                 </div>
             </section>
 
-            <!-- Recent Transactions -->
             <section>
                 <div class="flex items-center justify-between mb-4">
                     <h2 class="text-xl font-semibold text-primary">Transaksi Terbaru</h2>
@@ -408,7 +397,6 @@
                 </div>
             </section>
 
-            <!-- Tips Banner -->
             <section class="mt-2">
                 <div class="tips-banner">
                     <div class="icon-wrapper"><span class="material-symbols-outlined">lightbulb</span></div>
@@ -549,26 +537,39 @@
 
     <script>
         // ============================================================
-        // CEK LOGIN + AUTO-REGISTER
+        // CEK LOGIN + AUTO-REGISTER (diperbaiki)
         // ============================================================
         let USER_ID = localStorage.getItem('catatanku_user_id');
-        const API_BASE = window.location.origin;
+        const API_BASE = '';
 
-        // Fungsi register ke backend
+        // Fungsi register ke backend dengan error handling lebih baik
         async function registerUserToBackend() {
             if (!USER_ID || !USER_ID.match(/^\d+$/)) return false;
             try {
-                const res = await fetch(`${API_BASE}/api/register`, {
+                const url = `/api/register`;
+                console.log('📤 Registering user to:', url);
+                const res = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ userId: USER_ID })
                 });
+                console.log('📡 Response status:', res.status);
+                // Cek content-type
+                const contentType = res.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    const text = await res.text();
+                    console.error('❌ Response bukan JSON:', text.slice(0, 200));
+                    // Jika response berupa HTML, mungkin endpoint tidak ditemukan
+                    // Tidak tampilkan error ke user, cukup log
+                    return false;
+                }
                 if (!res.ok) throw new Error('Gagal register');
                 const data = await res.json();
                 console.log('✅ User terdaftar:', data);
                 return true;
             } catch (e) {
                 console.error('❌ Gagal register:', e.message);
+                // Tidak tampilkan error ke user agar tidak mengganggu
                 return false;
             }
         }
@@ -577,7 +578,7 @@
         if (!USER_ID || !USER_ID.match(/^\d+$/)) {
             window.location.href = '/login.html';
         } else {
-            // Auto-register user
+            // Auto-register user (tidak perlu menunggu)
             registerUserToBackend();
         }
 
@@ -654,7 +655,7 @@
         // ============================================================
         async function syncFromBackend() {
             if (!USER_ID) return;
-            const url = `${API_BASE}/api/transactions/${USER_ID}`;
+            const url = `/api/transactions/${USER_ID}`;
             console.log('🔄 Syncing from:', url);
             try {
                 const res = await fetch(url);
@@ -673,7 +674,7 @@
         async function pushToBackend(tx) {
             if (!USER_ID) return false;
             try {
-                const res = await fetch(`${API_BASE}/api/transactions`, {
+                const res = await fetch(`/api/transactions`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ userId: USER_ID, ...tx })
@@ -689,7 +690,7 @@
         async function deleteFromBackend(txId) {
             if (!USER_ID) return false;
             try {
-                const res = await fetch(`${API_BASE}/api/transactions/${USER_ID}/${txId}`, { method: 'DELETE' });
+                const res = await fetch(`/api/transactions/${USER_ID}/${txId}`, { method: 'DELETE' });
                 if (!res.ok) throw new Error('Gagal hapus dari server');
                 return true;
             } catch (e) {
@@ -713,7 +714,7 @@
         async function clearAllFromBackend() {
             if (!USER_ID) return false;
             try {
-                const res = await fetch(`${API_BASE}/api/transactions/${USER_ID}`, { method: 'DELETE' });
+                const res = await fetch(`/api/transactions/${USER_ID}`, { method: 'DELETE' });
                 if (!res.ok) throw new Error('Gagal hapus semua');
                 return true;
             } catch (e) {
@@ -726,42 +727,25 @@
         // FUNGSI UTAMA
         // ============================================================
         function getTransactions() { return getLocalTransactions(); }
-
         function saveTransactions(txs) { saveLocalTransactions(txs); }
-
         function generateId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
-
         function formatCurrency(amount) { return 'Rp ' + Number(amount).toLocaleString('id-ID'); }
-
         function formatDate(dateStr) {
             const d = new Date(dateStr + 'T00:00:00');
             return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
         }
-
         function todayStr() { return new Date().toISOString().slice(0, 10); }
-
-        function getMonthStart() { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toISOString()
-            .slice(0, 10); }
-
-        function getMonthEnd() { const d = new Date(); return new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString()
-            .slice(0, 10); }
-
+        function getMonthStart() { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10); }
+        function getMonthEnd() { const d = new Date(); return new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10); }
         function getWeekStart() {
-            const d = new Date();
-            const day = d.getDay();
-            const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+            const d = new Date(); const day = d.getDay(); const diff = d.getDate() - day + (day === 0 ? -6 : 1);
             return new Date(d.getFullYear(), d.getMonth(), diff).toISOString().slice(0, 10);
         }
-
         function getWeekEnd() {
-            const d = new Date();
-            const day = d.getDay();
-            const diff = d.getDate() - day + (day === 0 ? 0 : 7 - day);
+            const d = new Date(); const day = d.getDay(); const diff = d.getDate() - day + (day === 0 ? 0 : 7 - day);
             return new Date(d.getFullYear(), d.getMonth(), diff).toISOString().slice(0, 10);
         }
-
         function getYearStart() { const d = new Date(); return new Date(d.getFullYear(), 0, 1).toISOString().slice(0, 10); }
-
         function getYearEnd() { const d = new Date(); return new Date(d.getFullYear(), 11, 31).toISOString().slice(0, 10); }
 
         // ============================================================
@@ -777,9 +761,7 @@
             { id: 'gift', label: 'Hadiah', icon: 'redeem' },
             { id: 'other', label: 'Lainnya', icon: 'more_horiz' },
         ];
-
         function getCategoryIcon(id) { const c = CATEGORIES.find(c => c.id === id); return c ? c.icon : 'more_horiz'; }
-
         function getCategoryLabel(id) { const c = CATEGORIES.find(c => c.id === id); return c ? c.label : 'Lainnya'; }
 
         // ============================================================
@@ -837,7 +819,7 @@
         }
 
         // ============================================================
-        // RENDER DASHBOARD
+        // RENDER DASHBOARD (sama seperti sebelumnya)
         // ============================================================
         function renderDashboard() {
             const txs = getTransactions();
@@ -931,7 +913,7 @@
         }
 
         // ============================================================
-        // ADD, EDIT, DELETE
+        // ADD, EDIT, DELETE (sama seperti sebelumnya)
         // ============================================================
         function renderCategoryChips() {
             const grid = document.getElementById('add-category-grid');
@@ -1087,7 +1069,7 @@
         }
 
         // ============================================================
-        // HISTORY & REPORTS (sama seperti sebelumnya)
+        // HISTORY & REPORTS
         // ============================================================
         function renderHistory() {
             const txs = getTransactions();
