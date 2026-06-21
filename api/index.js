@@ -49,7 +49,9 @@ async function getUser(userId) {
 
 async function isUserRegistered(userId) {
   const user = await getUser(userId);
-  return !!user && user.isActive !== false;
+  const result = !!user && user.isActive !== false;
+  console.log(`🔍 Cek user ${userId}: ${result ? 'TERDAFTAR' : 'BELUM TERDAFTAR'}`);
+  return result;
 }
 
 // ============================================================
@@ -154,34 +156,32 @@ async function clearAllTransactions(userId) {
 const bot = new Telegraf(BOT_TOKEN || 'dummy', { handlerTimeout: 90000 });
 const appUrl = process.env.VERCEL_URL || 'catatan-ku-silk.vercel.app';
 
-// Middleware: Cek login
+// MIDDLEWARE: Cek login
 bot.use(async (ctx, next) => {
   if (!ctx.from) return next();
   const userId = ctx.from.id.toString();
 
-  // Skip check untuk /start (tetap jalan)
+  // Skip check untuk /start
   if (ctx.message?.text?.startsWith('/start')) {
     return next();
   }
 
-  // Cek apakah user terdaftar
   const registered = await isUserRegistered(userId);
   if (!registered) {
-    // Kirim pesan login
-    const loginMsg = 
+    await ctx.reply(
       `⚠️ *Anda belum login!*\n\n` +
       `Untuk menggunakan bot ini, silakan login terlebih dahulu melalui Mini App.\n\n` +
-      `🔑 Klik tombol di bawah untuk membuka halaman login.`;
-
-    await ctx.reply(loginMsg, {
-      parse_mode: 'Markdown',
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '🔑 Login via Mini App', url: `https://catatan-ku-silk.vercel.app/login.html` }],
-          [{ text: '📊 Buka CatatanKu', url: `https://catatan-ku-silk.vercel.app/` }]
-        ]
+      `🔑 Klik tombol di bawah untuk membuka halaman login.`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔑 Login via Mini App', url: `https://${appUrl}/login.html` }],
+            [{ text: '📊 Buka CatatanKu', url: `https://${appUrl}` }]
+          ]
+        }
       }
-    });
+    );
     return;
   }
 
@@ -231,30 +231,28 @@ bot.start(async (ctx) => {
   });
 });
 
-// Handler pesan teks (hanya untuk user terdaftar)
+// Handler pesan teks
 bot.on('text', async (ctx) => {
   try {
     const text = ctx.message.text;
     const userId = ctx.from.id.toString();
 
-    // Skip perintah /start (sudah dihandle di atas)
     if (text.startsWith('/start')) return;
 
-    // Cek login lagi (sebagai safety)
     const registered = await isUserRegistered(userId);
     if (!registered) {
-      const loginMsg =
+      await ctx.reply(
         `⚠️ *Anda belum login!*\n\n` +
-        `Silakan login terlebih dahulu melalui Mini App.`;
-
-      await ctx.reply(loginMsg, {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '🔑 Login via Mini App', url: `https://${appUrl}/login.html` }]
-          ]
+        `Silakan login terlebih dahulu melalui Mini App.`,
+        {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🔑 Login via Mini App', url: `https://${appUrl}/login.html` }]
+            ]
+          }
         }
-      });
+      );
       return;
     }
 
@@ -323,8 +321,9 @@ app.post('/api/webhook', async (req, res) => {
 // API ENDPOINTS
 // ============================================================
 
-// REGISTER USER (dipanggil dari Mini App setelah login)
+// REGISTER USER (dipanggil dari login.html)
 app.post('/api/register', async (req, res) => {
+  console.log('📥 Register request:', req.body);
   try {
     const { userId } = req.body;
     if (!userId || !userId.match(/^\d+$/)) {
@@ -332,11 +331,13 @@ app.post('/api/register', async (req, res) => {
     }
     const user = await registerUser(userId);
     if (user) {
+      console.log(`✅ User ${userId} berhasil register`);
       res.json({ success: true, user });
     } else {
       res.status(500).json({ error: 'Gagal registrasi user' });
     }
   } catch (e) {
+    console.error('❌ Error register:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
@@ -444,7 +445,6 @@ app.get('/api/admin/users', async (req, res) => {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   try {
-    // Dapatkan semua key user
     const keys = await kv.keys('user:*');
     const users = await Promise.all(keys.map(async (key) => {
       const userId = key.replace('user:', '');
