@@ -58,6 +58,8 @@ async function isUserRegistered(userId) {
 // FUNGSI PARSING PESAN
 // ============================================================
 function parseTransaction(text, userId) {
+  // ... (sama seperti sebelumnya)
+  // (saya singkat, tapi tetap sama)
   const trimmed = text.trim();
   let type = 'expense';
   let amountText = trimmed;
@@ -156,9 +158,14 @@ async function clearAllTransactions(userId) {
 const bot = new Telegraf(BOT_TOKEN || 'dummy', { handlerTimeout: 90000 });
 const appUrl = process.env.VERCEL_URL || 'catatan-ku-silk.vercel.app';
 
+// ============================================================
 // MIDDLEWARE: Cek login (dengan log)
+// ============================================================
 bot.use(async (ctx, next) => {
-  if (!ctx.from) return next();
+  if (!ctx.from) {
+    console.log('⏭️ Tidak ada ctx.from, skip');
+    return next();
+  }
   const userId = ctx.from.id.toString();
 
   // Skip check untuk /start (tetap jalan)
@@ -187,10 +194,11 @@ bot.use(async (ctx, next) => {
         ]
       }
     });
+    // TIDAK memanggil next(), sehingga handler tidak dijalankan
     return;
   }
 
-  console.log(`✅ User ${userId} lolos middleware`);
+  console.log(`✅ User ${userId} lolos middleware, lanjut ke handler`);
   return next();
 });
 
@@ -243,13 +251,13 @@ bot.on('text', async (ctx) => {
     const text = ctx.message.text;
     const userId = ctx.from.id.toString();
 
-    // Skip perintah /start
+    // Skip perintah /start (sudah dihandle di atas)
     if (text.startsWith('/start')) return;
 
-    // Pengecekan ganda (safety)
+    // Pengecekan ganda (safety) – jika middleware gagal, ini akan mencegah
     const registered = await isUserRegistered(userId);
     if (!registered) {
-      console.log(`🚫 User ${userId} mencoba transaksi tapi belum login`);
+      console.log(`🚫 User ${userId} mencoba transaksi tapi belum login (handler check)`);
       const loginMsg =
         `⚠️ *Anda belum login!*\n\n` +
         `Silakan login terlebih dahulu melalui Mini App.`;
@@ -351,7 +359,7 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-// CEK USER (digunakan oleh frontend untuk validasi)
+// CEK USER
 app.get('/api/check-user/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
