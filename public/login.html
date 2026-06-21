@@ -70,11 +70,11 @@
             <label for="login-user-id">ID Telegram</label>
             <input id="login-user-id" type="text" placeholder="Contoh: 123456789" autofocus />
             <div id="login-error" class="error-msg">⚠️ ID harus berupa angka</div>
-            <button type="submit" class="btn-login">Masuk</button>
+            <button type="submit" class="btn-login">Login</button>
         </form>
         <div class="info-msg">
             💡 Dapatkan ID Telegram dari bot <a href="https://t.me/userinfobot" target="_blank">@userinfobot</a>
-            <br /><span style="color:#5a6a82;font-size:12px;">Data tersimpan aman di server.</span>
+            <br /><span style="color:#5a6a82;font-size:12px;">Login diperlukan untuk menggunakan bot dan menyimpan data.</span>
         </div>
     </div>
 
@@ -93,7 +93,7 @@
             window.toastTimeout = setTimeout(() => el.classList.remove('show'), 2500);
         }
 
-        function handleLogin(e) {
+        async function handleLogin(e) {
             e.preventDefault();
             const input = document.getElementById('login-user-id');
             const val = input.value.trim();
@@ -105,8 +105,26 @@
             }
             errorEl.style.display = 'none';
 
+            // 1. Simpan ke localStorage
             localStorage.setItem('catatanku_user_id', val);
-            showToast('✅ Login berhasil!');
+
+            // 2. Register user ke backend
+            try {
+                const res = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: val })
+                });
+                if (!res.ok) throw new Error('Gagal register');
+                const data = await res.json();
+                console.log('✅ User terdaftar:', data);
+                showToast('✅ Login berhasil!');
+            } catch (e) {
+                console.error('❌ Gagal register:', e.message);
+                showToast('⚠️ Login berhasil tapi gagal sync ke server.');
+            }
+
+            // 3. Redirect ke index
             setTimeout(() => {
                 window.location.href = '/';
             }, 500);
