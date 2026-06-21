@@ -9,20 +9,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
     <style>
-        /* ============================================================
-           TEMA DARK - Lumina Finance Dark
-           (SAMA PERSIS SEPERTI SEBELUMNYA)
-           ============================================================ */
+        /* ===== STYLE SAMA SEPERTI SEBELUMNYA (saya singkat) ===== */
         * { font-family: 'Inter', sans-serif; box-sizing: border-box; }
-        body {
-            background-color: #0f1420;
-            color: #e8edf5;
-            -webkit-tap-highlight-color: transparent;
-            min-height: 100dvh;
-            margin: 0;
-            padding: 0;
-            padding-bottom: 80px;
-        }
+        body { background-color: #0f1420; color: #e8edf5; -webkit-tap-highlight-color: transparent; min-height: 100dvh; margin: 0; padding: 0; padding-bottom: 80px; }
         .bg-primary { background-color: #B1BCFB !important; }
         .text-primary { color: #B1BCFB !important; }
         .border-primary { border-color: #B1BCFB !important; }
@@ -196,29 +185,10 @@
             .tips-banner .badge { margin-left: 0; margin-top: 10px; width: 100%; text-align: center; }
         }
 
-        /* MODAL EDIT */
-        .modal-overlay {
-            position: fixed; top:0; left:0; right:0; bottom:0;
-            background: rgba(0,0,0,0.7);
-            backdrop-filter: blur(6px);
-            z-index: 1000;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
+        /* MODAL EDIT & PROFILE (sama) */
+        .modal-overlay { position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.7); backdrop-filter: blur(6px); z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px; }
         .modal-overlay.active { display: flex; }
-        .modal-box {
-            background: #1a2238;
-            border: 1px solid #B1BCFB;
-            border-radius: 16px;
-            max-width: 480px;
-            width: 100%;
-            padding: 24px;
-            max-height: 90vh;
-            overflow-y: auto;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.8);
-        }
+        .modal-box { background: #1a2238; border: 1px solid #B1BCFB; border-radius: 16px; max-width: 480px; width: 100%; padding: 24px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.8); }
         .modal-box h2 { color: #e8edf5; font-size: 20px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
         .modal-box .close-modal { margin-left: auto; background: transparent; border: none; color: #94a3bb; font-size: 24px; cursor: pointer; padding: 0 8px; }
         .modal-box .close-modal:hover { color: #e8edf5; }
@@ -229,15 +199,8 @@
         .edit-actions .btn-cancel { background: #2a3550; color: #94a3bb; }
         .edit-actions .btn-cancel:hover { background: #3a4560; }
 
-        /* PROFILE MODAL */
         .profile-modal .modal-box { max-width: 360px; }
-        .profile-modal .avatar {
-            width: 64px; height: 64px; border-radius: 9999px;
-            background: #B1BCFB; color: #0f1420;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 32px; font-weight: 700;
-            margin: 0 auto 12px;
-        }
+        .profile-modal .avatar { width: 64px; height: 64px; border-radius: 9999px; background: #B1BCFB; color: #0f1420; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 700; margin: 0 auto 12px; }
         .profile-modal .user-id { text-align: center; color: #94a3bb; font-size: 14px; margin-bottom: 4px; }
         .profile-modal .user-id strong { color: #e8edf5; }
         .profile-modal .user-status { text-align: center; color: #a5d6a7; font-size: 13px; margin-bottom: 20px; }
@@ -249,7 +212,6 @@
         .status-online { background: #2e7d32; color: #a5d6a7; }
         .status-local { background: #b71c1c; color: #ffcdd2; }
 
-        /* LOADING OVERLAY */
         .loading-overlay {
             position: fixed; top:0; left:0; right:0; bottom:0;
             background: #0f1420;
@@ -260,14 +222,7 @@
             flex-direction: column;
             gap: 16px;
         }
-        .loading-overlay .spinner {
-            width: 40px;
-            height: 40px;
-            border: 3px solid #2a3550;
-            border-top-color: #B1BCFB;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-        }
+        .loading-overlay .spinner { width: 40px; height: 40px; border: 3px solid #2a3550; border-top-color: #B1BCFB; border-radius: 50%; animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
         .loading-overlay p { color: #94a3bb; font-size: 14px; }
     </style>
@@ -283,9 +238,7 @@
     <!-- TOAST -->
     <div id="toast" class="toast"></div>
 
-    <!-- ============================================================
-    MODAL EDIT
-    ============================================================ -->
+    <!-- ===== MODAL EDIT ===== -->
     <div id="edit-modal" class="modal-overlay">
         <div class="modal-box">
             <h2><span class="material-symbols-outlined">edit</span> Edit Transaksi <button class="close-modal" onclick="closeEditModal()">✕</button></h2>
@@ -321,9 +274,7 @@
         </div>
     </div>
 
-    <!-- ============================================================
-    MODAL PROFILE
-    ============================================================ -->
+    <!-- ===== MODAL PROFILE ===== -->
     <div id="profile-modal" class="modal-overlay profile-modal">
         <div class="modal-box">
             <div style="display:flex;justify-content:flex-end;"><button class="close-modal" onclick="closeProfileModal()">✕</button></div>
@@ -334,9 +285,7 @@
         </div>
     </div>
 
-    <!-- ============================================================
-    PAGE: DASHBOARD
-    ============================================================ -->
+    <!-- ===== PAGE: DASHBOARD ===== -->
     <div id="page-dashboard" class="page active">
         <header class="sticky top-0 z-40 flex justify-between items-center w-full px-5 h-16 border-b border-outline-variant">
             <div class="flex items-center gap-3">
@@ -430,9 +379,7 @@
         </main>
     </div>
 
-    <!-- ============================================================
-    PAGE: ADD TRANSACTION
-    ============================================================ -->
+    <!-- ===== PAGE: ADD ===== -->
     <div id="page-add" class="page">
         <div class="add-page-header">
             <button class="back-btn" onclick="navigateTo('dashboard')"><span class="material-symbols-outlined">arrow_back</span></button>
@@ -474,9 +421,7 @@
         </main>
     </div>
 
-    <!-- ============================================================
-    PAGE: HISTORY
-    ============================================================ -->
+    <!-- ===== PAGE: HISTORY ===== -->
     <div id="page-history" class="page">
         <header class="sticky top-0 z-40 flex justify-between items-center w-full px-5 h-16 border-b border-outline-variant">
             <div class="flex items-center gap-3"><span class="material-symbols-outlined text-primary">receipt_long</span><h1 class="text-lg font-semibold text-on-surface">Riwayat</h1></div>
@@ -507,9 +452,7 @@
         </main>
     </div>
 
-    <!-- ============================================================
-    PAGE: REPORTS
-    ============================================================ -->
+    <!-- ===== PAGE: REPORTS ===== -->
     <div id="page-reports" class="page">
         <header class="sticky top-0 z-40 flex justify-between items-center w-full px-5 h-16 border-b border-outline-variant">
             <div class="flex items-center gap-3"><span class="material-symbols-outlined text-primary">pie_chart</span><h1 class="text-lg font-semibold text-on-surface">Laporan</h1></div>
@@ -553,9 +496,7 @@
         </main>
     </div>
 
-    <!-- ============================================================
-    BOTTOM NAV
-    ============================================================ -->
+    <!-- ===== BOTTOM NAV ===== -->
     <nav class="bottom-nav fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-3 py-2 border-t rounded-t-xl">
         <a href="#" class="flex flex-col items-center justify-center px-3 py-1 active" data-page="dashboard" onclick="navigateTo('dashboard')"><span class="material-symbols-outlined">home</span><span>Beranda</span></a>
         <a href="#" class="flex flex-col items-center justify-center px-3 py-1" data-page="history" onclick="navigateTo('history')"><span class="material-symbols-outlined">receipt_long</span><span>Riwayat</span></a>
@@ -569,40 +510,40 @@
         // ============================================================
         const API_BASE = '';
         let USER_ID = localStorage.getItem('catatanku_user_id');
-        let IS_LOGGED_IN = false;
 
-        async function checkUserRegistration() {
+        // Fungsi untuk logout dan redirect ke login
+        function logout() {
+            localStorage.removeItem('catatanku_user_id');
+            window.location.href = '/login.html';
+        }
+
+        // Fungsi untuk mengecek apakah user terdaftar (dipanggil sebelum aksi penting)
+        async function checkUserBeforeAction() {
             if (!USER_ID || !USER_ID.match(/^\d+$/)) {
-                window.location.href = '/login.html';
+                logout();
                 return false;
             }
-
             try {
                 const res = await fetch(`/api/check-user/${USER_ID}`);
                 if (!res.ok) throw new Error('Gagal cek user');
                 const data = await res.json();
-                console.log('🔍 Cek user:', data);
-
-                if (data.registered === true) {
-                    IS_LOGGED_IN = true;
-                    return true;
-                } else {
-                    console.warn('⚠️ User tidak terdaftar di server, logout');
-                    localStorage.removeItem('catatanku_user_id');
-                    window.location.href = '/login.html';
+                if (data.registered !== true) {
+                    showToast('⚠️ Sesi Anda telah berakhir, silakan login ulang.');
+                    logout();
                     return false;
                 }
+                return true;
             } catch (e) {
                 console.error('❌ Error cek user:', e.message);
-                showToast('⚠️ Gagal verifikasi sesi, data lokal digunakan');
-                IS_LOGGED_IN = true;
-                return true;
+                showToast('⚠️ Gagal verifikasi, silakan login ulang.');
+                logout();
+                return false;
             }
         }
 
-        // Jalankan pengecekan sebelum aplikasi dimuat
+        // Jalankan pengecekan di awal
         (async function init() {
-            const valid = await checkUserRegistration();
+            const valid = await checkUserBeforeAction();
             if (!valid) return;
 
             document.getElementById('loading-overlay').style.display = 'none';
@@ -679,12 +620,6 @@
             document.getElementById('profile-modal').classList.remove('active');
         }
 
-        function logout() {
-            if (!confirm('Yakin ingin logout?')) return;
-            localStorage.removeItem('catatanku_user_id');
-            window.location.href = '/login.html';
-        }
-
         // ============================================================
         // DATA LAYER
         // ============================================================
@@ -706,6 +641,10 @@
         // ============================================================
         async function syncFromBackend() {
             if (!USER_ID) return;
+            // Cek validasi sebelum sync (opsional)
+            const valid = await checkUserBeforeAction();
+            if (!valid) return;
+
             try {
                 const res = await fetch(`/api/transactions/${USER_ID}`);
                 if (!res.ok) throw new Error('Gagal sync');
@@ -719,28 +658,56 @@
 
         async function pushToBackend(tx) {
             if (!USER_ID) return false;
+            // Cek validasi sebelum push (penting!)
+            const valid = await checkUserBeforeAction();
+            if (!valid) return false;
+
             try {
                 const res = await fetch('/api/transactions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ userId: USER_ID, ...tx })
                 });
-                if (!res.ok) throw new Error('Gagal simpan ke server');
+                if (!res.ok) {
+                    // Jika 401, user tidak terdaftar, logout
+                    if (res.status === 401) {
+                        showToast('⚠️ Sesi Anda telah berakhir, silakan login ulang.');
+                        logout();
+                        return false;
+                    }
+                    throw new Error('Gagal simpan ke server');
+                }
                 return true;
-            } catch (e) { console.error(e); return false; }
+            } catch (e) {
+                console.error(e);
+                return false;
+            }
         }
 
         async function deleteFromBackend(txId) {
             if (!USER_ID) return false;
+            const valid = await checkUserBeforeAction();
+            if (!valid) return false;
+
             try {
                 const res = await fetch(`/api/transactions/${USER_ID}/${txId}`, { method: 'DELETE' });
-                if (!res.ok) throw new Error('Gagal hapus dari server');
+                if (!res.ok) {
+                    if (res.status === 401) {
+                        showToast('⚠️ Sesi Anda telah berakhir, silakan login ulang.');
+                        logout();
+                        return false;
+                    }
+                    throw new Error('Gagal hapus dari server');
+                }
                 return true;
             } catch (e) { console.error(e); return false; }
         }
 
         async function updateToBackend(txId, updatedTx) {
             if (!USER_ID) return false;
+            const valid = await checkUserBeforeAction();
+            if (!valid) return false;
+
             try {
                 const del = await deleteFromBackend(txId);
                 if (!del) return false;
@@ -750,9 +717,19 @@
 
         async function clearAllFromBackend() {
             if (!USER_ID) return false;
+            const valid = await checkUserBeforeAction();
+            if (!valid) return false;
+
             try {
                 const res = await fetch(`/api/transactions/${USER_ID}`, { method: 'DELETE' });
-                if (!res.ok) throw new Error('Gagal hapus semua');
+                if (!res.ok) {
+                    if (res.status === 401) {
+                        showToast('⚠️ Sesi Anda telah berakhir, silakan login ulang.');
+                        logout();
+                        return false;
+                    }
+                    throw new Error('Gagal hapus semua');
+                }
                 return true;
             } catch (e) { console.error(e); return false; }
         }
@@ -936,7 +913,7 @@
         }
 
         // ============================================================
-        // ADD, EDIT, DELETE
+        // ADD, EDIT, DELETE (dengan pengecekan login)
         // ============================================================
         function renderCategoryChips() {
             const grid = document.getElementById('add-category-grid');
@@ -965,6 +942,11 @@
 
         async function saveTransaction(e) {
             e.preventDefault();
+
+            // 1. Cek login valid
+            const valid = await checkUserBeforeAction();
+            if (!valid) return;
+
             const amount = parseFloat(document.getElementById('add-amount').value);
             if (!amount || amount <= 0) { showToast('⚠️ Masukkan jumlah yang valid'); return; }
             const date = document.getElementById('add-date').value;
@@ -976,6 +958,7 @@
             const newTx = { ...tx, id: generateId(), created_at: new Date().toISOString(), user_id: USER_ID };
             txs.push(newTx);
             saveTransactions(txs);
+
             const success = await pushToBackend(tx);
             if (!success) {
                 showToast('⚠️ Tersimpan lokal, tapi gagal sync ke server');
@@ -995,30 +978,34 @@
         let editCategory = 'transport';
 
         function editTransaction(id) {
-            const txs = getTransactions();
-            const tx = txs.find(t => t.id === id);
-            if (!tx) { showToast('❌ Transaksi tidak ditemukan'); return; }
-            editTxId = id;
-            document.getElementById('edit-id').value = id;
-            document.getElementById('edit-amount').value = tx.amount;
-            document.getElementById('edit-date').value = tx.date;
-            document.getElementById('edit-account').value = tx.account || 'Dompet Utama';
-            document.getElementById('edit-note').value = tx.note || '';
-            editType = tx.type;
-            editCategory = tx.category;
-            document.querySelectorAll('#edit-type-toggle .tab-btn').forEach(btn => {
-                btn.classList.remove('active');
-                if (btn.dataset.type === tx.type) btn.classList.add('active');
+            // Cek login valid sebelum mengedit
+            checkUserBeforeAction().then(valid => {
+                if (!valid) return;
+                const txs = getTransactions();
+                const tx = txs.find(t => t.id === id);
+                if (!tx) { showToast('❌ Transaksi tidak ditemukan'); return; }
+                editTxId = id;
+                document.getElementById('edit-id').value = id;
+                document.getElementById('edit-amount').value = tx.amount;
+                document.getElementById('edit-date').value = tx.date;
+                document.getElementById('edit-account').value = tx.account || 'Dompet Utama';
+                document.getElementById('edit-note').value = tx.note || '';
+                editType = tx.type;
+                editCategory = tx.category;
+                document.querySelectorAll('#edit-type-toggle .tab-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                    if (btn.dataset.type === tx.type) btn.classList.add('active');
+                });
+                const grid = document.getElementById('edit-category-grid');
+                grid.innerHTML = CATEGORIES.map(cat => {
+                    const active = editCategory === cat.id ? 'active' : '';
+                    return `<div class="category-chip ${active}" onclick="setEditCategory('${cat.id}')">
+                            <div class="icon-wrap"><span class="material-symbols-outlined">${cat.icon}</span></div>
+                            <span class="label">${cat.label}</span>
+                        </div>`;
+                }).join('');
+                document.getElementById('edit-modal').classList.add('active');
             });
-            const grid = document.getElementById('edit-category-grid');
-            grid.innerHTML = CATEGORIES.map(cat => {
-                const active = editCategory === cat.id ? 'active' : '';
-                return `<div class="category-chip ${active}" onclick="setEditCategory('${cat.id}')">
-                        <div class="icon-wrap"><span class="material-symbols-outlined">${cat.icon}</span></div>
-                        <span class="label">${cat.label}</span>
-                    </div>`;
-            }).join('');
-            document.getElementById('edit-modal').classList.add('active');
         }
 
         function setEditType(type) {
@@ -1045,6 +1032,11 @@
 
         async function saveEdit(e) {
             e.preventDefault();
+
+            // Cek login valid
+            const valid = await checkUserBeforeAction();
+            if (!valid) return;
+
             const id = document.getElementById('edit-id').value;
             const amount = parseFloat(document.getElementById('edit-amount').value);
             if (!amount || amount <= 0) { showToast('⚠️ Jumlah harus lebih dari 0'); return; }
@@ -1058,6 +1050,7 @@
             if (index === -1) { showToast('❌ Transaksi tidak ditemukan'); return; }
             txs[index] = { ...txs[index], ...updatedTx };
             saveTransactions(txs);
+
             const success = await updateToBackend(id, { ...updatedTx, id: generateId() });
             if (!success) {
                 showToast('⚠️ Tersimpan lokal, tapi gagal sync ke server');
@@ -1071,6 +1064,10 @@
 
         // --- DELETE ---
         async function deleteTransaction(id) {
+            // Cek login valid
+            const valid = await checkUserBeforeAction();
+            if (!valid) return;
+
             if (!confirm('Hapus transaksi ini?')) return;
             let txs = getTransactions();
             txs = txs.filter(t => t.id !== id);
@@ -1082,6 +1079,8 @@
         }
 
         async function clearAllData() {
+            const valid = await checkUserBeforeAction();
+            if (!valid) return;
             if (!confirm('Hapus semua data keuangan?')) return;
             saveTransactions([]);
             await clearAllFromBackend();
@@ -1092,7 +1091,7 @@
         }
 
         // ============================================================
-        // HISTORY & REPORTS
+        // HISTORY & REPORTS (sama)
         // ============================================================
         function renderHistory() {
             const txs = getTransactions();
