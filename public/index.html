@@ -700,103 +700,57 @@
             background: #3a4560;
         }
 
-        /* ----- LOGIN PAGE ----- */
-        #page-login {
+        /* ----- PROFILE MODAL ----- */
+        .profile-modal .modal-box {
+            max-width: 360px;
+        }
+        .profile-modal .avatar {
+            width: 64px;
+            height: 64px;
+            border-radius: 9999px;
+            background: #B1BCFB;
+            color: #0f1420;
             display: flex;
             align-items: center;
             justify-content: center;
-            min-height: 100dvh;
-            padding: 20px;
-        }
-        #page-login .login-box {
-            background: #1a2238;
-            border: 1px solid #B1BCFB;
-            border-radius: 20px;
-            padding: 40px 32px;
-            max-width: 400px;
-            width: 100%;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
-        }
-        #page-login .login-box h1 {
-            color: #B1BCFB;
-            font-size: 28px;
+            font-size: 32px;
             font-weight: 700;
-            text-align: center;
-            margin-bottom: 8px;
+            margin: 0 auto 12px;
         }
-        #page-login .login-box .sub {
-            color: #94a3bb;
+        .profile-modal .user-id {
             text-align: center;
+            color: #94a3bb;
             font-size: 14px;
-            margin-bottom: 28px;
+            margin-bottom: 4px;
         }
-        #page-login .login-box label {
-            color: #94a3bb;
-            font-size: 12px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            display: block;
-            margin-bottom: 6px;
-        }
-        #page-login .login-box input {
-            width: 100%;
-            padding: 14px 16px;
-            border-radius: 12px;
-            border: 1px solid #2a3550;
-            background: #0f1420;
+        .profile-modal .user-id strong {
             color: #e8edf5;
-            font-size: 16px;
-            transition: border-color 0.2s;
         }
-        #page-login .login-box input:focus {
-            border-color: #B1BCFB;
-            outline: none;
+        .profile-modal .user-status {
+            text-align: center;
+            color: #a5d6a7;
+            font-size: 13px;
+            margin-bottom: 20px;
         }
-        #page-login .login-box .btn-login {
+        .profile-modal .btn-logout {
             width: 100%;
-            padding: 14px;
+            padding: 12px;
+            background: #DF172A;
+            color: white;
             border: none;
-            border-radius: 12px;
-            background: #B1BCFB;
-            color: #0f1420;
+            border-radius: 10px;
             font-weight: 600;
-            font-size: 16px;
             cursor: pointer;
             transition: 0.15s;
-            margin-top: 16px;
         }
-        #page-login .login-box .btn-login:hover {
-            transform: scale(1.01);
-            box-shadow: 0 8px 25px rgba(177, 188, 251, 0.25);
+        .profile-modal .btn-logout:hover {
+            transform: scale(1.02);
+            box-shadow: 0 8px 20px rgba(223, 23, 42, 0.3);
         }
-        #page-login .login-box .btn-login:active {
+        .profile-modal .btn-logout:active {
             transform: scale(0.97);
         }
-        #page-login .login-box .error-msg {
-            color: #DF172A;
-            font-size: 13px;
-            text-align: center;
-            margin-top: 12px;
-            display: none;
-        }
-        #page-login .login-box .info-msg {
-            color: #94a3bb;
-            font-size: 13px;
-            text-align: center;
-            margin-top: 16px;
-            border-top: 1px solid #2a3550;
-            padding-top: 16px;
-        }
-        #page-login .login-box .info-msg a {
-            color: #B1BCFB;
-            text-decoration: none;
-        }
-        #page-login .login-box .info-msg a:hover {
-            text-decoration: underline;
-        }
 
-        /* status badge */
         .status-badge {
             font-size: 11px;
             padding: 2px 10px;
@@ -818,26 +772,6 @@
 
     <!-- TOAST -->
     <div id="toast" class="toast"></div>
-
-    <!-- ============================================================
-    PAGE: LOGIN
-    ============================================================ -->
-    <div id="page-login" class="page active">
-        <div class="login-box">
-            <h1>📊 CatatanKu</h1>
-            <p class="sub">Masukkan ID Telegram kamu untuk sinkronisasi</p>
-            <form id="login-form" onsubmit="handleLogin(event)">
-                <label for="login-user-id">ID Telegram</label>
-                <input id="login-user-id" type="text" placeholder="Contoh: 123456789" autofocus />
-                <div id="login-error" class="error-msg">⚠️ ID harus berupa angka</div>
-                <button type="submit" class="btn-login">Masuk</button>
-            </form>
-            <div class="info-msg">
-                💡 Dapatkan ID Telegram dari bot <a href="https://t.me/userinfobot" target="_blank">@userinfobot</a>
-                <br /><span style="color:#5a6a82;font-size:12px;">Data tersimpan aman di server.</span>
-            </div>
-        </div>
-    </div>
 
     <!-- ============================================================
     MODAL EDIT
@@ -885,9 +819,24 @@
     </div>
 
     <!-- ============================================================
+    MODAL PROFILE
+    ============================================================ -->
+    <div id="profile-modal" class="modal-overlay profile-modal">
+        <div class="modal-box">
+            <div style="display:flex;justify-content:flex-end;">
+                <button class="close-modal" onclick="closeProfileModal()">✕</button>
+            </div>
+            <div class="avatar" id="profile-avatar">👤</div>
+            <div class="user-id"><strong>ID Telegram</strong><br /><span id="profile-user-id">-</span></div>
+            <div class="user-status" id="profile-status">🔒 Online</div>
+            <button class="btn-logout" onclick="logout()">🚪 Logout</button>
+        </div>
+    </div>
+
+    <!-- ============================================================
     PAGE: DASHBOARD
     ============================================================ -->
-    <div id="page-dashboard" class="page">
+    <div id="page-dashboard" class="page active">
         <header class="sticky top-0 z-40 flex justify-between items-center w-full px-5 h-16 border-b border-outline-variant">
             <div class="flex items-center gap-3">
                 <span class="material-symbols-outlined text-primary">account_balance_wallet</span>
@@ -898,11 +847,8 @@
                 <button class="p-2 rounded-full hover:bg-surface-low transition-colors" onclick="syncFromBackend()" title="Sinkronisasi">
                     <span class="material-symbols-outlined text-primary">sync</span>
                 </button>
-                <button class="p-2 rounded-full hover:bg-surface-low transition-colors" onclick="showToast('📬 Tidak ada notifikasi')">
-                    <span class="material-symbols-outlined text-primary">notifications</span>
-                </button>
-                <button class="p-2 rounded-full hover:bg-surface-low transition-colors" onclick="logout()" title="Logout">
-                    <span class="material-symbols-outlined text-primary">logout</span>
+                <button class="p-2 rounded-full hover:bg-surface-low transition-colors" onclick="openProfileModal()" title="Profile">
+                    <span class="material-symbols-outlined text-primary">person</span>
                 </button>
             </div>
         </header>
@@ -1119,127 +1065,35 @@
 
     <script>
         // ============================================================
-        // LOGIN / AUTH
+        // CEK LOGIN
         // ============================================================
-        let USER_ID = null;
-        let IS_TELEGRAM = false;
-        let tg = null;
+        let USER_ID = localStorage.getItem('catatanku_user_id');
+        if (!USER_ID || !USER_ID.match(/^\d+$/)) {
+            // Redirect ke login
+            window.location.href = '/login.html';
+        }
 
-        // Cek apakah di Telegram WebApp
+        // ============================================================
+        // TELEGRAM INTEGRATION (opsional)
+        // ============================================================
+        let tg = null;
+        let IS_TELEGRAM = false;
         try {
             tg = window.Telegram?.WebApp;
             if (tg) {
                 tg.ready();
                 tg.expand();
                 IS_TELEGRAM = true;
-                let user = tg.initDataUnsafe?.user;
-                if (user?.id) {
-                    USER_ID = user.id.toString();
-                    console.log('👤 Telegram User ID:', USER_ID);
-                } else {
-                    // Coba parse dari initData
-                    const params = new URLSearchParams(tg.initData || '');
-                    const userStr = params.get('user');
-                    if (userStr) {
-                        try {
-                            const userObj = JSON.parse(decodeURIComponent(userStr));
-                            if (userObj.id) USER_ID = userObj.id.toString();
-                        } catch (e) {}
-                    }
-                }
             }
-        } catch (e) { console.warn('⚠️ Error init Telegram:', e); }
-
-        // Jika ID belum dapat, cek localStorage
-        if (!USER_ID) {
-            const stored = localStorage.getItem('catatanku_user_id');
-            if (stored && stored.match(/^\d+$/)) {
-                USER_ID = stored;
-                console.log('👤 User ID dari localStorage:', USER_ID);
-            }
-        }
-
-        // Fungsi login manual
-        function handleLogin(e) {
-            e.preventDefault();
-            const input = document.getElementById('login-user-id');
-            const val = input.value.trim();
-            const errorEl = document.getElementById('login-error');
-
-            if (!val || !val.match(/^\d+$/)) {
-                errorEl.style.display = 'block';
-                return;
-            }
-            errorEl.style.display = 'none';
-
-            USER_ID = val;
-            localStorage.setItem('catatanku_user_id', USER_ID);
-            showToast('✅ Login berhasil!');
-            goToApp();
-        }
-
-        function logout() {
-            if (!confirm('Yakin ingin logout? Data tetap tersimpan di server.')) return;
-            localStorage.removeItem('catatanku_user_id');
-            USER_ID = null;
-            document.getElementById('page-login').classList.add('active');
-            document.getElementById('page-dashboard').classList.remove('active');
-            document.getElementById('page-add').classList.remove('active');
-            document.getElementById('page-history').classList.remove('active');
-            document.getElementById('page-reports').classList.remove('active');
-            document.getElementById('login-user-id').value = '';
-            showToast('👋 Logout berhasil');
-        }
-
-        function goToApp() {
-            document.getElementById('page-login').classList.remove('active');
-            document.getElementById('page-dashboard').classList.add('active');
-            updateStatus();
-            renderDashboard();
-            // Sync pertama
-            setTimeout(() => {
-                syncFromBackend();
-                startAutoSync();
-            }, 500);
-        }
-
-        function updateStatus() {
-            const badge = document.getElementById('status-badge');
-            if (USER_ID && USER_ID.match(/^\d+$/)) {
-                badge.className = 'status-badge status-online';
-                badge.textContent = '🔒 Online';
-            } else {
-                badge.className = 'status-badge status-local';
-                badge.textContent = '📱 Lokal';
-            }
-        }
+        } catch (e) { console.warn('Not in Telegram WebApp'); }
 
         // ============================================================
-        // STARTUP: Tampilkan login atau langsung masuk
+        // API BASE
         // ============================================================
-        if (USER_ID && USER_ID.match(/^\d+$/)) {
-            // Sudah login, langsung ke app
-            document.getElementById('page-login').classList.remove('active');
-            document.getElementById('page-dashboard').classList.add('active');
-            updateStatus();
-            // Load data lokal dulu
-            renderDashboard();
-            // Sync setelah delay
-            setTimeout(() => {
-                syncFromBackend();
-                startAutoSync();
-            }, 500);
-        } else {
-            // Tampilkan login
-            document.getElementById('page-login').classList.add('active');
-            // Jika dari Telegram tapi tidak dapat ID, isi placeholder dengan pesan
-            if (IS_TELEGRAM) {
-                document.getElementById('login-user-id').placeholder = 'Gagal deteksi ID, masukkan manual';
-            }
-        }
+        const API_BASE = window.location.origin;
 
         // ============================================================
-        // TOAST, API, DATA LAYER (sama seperti sebelumnya)
+        // TOAST
         // ============================================================
         function showToast(msg) {
             if (tg) {
@@ -1257,7 +1111,28 @@
             if (tg) { tg.close(); } else { window.close(); }
         }
 
-        const API_BASE = window.location.origin;
+        // ============================================================
+        // PROFILE
+        // ============================================================
+        function openProfileModal() {
+            document.getElementById('profile-user-id').textContent = USER_ID;
+            document.getElementById('profile-status').textContent = IS_TELEGRAM ? '🔒 Online (Telegram)' : '🔒 Online (Web)';
+            document.getElementById('profile-modal').classList.add('active');
+        }
+
+        function closeProfileModal() {
+            document.getElementById('profile-modal').classList.remove('active');
+        }
+
+        function logout() {
+            if (!confirm('Yakin ingin logout?')) return;
+            localStorage.removeItem('catatanku_user_id');
+            window.location.href = '/login.html';
+        }
+
+        // ============================================================
+        // DATA LAYER
+        // ============================================================
         const STORAGE_KEY = 'catatanku_transactions';
 
         function getLocalTransactions() {
@@ -1271,11 +1146,11 @@
             localStorage.setItem(STORAGE_KEY, JSON.stringify(txs));
         }
 
+        // ============================================================
+        // SYNC FUNCTIONS
+        // ============================================================
         async function syncFromBackend() {
-            if (!USER_ID || !USER_ID.match(/^\d+$/)) {
-                showToast('⚠️ Login dulu untuk sync');
-                return;
-            }
+            if (!USER_ID) return;
             const url = `${API_BASE}/api/transactions/${USER_ID}`;
             console.log('🔄 Syncing from:', url);
             try {
@@ -1286,15 +1161,14 @@
                 renderDashboard();
                 renderHistory();
                 renderReports();
-                // showToast('✅ Data tersinkronisasi!');
             } catch (e) {
                 console.error('❌ Sync error:', e.message);
-                // showToast('❌ Gagal sync: ' + e.message);
+                showToast('❌ Gagal sync: ' + e.message);
             }
         }
 
         async function pushToBackend(tx) {
-            if (!USER_ID || !USER_ID.match(/^\d+$/)) return false;
+            if (!USER_ID) return false;
             try {
                 const res = await fetch(`${API_BASE}/api/transactions`, {
                     method: 'POST',
@@ -1310,7 +1184,7 @@
         }
 
         async function deleteFromBackend(txId) {
-            if (!USER_ID || !USER_ID.match(/^\d+$/)) return false;
+            if (!USER_ID) return false;
             try {
                 const res = await fetch(`${API_BASE}/api/transactions/${USER_ID}/${txId}`, { method: 'DELETE' });
                 if (!res.ok) throw new Error('Gagal hapus dari server');
@@ -1322,7 +1196,7 @@
         }
 
         async function updateToBackend(txId, updatedTx) {
-            if (!USER_ID || !USER_ID.match(/^\d+$/)) return false;
+            if (!USER_ID) return false;
             try {
                 const del = await deleteFromBackend(txId);
                 if (!del) return false;
@@ -1334,7 +1208,7 @@
         }
 
         async function clearAllFromBackend() {
-            if (!USER_ID || !USER_ID.match(/^\d+$/)) return false;
+            if (!USER_ID) return false;
             try {
                 const res = await fetch(`${API_BASE}/api/transactions/${USER_ID}`, { method: 'DELETE' });
                 if (!res.ok) throw new Error('Gagal hapus semua');
@@ -1346,7 +1220,7 @@
         }
 
         // ============================================================
-        // FUNGSI UTAMA (sama)
+        // FUNGSI UTAMA
         // ============================================================
         function getTransactions() { return getLocalTransactions(); }
 
@@ -1434,7 +1308,7 @@
             currentPage = page;
             if (page === 'dashboard') {
                 renderDashboard();
-                if (USER_ID && USER_ID.match(/^\d+$/)) {
+                if (USER_ID) {
                     syncFromBackend();
                     startAutoSync();
                 }
@@ -1448,7 +1322,7 @@
 
         function startAutoSync() {
             if (syncInterval) clearInterval(syncInterval);
-            if (!USER_ID || !USER_ID.match(/^\d+$/)) return;
+            if (!USER_ID) return;
             syncInterval = setInterval(() => {
                 if (currentPage === 'dashboard') syncFromBackend();
             }, 15000);
@@ -1554,7 +1428,7 @@
         }
 
         // ============================================================
-        // ADD, EDIT, DELETE (sama seperti sebelumnya, saya singkat)
+        // ADD, EDIT, DELETE
         // ============================================================
         function renderCategoryChips() {
             const grid = document.getElementById('add-category-grid');
@@ -1710,7 +1584,7 @@
         }
 
         // ============================================================
-        // HISTORY & REPORTS (sama)
+        // HISTORY & REPORTS
         // ============================================================
         function renderHistory() {
             const txs = getTransactions();
@@ -1890,16 +1764,33 @@
         }
 
         // ============================================================
-        // INIT (bagian akhir)
+        // INIT
         // ============================================================
-        // Set default date di form add
         document.getElementById('add-date').value = todayStr();
         renderCategoryChips();
         setTransactionType('income');
+        renderDashboard();
+
+        // Sync pertama
+        setTimeout(() => {
+            if (USER_ID) {
+                syncFromBackend();
+                startAutoSync();
+            }
+        }, 500);
+
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                if (currentPage === 'dashboard') renderDashboard();
+                if (currentPage === 'history') renderHistory();
+                if (currentPage === 'reports') renderReports();
+                if (currentPage === 'dashboard' && USER_ID) syncFromBackend();
+            }
+        });
 
         console.log('🚀 CatatanKu siap!');
         console.log('👤 User ID:', USER_ID);
-        console.log('📱 Telegram mode:', IS_TELEGRAM);
+        console.log('🔄 Auto-sync every 15s');
     </script>
 </body>
 </html>
