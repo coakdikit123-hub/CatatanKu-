@@ -1,21 +1,22 @@
-const { Telegraf } = require('telegraf');
-const { kv } = require('@vercel/kv');
 const express = require('express');
 const cors = require('cors');
+const { Telegraf } = require('telegraf');
+const { kv } = require('@vercel/kv');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
+// ============================================================
+// 1. KONFIGURASI
+// ============================================================
 const BOT_TOKEN = process.env.BOT_TOKEN;
 if (!BOT_TOKEN) {
-  console.error('⚠️ BOT_TOKEN tidak ditemukan! Set di Vercel Environment Variables.');
+  console.error('❌ BOT_TOKEN tidak ditemukan!');
 }
 
-const bot = new Telegraf(BOT_TOKEN || 'dummy');
-
 // ============================================================
-// FUNGSI PARSING PESAN
+// 2. FUNGSI PARSING PESAN
 // ============================================================
 function parseTransaction(text, userId) {
   const trimmed = text.trim();
@@ -37,7 +38,7 @@ function parseTransaction(text, userId) {
   const amount = parseInt(match[1]);
   note = match[2] || (type === 'income' ? 'Pemasukan' : 'Pengeluaran');
 
-  // Deteksi kategori dari kata kunci
+  // Deteksi kategori
   const lowerNote = note.toLowerCase();
   let category = 'other';
   if (lowerNote.includes('makan') || lowerNote.includes('resto') || lowerNote.includes('food')) category = 'dining';
@@ -62,12 +63,17 @@ function parseTransaction(text, userId) {
 }
 
 // ============================================================
-// FUNGSI DATABASE (Upstash Redis)
+// 3. FUNGSI DATABASE (Upstash Redis)
 // ============================================================
 async function getTransactions(userId) {
   const key = `transactions:${userId}`;
-  const data = await kv.get(key);
-  return data || [];
+  try {
+    const data = await kv.get(key);
+    return data || [];
+  } catch (e) {
+    console.error('❌ Gagal baca Redis:', e);
+    return [];
+  }
 }
 
 async function addTransaction(userId, tx) {
@@ -92,10 +98,13 @@ async function clearAllTransactions(userId) {
 }
 
 // ============================================================
-// BOT TELEGRAM HANDLERS
+// 4. BOT TELEGRAM HANDLER
 // ============================================================
+const bot = new Telegraf(BOT_TOKEN || 'dummy');
+
+// Handler untuk /start
 bot.start(async (ctx) => {
-  const appUrl = process.env.VERCEL_URL || 'catatanku.vercel.app';
+  const appUrl = process.env.VERCEL_URL || 'catatan-ku-wine.vercel.app';
   await ctx.reply(
     `👋 Halo! Kirim pesan seperti:\n\n` +
     `➜ -5000 (pengeluaran Rp 5.000)\n` +
@@ -106,6 +115,7 @@ bot.start(async (ctx) => {
   );
 });
 
+// Handler untuk pesan teks
 bot.on('text', async (ctx) => {
   const text = ctx.message.text;
   const userId = ctx.from.id.toString();
@@ -125,7 +135,7 @@ bot.on('text', async (ctx) => {
     await addTransaction(userId, tx);
     const emoji = tx.type === 'income' ? '✅' : '📤';
     const typeLabel = tx.type === 'income' ? 'Pemasukan' : 'Pengeluaran';
-    const appUrl = process.env.VERCEL_URL || 'catatanku.vercel.app';
+    const appUrl = process.env.VERCEL_URL || 'catatan-ku-wine.vercel.app';
     await ctx.reply(
       `${emoji} *Transaksi berhasil dicatat!*\n\n` +
       `💳 ${typeLabel}: Rp ${tx.amount.toLocaleString('id-ID')}\n` +
@@ -136,29 +146,30 @@ bot.on('text', async (ctx) => {
       { parse_mode: 'Markdown' }
     );
   } catch (e) {
-    console.error(e);
+    console.error('❌ Gagal simpan transaksi:', e);
     await ctx.reply('❌ Gagal menyimpan transaksi. Coba lagi nanti.');
   }
 });
 
 // ============================================================
-// WEBHOOK ENDPOINT
+// 5. WEBHOOK ENDPOINT
 // ============================================================
 app.post('/api/webhook', async (req, res) => {
   try {
+    // Verifikasi bahwa request berasal dari Telegram (opsional)
     await bot.handleUpdate(req.body);
-    res.sendStatus(200);
+    res.status(200).json({ ok: true });
   } catch (err) {
-    console.error('Webhook error:', err);
-    res.sendStatus(500);
+    console.error('❌ Webhook error:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
 // ============================================================
-// API ENDPOINTS UNTUK MINI APP
+// 6. API ENDPOINTS UNTUK MINI APP
 // ============================================================
 
-// GET semua transaksi user
+// GET semua transaksi
 app.get('/api/transactions/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
@@ -169,7 +180,7 @@ app.get('/api/transactions/:userId', async (req, res) => {
   }
 });
 
-// POST tambah transaksi (dari Mini App)
+// POST tambah transaksi
 app.post('/api/transactions', async (req, res) => {
   try {
     const { userId, ...tx } = req.body;
@@ -200,7 +211,7 @@ app.delete('/api/transactions/:userId/:txId', async (req, res) => {
   }
 });
 
-// DELETE semua transaksi user
+// DELETE semua transaksi
 app.delete('/api/transactions/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
@@ -211,7 +222,7 @@ app.delete('/api/transactions/:userId', async (req, res) => {
   }
 });
 
-// GET summary (total income, expense, balance)
+// GET summary
 app.get('/api/summary/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
@@ -224,12 +235,17 @@ app.get('/api/summary/:userId', async (req, res) => {
   }
 });
 
-// Redirect root ke index.html
+// Health check endpoint (untuk testing)
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Root redirect
 app.get('/', (req, res) => {
   res.redirect('/index.html');
 });
 
 // ============================================================
-// EKSPOR UNTUK VERCEL
+// 7. EKSPOR UNTUK VERCEL
 // ============================================================
 module.exports = app;
