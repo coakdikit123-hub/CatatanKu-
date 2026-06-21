@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport" />
+    <title>Admin Panel - CatatanKu</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries">
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <style>
+        * {
+            font-family: 'Inter', sans-serif;
+            box-sizing: border-box;
+        }
+        body {
+            background-color: #0f1420;
+            color: #e8edf5;
+            min-height: 100dvh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .card {
+            background: #1a2238;
+            border: 1px solid #2a3550;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+        .card h2 {
+            color: #B1BCFB;
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+        .card .badge {
+            background: #B1BCFB;
+            color: #0f1420;
+            padding: 2px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .user-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: #0f1420;
+            border-radius: 10px;
+            margin-bottom: 8px;
+            border: 1px solid #2a3550;
+        }
+        .user-item .id {
+            font-weight: 600;
+            color: #e8edf5;
+        }
+        .user-item .count {
+            color: #94a3bb;
+            font-size: 13px;
+        }
+        .btn-danger {
+            background: #DF172A;
+            color: white;
+            border: none;
+            padding: 6px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: 0.15s;
+        }
+        .btn-danger:hover {
+            transform: scale(1.05);
+        }
+        .btn-danger:active {
+            transform: scale(0.95);
+        }
+        .btn-primary {
+            background: #B1BCFB;
+            color: #0f1420;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: 0.15s;
+        }
+        .btn-primary:hover {
+            transform: scale(1.02);
+        }
+        .btn-secondary {
+            background: #2a3550;
+            color: #94a3bb;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: 0.15s;
+        }
+        .btn-secondary:hover {
+            background: #3a4560;
+        }
+        .login-box {
+            max-width: 400px;
+            margin: 100px auto 0;
+        }
+        .login-box input {
+            width: 100%;
+            padding: 14px 16px;
+            border-radius: 12px;
+            border: 1px solid #2a3550;
+            background: #0f1420;
+            color: #e8edf5;
+            font-size: 16px;
+            margin-bottom: 12px;
+        }
+        .login-box input:focus {
+            border-color: #B1BCFB;
+            outline: none;
+        }
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: #1e2740;
+            color: #e8edf5;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 500;
+            font-size: 14px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+            opacity: 0;
+            transition: all 0.35s ease;
+            z-index: 999;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #94a3bb;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+        .header h1 {
+            color: #B1BCFB;
+            font-size: 28px;
+            font-weight: 700;
+        }
+        .header a {
+            color: #94a3bb;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .header a:hover {
+            color: #e8edf5;
+        }
+        .empty {
+            text-align: center;
+            padding: 30px;
+            color: #5a6a82;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="toast" class="toast"></div>
+
+    <div class="container" id="app">
+        <!-- Login Admin -->
+        <div id="login-section" class="login-box card">
+            <h1 style="color:#B1BCFB;text-align:center;font-size:24px;">🔐 Admin Login</h1>
+            <p style="color:#94a3bb;text-align:center;margin-bottom:20px;">Masukkan token admin untuk mengakses panel</p>
+            <input id="admin-token-input" type="password" placeholder="Token Admin" />
+            <button class="btn-primary" style="width:100%;" onclick="loginAdmin()">Login</button>
+            <div id="login-error" style="color:#DF172A;text-align:center;margin-top:12px;display:none;">❌ Token salah</div>
+        </div>
+
+        <!-- Panel Admin -->
+        <div id="admin-panel" style="display:none;">
+            <div class="header">
+                <h1>⚙️ Admin Panel</h1>
+                <a href="/" target="_blank">Buka Aplikasi</a>
+            </div>
+
+            <!-- Tombol Refresh & Clear All -->
+            <div class="card" style="display:flex;gap:12px;flex-wrap:wrap;">
+                <button class="btn-primary" onclick="loadUsers()">🔄 Refresh</button>
+                <button class="btn-danger" onclick="clearAllData()">💣 Hapus Semua Data</button>
+                <button class="btn-secondary" onclick="logoutAdmin()">🚪 Logout</button>
+            </div>
+
+            <!-- Daftar User -->
+            <div class="card">
+                <h2>📋 Daftar User <span id="user-count" class="badge">0</span></h2>
+                <div id="user-list">
+                    <div class="loading">Memuat data...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        // ADMIN LOGIN
+        // ============================================================
+        const ADMIN_TOKEN_KEY = 'catatanku_admin_token';
+
+        // Cek apakah sudah login
+        const savedToken = localStorage.getItem(ADMIN_TOKEN_KEY);
+        if (savedToken) {
+            document.getElementById('login-section').style.display = 'none';
+            document.getElementById('admin-panel').style.display = 'block';
+            loadUsers();
+        }
+
+        function loginAdmin() {
+            const token = document.getElementById('admin-token-input').value.trim();
+            if (!token) {
+                showToast('⚠️ Masukkan token admin');
+                return;
+            }
+            // Simpan token
+            localStorage.setItem(ADMIN_TOKEN_KEY, token);
+            document.getElementById('login-section').style.display = 'none';
+            document.getElementById('admin-panel').style.display = 'block';
+            document.getElementById('login-error').style.display = 'none';
+            loadUsers();
+        }
+
+        function logoutAdmin() {
+            localStorage.removeItem(ADMIN_TOKEN_KEY);
+            document.getElementById('login-section').style.display = 'block';
+            document.getElementById('admin-panel').style.display = 'none';
+            document.getElementById('admin-token-input').value = '';
+            showToast('👋 Logout berhasil');
+        }
+
+        // ============================================================
+        // TOAST
+        // ============================================================
+        function showToast(msg) {
+            const el = document.getElementById('toast');
+            el.textContent = msg;
+            el.classList.add('show');
+            clearTimeout(window.toastTimeout);
+            window.toastTimeout = setTimeout(() => el.classList.remove('show'), 3000);
+        }
+
+        // ============================================================
+        // API CALLS
+        // ============================================================
+        function getToken() {
+            return localStorage.getItem(ADMIN_TOKEN_KEY) || '';
+        }
+
+        async function apiFetch(endpoint, options = {}) {
+            const token = getToken();
+            const res = await fetch(endpoint, {
+                ...options,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Admin-Token': token,
+                    ...(options.headers || {})
+                }
+            });
+            if (res.status === 401) {
+                showToast('❌ Sesi kadaluwarsa, login ulang');
+                logoutAdmin();
+                throw new Error('Unauthorized');
+            }
+            return res;
+        }
+
+        // ============================================================
+        // LOAD USERS
+        // ============================================================
+        async function loadUsers() {
+            const list = document.getElementById('user-list');
+            list.innerHTML = '<div class="loading">Memuat data...</div>';
+
+            try {
+                const res = await apiFetch('/api/admin/users');
+                const data = await res.json();
+                document.getElementById('user-count').textContent = data.count;
+
+                if (data.users.length === 0) {
+                    list.innerHTML = '<div class="empty">Belum ada user yang memiliki data.</div>';
+                    return;
+                }
+
+                // Untuk setiap user, ambil jumlah transaksi
+                let html = '';
+                for (const userId of data.users) {
+                    try {
+                        const detailRes = await apiFetch(`/api/admin/user/${userId}`);
+                        const detail = await detailRes.json();
+                        html += `
+                            <div class="user-item">
+                                <div>
+                                    <span class="id">${userId}</span>
+                                    <span class="count"> (${detail.count} transaksi)</span>
+                                </div>
+                                <button class="btn-danger" onclick="deleteUser('${userId}')">Hapus</button>
+                            </div>
+                        `;
+                    } catch (e) {
+                        console.error('Error get user detail:', e);
+                        html += `
+                            <div class="user-item">
+                                <span class="id">${userId}</span>
+                                <span class="count">❌ Gagal load detail</span>
+                                <button class="btn-danger" onclick="deleteUser('${userId}')">Hapus</button>
+                            </div>
+                        `;
+                    }
+                }
+                list.innerHTML = html;
+
+            } catch (e) {
+                console.error(e);
+                list.innerHTML = '<div class="empty">❌ Gagal memuat data. Coba refresh.</div>';
+            }
+        }
+
+        // ============================================================
+        // DELETE USER
+        // ============================================================
+        async function deleteUser(userId) {
+            if (!confirm(`Hapus semua data user ${userId}?`)) return;
+            try {
+                const res = await apiFetch(`/api/admin/user/${userId}`, { method: 'DELETE' });
+                const data = await res.json();
+                showToast(`✅ ${data.message}`);
+                loadUsers(); // Refresh daftar
+            } catch (e) {
+                console.error(e);
+                showToast('❌ Gagal hapus user');
+            }
+        }
+
+        // ============================================================
+        // CLEAR ALL DATA
+        // ============================================================
+        async function clearAllData() {
+            if (!confirm('⚠️ Yakin ingin menghapus SEMUA data semua user? Tindakan ini tidak bisa dibatalkan!')) return;
+            if (!confirm('Ketik "HAPUS" untuk konfirmasi')) return;
+            try {
+                const res = await apiFetch('/api/admin/all', { method: 'DELETE' });
+                const data = await res.json();
+                showToast(`✅ ${data.message}`);
+                loadUsers();
+            } catch (e) {
+                console.error(e);
+                showToast('❌ Gagal hapus semua data');
+            }
+        }
+    </script>
+
+</body>
+</html>
