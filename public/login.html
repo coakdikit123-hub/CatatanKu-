@@ -65,7 +65,7 @@
 
     <div class="login-box">
         <h1>📊 CatatanKu</h1>
-        <p class="sub">Masukkan ID Telegram kamu untuk sinkronisasi</p>
+        <p class="sub">Masukkan ID Telegram kamu untuk login</p>
         <form id="login-form" onsubmit="handleLogin(event)">
             <label for="login-user-id">ID Telegram</label>
             <input id="login-user-id" type="text" placeholder="Contoh: 123456789" autofocus />
@@ -79,7 +79,7 @@
     </div>
 
     <script>
-        // Cek jika sudah login, langsung redirect ke index.html
+        // Cek jika sudah login, langsung redirect
         const storedId = localStorage.getItem('catatanku_user_id');
         if (storedId && storedId.match(/^\d+$/)) {
             window.location.href = '/';
@@ -105,26 +105,32 @@
             }
             errorEl.style.display = 'none';
 
-            // 1. Simpan ke localStorage
-            localStorage.setItem('catatanku_user_id', val);
-
-            // 2. Register user ke backend
+            // 1. Register ke server
             try {
                 const res = await fetch('/api/register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ userId: val })
                 });
-                if (!res.ok) throw new Error('Gagal register');
+                if (!res.ok) {
+                    const text = await res.text();
+                    console.error('❌ Gagal register:', text);
+                    showToast('⚠️ Gagal login, coba lagi.');
+                    return;
+                }
                 const data = await res.json();
                 console.log('✅ User terdaftar:', data);
-                showToast('✅ Login berhasil!');
             } catch (e) {
-                console.error('❌ Gagal register:', e.message);
-                showToast('⚠️ Login berhasil tapi gagal sync ke server.');
+                console.error('❌ Error register:', e.message);
+                showToast('⚠️ Gagal login, coba lagi.');
+                return;
             }
 
+            // 2. Simpan ke localStorage
+            localStorage.setItem('catatanku_user_id', val);
+
             // 3. Redirect ke index
+            showToast('✅ Login berhasil!');
             setTimeout(() => {
                 window.location.href = '/';
             }, 500);
