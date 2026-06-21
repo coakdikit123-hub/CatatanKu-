@@ -23,13 +23,17 @@ async function registerUser(userId) {
   const key = `user:${userId}`;
   try {
     const existing = await kv.get(key);
-    if (existing) return existing;
+    if (existing) {
+      console.log(`ℹ️ User ${userId} sudah terdaftar`);
+      return existing;
+    }
     const userData = {
       userId,
       registeredAt: new Date().toISOString(),
       isActive: true
     };
     await kv.set(key, userData);
+    console.log(`✅ User ${userId} berhasil register`);
     return userData;
   } catch (e) {
     console.error('❌ Gagal register user:', e.message);
@@ -50,7 +54,7 @@ async function getUser(userId) {
 async function isUserRegistered(userId) {
   const user = await getUser(userId);
   const result = !!user && user.isActive !== false;
-  console.log(`🔍 Cek user ${userId}: ${result ? 'TERDAFTAR' : 'BELUM TERDAFTAR'}`);
+  console.log(`🔍 Cek user ${userId}: ${result ? 'TERDAFTAR ✅' : 'BELUM TERDAFTAR ❌'}`);
   return result;
 }
 
@@ -156,35 +160,41 @@ async function clearAllTransactions(userId) {
 const bot = new Telegraf(BOT_TOKEN || 'dummy', { handlerTimeout: 90000 });
 const appUrl = process.env.VERCEL_URL || 'catatan-ku-silk.vercel.app';
 
-// MIDDLEWARE: Cek login
+// MIDDLEWARE: BLOKIR KETAT
 bot.use(async (ctx, next) => {
   if (!ctx.from) return next();
   const userId = ctx.from.id.toString();
 
-  // Skip check untuk /start
+  // Hanya izinkan /start tanpa login
   if (ctx.message?.text?.startsWith('/start')) {
+    console.log(`⏭️ Skip middleware untuk /start dari ${userId}`);
     return next();
   }
 
+  // Cek login dengan log detail
   const registered = await isUserRegistered(userId);
+  console.log(`🔐 User ${userId} registered: ${registered}`);
+
   if (!registered) {
-    await ctx.reply(
+    console.log(`🚫 BLOKIR transaksi dari user ${userId} (BELUM LOGIN)`);
+    const loginMsg =
       `⚠️ *Anda belum login!*\n\n` +
-      `Untuk menggunakan bot ini, silakan login terlebih dahulu melalui Mini App.\n\n` +
-      `🔑 Klik tombol di bawah untuk membuka halaman login.`,
-      {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '🔑 Login via Mini App', url: `https://${appUrl}/login.html` }],
-            [{ text: '📊 Buka CatatanKu', url: `https://${appUrl}` }]
-          ]
-        }
+      `Untuk mencatat transaksi, silakan login terlebih dahulu melalui Mini App.\n\n` +
+      `🔑 Klik tombol di bawah untuk login.`;
+
+    await ctx.reply(loginMsg, {
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🔑 Login via Mini App', url: `https://${appUrl}/login.html` }],
+          [{ text: '📊 Buka CatatanKu', url: `https://${appUrl}` }]
+        ]
       }
-    );
-    return;
+    });
+    return; // TIDAK lanjut ke next()
   }
 
+  console.log(`✅ User ${userId} lolos middleware`);
   return next();
 });
 
@@ -208,14 +218,14 @@ bot.start(async (ctx) => {
     buttons = {
       inline_keyboard: [
         [{ text: '📊 Buka CatatanKu', url: `https://${appUrl}` }],
-        [{ text: '📈 Lihat Riwayat', url: `https://${appUrl}/#history` }]
+        [{ text: '📈 Lihat Riwayat', url: `https://${appUrl}` }]
       ]
     };
   } else {
     message =
       `⚠️ *Anda belum login!*\n\n` +
       `Untuk mulai menggunakan CatatanKu, silakan login terlebih dahulu.\n\n` +
-      `🔑 Klik tombol di bawah untuk membuka halaman login.`;
+      `🔑 Klik tombol di bawah untuk login.`;
 
     buttons = {
       inline_keyboard: [
@@ -231,19 +241,21 @@ bot.start(async (ctx) => {
   });
 });
 
-// Handler pesan teks
+// Handler pesan teks (pengecekan ganda)
 bot.on('text', async (ctx) => {
   try {
     const text = ctx.message.text;
     const userId = ctx.from.id.toString();
 
+    // Skip /start
     if (text.startsWith('/start')) return;
 
+    // Pengecekan ganda untuk keamanan
     const registered = await isUserRegistered(userId);
     if (!registered) {
+      console.log(`🚫 User ${userId} mencoba transaksi TAPI BELUM LOGIN`);
       await ctx.reply(
-        `⚠️ *Anda belum login!*\n\n` +
-        `Silakan login terlebih dahulu melalui Mini App.`,
+        `⚠️ *Anda belum login!*\n\nSilakan login terlebih dahulu melalui Mini App.`,
         {
           parse_mode: 'Markdown',
           reply_markup: {
@@ -256,6 +268,7 @@ bot.on('text', async (ctx) => {
       return;
     }
 
+    // Proses transaksi
     if (!/\d/.test(text)) {
       await ctx.reply(
         '❌ Kirim pesan dengan nominal, contoh: `-5000` atau `+20000 makan`',
