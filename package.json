@@ -1,15 +1,19 @@
 {
-  "name": "catatanku-vercel",
+  "name": "catatan-ku",
   "version": "1.0.0",
-  "description": "Bot Telegram + Mini App CatatanKu di Vercel",
+  "description": "Bot Telegram + Mini App CatatanKu",
   "main": "api/index.js",
   "scripts": {
-    "start": "vercel dev"
+    "start": "vercel dev",
+    "build": "echo 'No build required'"
   },
   "dependencies": {
     "@vercel/kv": "^1.0.0",
     "cors": "^2.8.5",
     "express": "^4.18.2",
     "telegraf": "^4.15.0"
+  },
+  "engines": {
+    "node": ">=18.x"
   }
 }
