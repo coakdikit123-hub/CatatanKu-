@@ -188,21 +188,175 @@
             outline: none;
             box-shadow: 0 0 0 3px rgba(177, 188, 251, 0.15);
         }
-
-        /* ============================================================
-           PERBAIKAN DESIGN TAMBAH TRANSAKSI
-           ============================================================ */
+        .category-chip .icon-wrap {
+            background-color: #1a2238 !important;
+            border-color: #2a3550 !important;
+        }
+        .category-chip .icon-wrap .material-symbols-outlined {
+            color: #94a3bb !important;
+        }
+        .category-chip.active .icon-wrap {
+            background-color: #B1BCFB !important;
+            border-color: #B1BCFB !important;
+        }
+        .category-chip.active .icon-wrap .material-symbols-outlined {
+            color: #0f1420 !important;
+        }
+        .category-chip.active .label {
+            color: #B1BCFB !important;
+        }
+        .category-chip:hover .icon-wrap {
+            background-color: #28324a !important;
+        }
+        .icon-wrap {
+            width: 56px;
+            height: 56px;
+            border-radius: 9999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s ease;
+        }
+        .category-chip {
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .category-chip .label {
+            font-size: 12px;
+            line-height: 16px;
+            font-weight: 500;
+            letter-spacing: 0.02em;
+            color: #94a3bb;
+            transition: color 0.15s ease;
+        }
+        .tab-btn {
+            border-color: #2a3550 !important;
+            background-color: #1a2238 !important;
+            color: #94a3bb !important;
+            transition: all 0.15s ease;
+        }
+        .tab-btn.active {
+            background-color: #B1BCFB !important;
+            color: #0f1420 !important;
+            border-color: #B1BCFB !important;
+        }
+        .tab-btn .material-symbols-outlined {
+            font-size: 18px;
+            vertical-align: middle;
+        }
+        .toast {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: #1e2740;
+            color: #e8edf5;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 500;
+            font-size: 14px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+            opacity: 0;
+            transition: all 0.35s ease;
+            z-index: 999;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #5a6a82;
+        }
+        .empty-state .material-symbols-outlined {
+            font-size: 56px;
+            color: #2a3550;
+            margin-bottom: 12px;
+        }
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #2a3550;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #5a6a82;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .page {
+            display: none;
+            animation: fadeIn 0.25s ease;
+        }
+        .page.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+        .transaction-item:active {
+            transform: scale(0.98);
+            transition: transform 0.08s ease;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .amount-input-shadow {
+            text-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        .chart-ring {
+            position: relative;
+            width: 200px;
+            height: 200px;
+        }
+        .chart-ring svg {
+            transform: rotate(-90deg);
+        }
+        .donut-segment {
+            fill: none;
+            stroke-width: 12;
+            transition: stroke-dashoffset 0.5s ease;
+        }
+        .glass-card {
+            background: rgba(26, 34, 56, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(42, 53, 80, 0.4);
+        }
         .add-amount-section {
             background: linear-gradient(145deg, #1a2238, #0f1420);
             border-bottom: 1px solid #2a3550;
-            border-radius: 16px;
-            padding: 24px 20px;
-            margin-bottom: 8px;
         }
         .add-amount-section .currency-symbol {
             color: #B1BCFB;
             font-weight: 600;
-            font-size: 28px;
         }
         .add-amount-section input {
             background: transparent !important;
@@ -218,30 +372,15 @@
         .add-amount-section input::placeholder {
             color: #5a6a82 !important;
         }
-        .add-amount-section .amount-label {
+        .form-label {
             font-size: 11px;
             font-weight: 600;
             letter-spacing: 0.08em;
             text-transform: uppercase;
             color: #94a3bb;
+            margin-bottom: 8px;
+            display: block;
         }
-
-        .form-label {
-            font-size: 12px;
-            font-weight: 600;
-            letter-spacing: 0.05em;
-            text-transform: uppercase;
-            color: #94a3bb;
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .form-label .material-symbols-outlined {
-            font-size: 18px;
-            color: #5a6a82;
-        }
-
         .form-input,
         .form-select,
         .form-textarea {
@@ -276,7 +415,6 @@
             background-color: #1a2238;
             color: #e8edf5;
         }
-
         .btn-primary {
             background-color: #B1BCFB;
             color: #0f1420;
@@ -303,8 +441,23 @@
         .btn-primary .material-symbols-outlined {
             font-size: 22px;
         }
-
-        /* TYPE TOGGLE */
+        .category-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }
+        @media (max-width: 400px) {
+            .category-grid {
+                gap: 8px;
+            }
+            .icon-wrap {
+                width: 48px;
+                height: 48px;
+            }
+            .icon-wrap .material-symbols-outlined {
+                font-size: 22px;
+            }
+        }
         .type-toggle {
             display: flex;
             gap: 10px;
@@ -321,10 +474,6 @@
             transition: all 0.15s ease;
             cursor: pointer;
             text-align: center;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
         }
         .type-toggle .tab-btn.active {
             background-color: #B1BCFB;
@@ -333,144 +482,150 @@
         }
         .type-toggle .tab-btn .material-symbols-outlined {
             font-size: 18px;
+            vertical-align: middle;
         }
-
-        /* CATEGORY CHIPS */
-        .category-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 12px;
+        .form-container {
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 0 20px 100px;
         }
-        .category-chip {
-            cursor: pointer;
-            transition: all 0.15s ease;
-            text-align: center;
+        .form-section {
+            margin-bottom: 24px;
         }
-        .category-chip .icon-wrap {
-            width: 56px;
-            height: 56px;
+        input[type="date"] {
+            color-scheme: dark;
+        }
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(0.7);
+        }
+        .add-page-header {
+            background-color: #0f1420;
+            border-bottom: 1px solid #2a3550;
+            padding: 0 20px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 40;
+        }
+        .add-page-header .back-btn {
+            width: 40px;
+            height: 40px;
             border-radius: 9999px;
-            background-color: #1a2238;
-            border: 1px solid #2a3550;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0 auto 6px;
-            transition: all 0.15s ease;
-        }
-        .category-chip .icon-wrap .material-symbols-outlined {
-            color: #94a3bb;
-            font-size: 26px;
-            transition: color 0.15s ease;
-        }
-        .category-chip.active .icon-wrap {
-            background-color: #B1BCFB;
-            border-color: #B1BCFB;
-        }
-        .category-chip.active .icon-wrap .material-symbols-outlined {
-            color: #0f1420;
-        }
-        .category-chip.active .label {
-            color: #B1BCFB;
-            font-weight: 600;
-        }
-        .category-chip .label {
-            font-size: 11px;
-            line-height: 14px;
-            font-weight: 500;
-            color: #94a3bb;
-            transition: color 0.15s ease;
-        }
-        .category-chip:hover .icon-wrap {
-            background-color: #28324a;
-        }
-        @media (max-width: 400px) {
-            .category-grid {
-                gap: 8px;
-            }
-            .category-chip .icon-wrap {
-                width: 48px;
-                height: 48px;
-            }
-            .category-chip .icon-wrap .material-symbols-outlined {
-                font-size: 22px;
-            }
-            .category-chip .label {
-                font-size: 10px;
-            }
-        }
-
-        /* ACCOUNT SELECT (Tersimpan di) */
-        .account-options {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-        .account-options .account-btn {
-            flex: 1;
-            min-width: 80px;
-            padding: 10px 14px;
-            border-radius: 10px;
-            border: 1px solid #2a3550;
-            background-color: #1a2238;
-            color: #94a3bb;
-            font-size: 13px;
-            font-weight: 500;
-            text-align: center;
+            transition: background 0.15s;
             cursor: pointer;
-            transition: all 0.15s ease;
+            background: transparent;
+            border: none;
+            color: #B1BCFB;
+        }
+        .add-page-header .back-btn:hover {
+            background: rgba(177, 188, 251, 0.08);
+        }
+        .add-page-header .title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #e8edf5;
+        }
+        .add-page-header .spacer {
+            width: 40px;
+        }
+        .tips-banner {
+            background: linear-gradient(135deg, #2a3550 0%, #1a2238 100%);
+            border: 1px solid #B1BCFB;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+            padding: 24px 28px;
+            min-height: 120px;
+            display: flex;
+            align-items: center;
+        }
+        .tips-banner::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, rgba(177, 188, 251, 0.08) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        .tips-banner .icon-wrapper {
+            flex-shrink: 0;
+            width: 52px;
+            height: 52px;
+            border-radius: 9999px;
+            background: rgba(177, 188, 251, 0.15);
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 6px;
+            margin-right: 16px;
+            border: 1px solid rgba(177, 188, 251, 0.2);
         }
-        .account-options .account-btn .material-symbols-outlined {
+        .tips-banner .icon-wrapper .material-symbols-outlined {
+            font-size: 32px;
+            color: #B1BCFB;
+        }
+        .tips-banner .content {
+            flex: 1;
+            z-index: 1;
+        }
+        .tips-banner .content h4 {
             font-size: 18px;
-        }
-        .account-options .account-btn.active {
-            background-color: #B1BCFB;
-            color: #0f1420;
-            border-color: #B1BCFB;
-        }
-        .account-options .account-btn:hover:not(.active) {
-            border-color: #94a3bb;
+            font-weight: 700;
             color: #e8edf5;
+            margin-bottom: 4px;
+            letter-spacing: -0.01em;
         }
-
-        /* TOAST */
-        .toast {
-            position: fixed;
-            bottom: 100px;
-            left: 50%;
-            transform: translateX(-50%) translateY(20px);
-            background: #1e2740;
-            color: #e8edf5;
-            padding: 12px 24px;
-            border-radius: 12px;
-            font-weight: 500;
+        .tips-banner .content p {
             font-size: 14px;
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
-            opacity: 0;
-            transition: all 0.35s ease;
-            z-index: 999;
-            pointer-events: none;
-            white-space: nowrap;
+            color: #94a3bb;
+            line-height: 1.5;
+            margin: 0;
         }
-        .toast.show {
-            opacity: 1;
-            transform: translateX(-50%) translateY(0);
+        .tips-banner .badge {
+            flex-shrink: 0;
+            background: #B1BCFB;
+            color: #0f1420;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 6px 14px;
+            border-radius: 9999px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-left: 12px;
         }
-
-        /* EMPTY STATE */
-        .empty-state {
-            text-align: center;
-            padding: 40px 20px;
-            color: #5a6a82;
-        }
-        .empty-state .material-symbols-outlined {
-            font-size: 56px;
-            color: #2a3550;
-            margin-bottom: 12px;
+        @media (max-width: 480px) {
+            .tips-banner {
+                flex-wrap: wrap;
+                padding: 18px 20px;
+            }
+            .tips-banner .icon-wrapper {
+                width: 44px;
+                height: 44px;
+                margin-right: 12px;
+            }
+            .tips-banner .icon-wrapper .material-symbols-outlined {
+                font-size: 26px;
+            }
+            .tips-banner .content h4 {
+                font-size: 16px;
+            }
+            .tips-banner .content p {
+                font-size: 13px;
+            }
+            .tips-banner .badge {
+                margin-left: 0;
+                margin-top: 10px;
+                width: 100%;
+                text-align: center;
+            }
         }
 
         /* MODAL EDIT */
@@ -650,152 +805,6 @@
             color: #94a3bb;
             font-size: 14px;
         }
-
-        .add-page-header {
-            background-color: #0f1420;
-            border-bottom: 1px solid #2a3550;
-            padding: 0 20px;
-            height: 64px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            position: sticky;
-            top: 0;
-            z-index: 40;
-        }
-        .add-page-header .back-btn {
-            width: 40px;
-            height: 40px;
-            border-radius: 9999px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: background 0.15s;
-            cursor: pointer;
-            background: transparent;
-            border: none;
-            color: #B1BCFB;
-        }
-        .add-page-header .back-btn:hover {
-            background: rgba(177, 188, 251, 0.08);
-        }
-        .add-page-header .title {
-            font-size: 18px;
-            font-weight: 600;
-            color: #e8edf5;
-        }
-        .add-page-header .spacer {
-            width: 40px;
-        }
-
-        .form-container {
-            max-width: 480px;
-            margin: 0 auto;
-            padding: 0 20px 100px;
-        }
-        .form-section {
-            margin-bottom: 24px;
-        }
-        input[type="date"] {
-            color-scheme: dark;
-        }
-        input[type="date"]::-webkit-calendar-picker-indicator {
-            filter: invert(0.7);
-        }
-
-        .tips-banner {
-            background: linear-gradient(135deg, #2a3550 0%, #1a2238 100%);
-            border: 1px solid #B1BCFB;
-            border-radius: 12px;
-            overflow: hidden;
-            position: relative;
-            padding: 24px 28px;
-            min-height: 120px;
-            display: flex;
-            align-items: center;
-        }
-        .tips-banner::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            right: -20%;
-            width: 200px;
-            height: 200px;
-            background: radial-gradient(circle, rgba(177, 188, 251, 0.08) 0%, transparent 70%);
-            border-radius: 50%;
-            pointer-events: none;
-        }
-        .tips-banner .icon-wrapper {
-            flex-shrink: 0;
-            width: 52px;
-            height: 52px;
-            border-radius: 9999px;
-            background: rgba(177, 188, 251, 0.15);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 16px;
-            border: 1px solid rgba(177, 188, 251, 0.2);
-        }
-        .tips-banner .icon-wrapper .material-symbols-outlined {
-            font-size: 32px;
-            color: #B1BCFB;
-        }
-        .tips-banner .content {
-            flex: 1;
-            z-index: 1;
-        }
-        .tips-banner .content h4 {
-            font-size: 18px;
-            font-weight: 700;
-            color: #e8edf5;
-            margin-bottom: 4px;
-            letter-spacing: -0.01em;
-        }
-        .tips-banner .content p {
-            font-size: 14px;
-            color: #94a3bb;
-            line-height: 1.5;
-            margin: 0;
-        }
-        .tips-banner .badge {
-            flex-shrink: 0;
-            background: #B1BCFB;
-            color: #0f1420;
-            font-size: 11px;
-            font-weight: 700;
-            padding: 6px 14px;
-            border-radius: 9999px;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            margin-left: 12px;
-        }
-        @media (max-width: 480px) {
-            .tips-banner {
-                flex-wrap: wrap;
-                padding: 18px 20px;
-            }
-            .tips-banner .icon-wrapper {
-                width: 44px;
-                height: 44px;
-                margin-right: 12px;
-            }
-            .tips-banner .icon-wrapper .material-symbols-outlined {
-                font-size: 26px;
-            }
-            .tips-banner .content h4 {
-                font-size: 16px;
-            }
-            .tips-banner .content p {
-                font-size: 13px;
-            }
-            .tips-banner .badge {
-                margin-left: 0;
-                margin-top: 10px;
-                width: 100%;
-                text-align: center;
-            }
-        }
     </style>
 </head>
 <body>
@@ -829,13 +838,11 @@
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div><label class="form-label">Tanggal</label><input id="edit-date" class="form-input" type="date" required /></div>
-                    <div><label class="form-label">Tersimpan di</label>
-                        <div class="account-options" id="edit-account-options">
-                            <button type="button" class="account-btn active" data-account="Tunai" onclick="setEditAccount('Tunai')"><span class="material-symbols-outlined">payments</span> Tunai</button>
-                            <button type="button" class="account-btn" data-account="Bank" onclick="setEditAccount('Bank')"><span class="material-symbols-outlined">account_balance</span> Bank</button>
-                            <button type="button" class="account-btn" data-account="Tabungan" onclick="setEditAccount('Tabungan')"><span class="material-symbols-outlined">savings</span> Tabungan</button>
-                        </div>
-                    </div>
+                    <div><label class="form-label">Akun</label><select id="edit-account" class="form-select">
+                            <option value="Tunai">Tunai</option>
+                            <option value="Bank">Bank</option>
+                            <option value="Tabungan">Tabungan</option>
+                        </select></div>
                 </div>
                 <div class="form-section"><label class="form-label">Catatan</label><textarea id="edit-note" class="form-textarea" rows="2"></textarea></div>
                 <div class="edit-actions">
@@ -954,7 +961,7 @@
     </div>
 
     <!-- ============================================================
-    PAGE: ADD TRANSACTION (DIPERBAIKI)
+    PAGE: ADD TRANSACTION (DESAIN DIPERBAIKI)
     ============================================================ -->
     <div id="page-add" class="page">
         <div class="add-page-header">
@@ -962,22 +969,21 @@
             <span class="title">Tambah Transaksi</span>
             <div class="spacer"></div>
         </div>
+
         <main class="form-container">
             <!-- Amount -->
-            <div class="add-amount-section">
-                <div class="text-center">
-                    <span class="amount-label">Jumlah</span>
-                    <div class="flex items-center justify-center gap-2 mt-1">
-                        <span class="currency-symbol">Rp</span>
-                        <input id="add-amount" class="w-full max-w-[200px] bg-transparent border-none text-center text-4xl font-bold text-on-surface placeholder-on-surface-variant/30 focus:ring-0 appearance-none p-0 amount-input-shadow" type="number" step="1" placeholder="0" autofocus />
-                    </div>
+            <div class="add-amount-section rounded-xl p-6 mt-4 text-center">
+                <span class="text-xs font-semibold uppercase tracking-widest text-on-surface-variant">Jumlah</span>
+                <div class="flex items-center justify-center gap-2 mt-1">
+                    <span class="currency-symbol text-2xl font-bold">Rp</span>
+                    <input id="add-amount" class="w-full max-w-[200px] bg-transparent border-none text-center text-4xl font-bold text-on-surface placeholder-on-surface-variant/30 focus:ring-0 appearance-none p-0 amount-input-shadow" type="number" step="1" placeholder="0" autofocus />
                 </div>
             </div>
 
-            <form id="add-form" onsubmit="saveTransaction(event)" class="mt-4 space-y-5">
-                <!-- Type -->
+            <form id="add-form" onsubmit="saveTransaction(event)" class="mt-6 space-y-6">
+                <!-- Jenis -->
                 <div class="form-section">
-                    <label class="form-label"><span class="material-symbols-outlined">swap_vert</span> Jenis</label>
+                    <label class="form-label">Jenis</label>
                     <div class="type-toggle">
                         <button type="button" class="tab-btn" data-type="expense" onclick="setTransactionType('expense')">
                             <span class="material-symbols-outlined">arrow_upward</span> Pengeluaran
@@ -988,38 +994,31 @@
                     </div>
                 </div>
 
-                <!-- Category -->
+                <!-- Kategori -->
                 <div class="form-section">
-                    <label class="form-label"><span class="material-symbols-outlined">category</span> Kategori</label>
+                    <label class="form-label">Kategori</label>
                     <div class="category-grid" id="add-category-grid"></div>
                 </div>
 
-                <!-- Date & Account -->
-                <div class="grid grid-cols-1 gap-4">
+                <!-- Tanggal & Tersimpan di -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <label class="form-label"><span class="material-symbols-outlined">calendar_today</span> Tanggal</label>
+                        <label class="form-label">Tanggal</label>
                         <input id="add-date" class="form-input" type="date" />
                     </div>
                     <div>
-                        <label class="form-label"><span class="material-symbols-outlined">location_on</span> Tersimpan di</label>
-                        <div class="account-options" id="add-account-options">
-                            <button type="button" class="account-btn active" data-account="Tunai" onclick="setAddAccount('Tunai')">
-                                <span class="material-symbols-outlined">payments</span> Tunai
-                            </button>
-                            <button type="button" class="account-btn" data-account="Bank" onclick="setAddAccount('Bank')">
-                                <span class="material-symbols-outlined">account_balance</span> Bank
-                            </button>
-                            <button type="button" class="account-btn" data-account="Tabungan" onclick="setAddAccount('Tabungan')">
-                                <span class="material-symbols-outlined">savings</span> Tabungan
-                            </button>
-                        </div>
-                        <input type="hidden" id="add-account" value="Tunai" />
+                        <label class="form-label">Tersimpan di</label>
+                        <select id="add-account" class="form-select">
+                            <option value="Tunai">Tunai</option>
+                            <option value="Bank">Bank</option>
+                            <option value="Tabungan">Tabungan</option>
+                        </select>
                     </div>
                 </div>
 
-                <!-- Note -->
+                <!-- Catatan -->
                 <div class="form-section">
-                    <label class="form-label"><span class="material-symbols-outlined">note</span> Catatan</label>
+                    <label class="form-label">Catatan</label>
                     <textarea id="add-note" class="form-textarea" placeholder="Tambahkan deskripsi..." rows="2"></textarea>
                 </div>
 
@@ -1112,7 +1111,7 @@
     </div>
 
     <!-- ============================================================
-    BOTTOM NAV
+    BOTTOM NAV - 4 MENU (Beranda, Riwayat, Tambah, Laporan)
     ============================================================ -->
     <nav class="bottom-nav fixed bottom-0 left-0 w-full z-50 flex justify-around items-center border-t rounded-t-xl">
         <a href="#" class="flex flex-col items-center justify-center active" data-page="dashboard" onclick="navigateTo('dashboard')">
@@ -1173,27 +1172,7 @@
         }
 
         // ============================================================
-        // ACCOUNT SELECTION
-        // ============================================================
-        let selectedAccount = 'Tunai';
-
-        function setAddAccount(account) {
-            selectedAccount = account;
-            document.getElementById('add-account').value = account;
-            document.querySelectorAll('#add-account-options .account-btn').forEach(btn => {
-                btn.classList.toggle('active', btn.dataset.account === account);
-            });
-        }
-
-        function setEditAccount(account) {
-            document.querySelectorAll('#edit-account-options .account-btn').forEach(btn => {
-                btn.classList.toggle('active', btn.dataset.account === account);
-            });
-            document.getElementById('edit-account').value = account;
-        }
-
-        // ============================================================
-        // TELEGRAM INTEGRATION & FUNGSI LAINNYA
+        // TELEGRAM INTEGRATION
         // ============================================================
         let tg = null;
         let IS_TELEGRAM = false;
@@ -1361,11 +1340,11 @@
                 document.getElementById('add-amount').value = '';
                 document.getElementById('add-note').value = '';
                 document.getElementById('add-date').value = todayStr();
+                document.getElementById('add-account').value = 'Tunai';
                 selectedCategory = 'transport';
                 transactionType = 'income';
                 setTransactionType('income');
                 renderCategoryChips();
-                setAddAccount('Tunai');
                 setTimeout(() => document.getElementById('add-amount').focus(), 100);
             }
 
@@ -1501,14 +1480,10 @@
             if (!grid) return;
             grid.innerHTML = CATEGORIES.map(cat => {
                 const active = selectedCategory === cat.id ? 'active' : '';
-                return `
-                    <div class="category-chip ${active}" onclick="selectCategory('${cat.id}')">
-                        <div class="icon-wrap">
-                            <span class="material-symbols-outlined">${cat.icon}</span>
-                        </div>
+                return `<div class="category-chip ${active}" onclick="selectCategory('${cat.id}')">
+                        <div class="icon-wrap"><span class="material-symbols-outlined">${cat.icon}</span></div>
                         <span class="label">${cat.label}</span>
-                    </div>
-                `;
+                    </div>`;
             }).join('');
         }
 
@@ -1571,7 +1546,6 @@
         let editTxId = null;
         let editType = 'income';
         let editCategory = 'transport';
-        let editAccount = 'Tunai';
 
         function editTransaction(id) {
             const txs = getTransactions();
@@ -1581,8 +1555,7 @@
             document.getElementById('edit-id').value = id;
             document.getElementById('edit-amount').value = tx.amount;
             document.getElementById('edit-date').value = tx.date;
-            editAccount = tx.account || 'Tunai';
-            setEditAccount(editAccount);
+            document.getElementById('edit-account').value = tx.account || 'Tunai';
             document.getElementById('edit-note').value = tx.note || '';
             editType = tx.type;
             editCategory = tx.category;
@@ -1590,14 +1563,10 @@
             const grid = document.getElementById('edit-category-grid');
             grid.innerHTML = CATEGORIES.map(cat => {
                 const active = editCategory === cat.id ? 'active' : '';
-                return `
-                    <div class="category-chip ${active}" onclick="setEditCategory('${cat.id}')">
-                        <div class="icon-wrap">
-                            <span class="material-symbols-outlined">${cat.icon}</span>
-                        </div>
+                return `<div class="category-chip ${active}" onclick="setEditCategory('${cat.id}')">
+                        <div class="icon-wrap"><span class="material-symbols-outlined">${cat.icon}</span></div>
                         <span class="label">${cat.label}</span>
-                    </div>
-                `;
+                    </div>`;
             }).join('');
             document.getElementById('edit-modal').classList.add('active');
         }
@@ -1634,7 +1603,7 @@
             if (!amount || amount <= 0) { showToast('⚠️ Jumlah harus lebih dari 0'); return; }
             const date = document.getElementById('edit-date').value;
             if (!date) { showToast('⚠️ Pilih tanggal'); return; }
-            const account = document.getElementById('edit-account')?.value || 'Tunai';
+            const account = document.getElementById('edit-account').value;
             const note = document.getElementById('edit-note').value.trim() || getCategoryLabel(editCategory);
             const updatedTx = { amount, type: editType, category: editCategory, date, account, note };
             let txs = getTransactions();
