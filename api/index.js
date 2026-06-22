@@ -10,10 +10,15 @@ app.use(express.json({ limit: '10mb' }));
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'admin123';
 
+// ============================================================
+// GEMINI API KEY - PRIORITAS ENV, FALLBACK HARDCODE
+// ============================================================
 let GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+
 if (!GEMINI_API_KEY) {
   console.warn('⚠️ GEMINI_API_KEY tidak ditemukan di environment! Menggunakan hardcoded key (TIDAK AMAN).');
-  GEMINI_API_KEY = 'AQ.Ab8RN6IiYYWPgAnsrLqhrIPD7stfXmDGMQyA47XtU2XFKQgSJg'; // GANTI DENGAN API KEY ASLI
+  // ⚠️ GANTI 'YOUR_GEMINI_API_KEY_HERE' dengan API Key asli
+  GEMINI_API_KEY = 'AQ.Ab8RN6IiYYWPgAnsrLqhrIPD7stfXmDGMQyA47XtU2XFKQgSJg';
 }
 
 console.log('🔍 BOT_TOKEN exists?', !!BOT_TOKEN);
@@ -159,7 +164,7 @@ async function clearAllTransactions(userId) {
 }
 
 // ============================================================
-// GEMINI AI OCR - DIPERBAIKI DENGAN MODEL YANG BENAR
+// GEMINI AI OCR - DIPERBAIKI DENGAN MULTIPLE MODEL FALLBACK
 // ============================================================
 async function processOCRWithGemini(base64Image) {
   if (!GEMINI_API_KEY || GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
@@ -200,66 +205,79 @@ Aturan:
     }]
   };
 
-  // Daftar model yang mungkin didukung (urutan prioritas)
-  const models = ['gemini-pro-vision', 'gemini-1.5-pro', 'gemini-1.5-flash'];
+  // Daftar model yang dicoba (dari yang paling stabil)
+  const models = [
+    'gemini-pro-vision',     // Gemini 1.0 Pro Vision (paling stabil)
+    'gemini-1.5-pro',        // Gemini 1.5 Pro
+    'gemini-1.5-flash'       // Gemini 1.5 Flash
+  ];
+
+  // Coba endpoint v1 dan v1beta
+  const endpoints = ['v1', 'v1beta'];
+
   let lastError = null;
 
   for (const model of models) {
-    try {
-      console.log(`🔄 Mencoba model: ${model}`);
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody)
-      });
+    for (const version of endpoints) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/${version}/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+        console.log(`🔄 Mencoba model: ${model} (${version})`);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        lastError = errorData.error?.message || `HTTP ${response.status}`;
-        console.log(`❌ Model ${model} gagal: ${lastError}`);
-        continue;
-      }
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody)
+        });
 
-      const data = await response.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        if (!response.ok) {
+          const errorData = await response.json();
+          const errorMsg = errorData.error?.message || `HTTP ${response.status}`;
+          console.warn(`⚠️ Model ${model} (${version}) gagal: ${errorMsg}`);
+          lastError = new Error(`Model ${model} (${version}) gagal: ${errorMsg}`);
+          continue;
+        }
 
-      // Cari JSON dalam response
-      let jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        try {
-          return JSON.parse(text);
-        } catch (e) {
-          const lines = text.split('\n');
-          let jsonStr = '';
-          let inJson = false;
-          for (const line of lines) {
-            if (line.includes('{')) inJson = true;
-            if (inJson) jsonStr += line;
-            if (line.includes('}')) break;
-          }
-          if (jsonStr) {
-            try {
-              return JSON.parse(jsonStr);
-            } catch (e2) {
-              throw new Error('Gagal parsing JSON dari response AI');
+        const data = await response.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+        // Cari JSON dalam response
+        let jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+          try {
+            return JSON.parse(text);
+          } catch (e) {
+            const lines = text.split('\n');
+            let jsonStr = '';
+            let inJson = false;
+            for (const line of lines) {
+              if (line.includes('{')) inJson = true;
+              if (inJson) jsonStr += line;
+              if (line.includes('}')) break;
             }
-          } else {
-            throw new Error('Tidak ditemukan JSON dalam response');
+            if (jsonStr) {
+              try {
+                return JSON.parse(jsonStr);
+              } catch (e2) {
+                throw new Error('Gagal parsing JSON');
+              }
+            } else {
+              throw new Error('Tidak ditemukan JSON dalam response');
+            }
           }
         }
+
+        console.log(`✅ OCR berhasil dengan model: ${model} (${version})`);
+        return JSON.parse(jsonMatch[0]);
+
+      } catch (e) {
+        console.warn(`❌ Error model ${model} (${version}):`, e.message);
+        lastError = e;
       }
-
-      console.log(`✅ Model ${model} berhasil!`);
-      return JSON.parse(jsonMatch[0]);
-
-    } catch (e) {
-      lastError = e.message;
-      console.log(`❌ Model ${model} error: ${lastError}`);
-      continue;
     }
   }
 
-  throw new Error(`Semua model gagal: ${lastError}`);
+  // Jika semua model gagal
+  throw new Error(`Semua model gagal. Error terakhir: ${lastError?.message || 'Tidak diketahui'}`);
 }
 
 // ============================================================
