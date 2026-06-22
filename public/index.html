@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport" />
-    <title>CatatanKu — By Lekszy</title>
+    <title>CatatanKu — Multi-Akun</title>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries">
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -35,6 +35,8 @@
             --income-dim: rgba(110, 231, 183, 0.12);
             --expense: #f87171;
             --expense-dim: rgba(248, 113, 113, 0.10);
+            --warning: #fbbf24;
+            --warning-dim: rgba(251, 191, 36, 0.12);
             --radius-sm: 10px;
             --radius-md: 14px;
             --radius-lg: 20px;
@@ -82,6 +84,9 @@
         .text-expense {
             color: var(--expense) !important;
         }
+        .text-warning {
+            color: var(--warning) !important;
+        }
         .text-muted {
             color: var(--text-2) !important;
         }
@@ -103,6 +108,9 @@
         }
         .bg-surface-4 {
             background: var(--surface-4);
+        }
+        .bg-warning\/10 {
+            background: var(--warning-dim);
         }
 
         /* ============================================================
@@ -384,6 +392,47 @@
         }
 
         /* ============================================================
+               ACCOUNT BALANCE ROW
+            ============================================================ */
+        .account-balance-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .account-badge {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 10px 12px;
+            text-align: center;
+            transition: border-color 0.2s;
+        }
+        .account-badge:hover {
+            border-color: var(--border-hover);
+        }
+        .account-badge .acc-name {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-3);
+        }
+        .account-badge .acc-balance {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--accent);
+            margin-top: 2px;
+        }
+        .account-badge .acc-balance.positive {
+            color: var(--income);
+        }
+        .account-badge .acc-balance.negative {
+            color: var(--expense);
+        }
+
+        /* ============================================================
                MINI CARDS
             ============================================================ */
         .mini-card {
@@ -484,6 +533,14 @@
             font-size: 11px;
             color: var(--text-3);
             margin-top: 1px;
+        }
+        .tx-item .info .meta .account-tag {
+            background: var(--surface-3);
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-2);
         }
 
         .tx-item .amount {
@@ -977,7 +1034,7 @@
         }
 
         /* ============================================================
-               PROFILE MODAL — dengan fitur kustomisasi
+               PROFILE MODAL
             ============================================================ */
         .profile-modal .modal-box {
             max-width: 420px;
@@ -1115,7 +1172,6 @@
             }
         }
 
-        /* Profile Stats Grid */
         .profile-stats-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -1166,7 +1222,6 @@
             color: var(--accent);
         }
 
-        /* Profile Info Row */
         .profile-info-row {
             background: var(--surface-3);
             border-radius: var(--radius-sm);
@@ -1185,13 +1240,7 @@
             color: var(--text-1);
             font-weight: 500;
         }
-        .profile-info-row .value .material-symbols-outlined {
-            font-size: 14px;
-            vertical-align: middle;
-            margin-right: 4px;
-        }
 
-        /* Edit profile button & form */
         .profile-edit-btn {
             width: 100%;
             padding: 12px;
@@ -1274,9 +1323,6 @@
             color: var(--text-2);
             border: 1px solid var(--border);
         }
-        .profile-edit-form .form-actions .btn-cancel:hover {
-            background: var(--surface-3);
-        }
 
         /* ============================================================
                STATUS BADGE
@@ -1298,7 +1344,7 @@
         }
 
         /* ============================================================
-               ADD PAGE — AMOUNT INPUT
+               ADD PAGE
             ============================================================ */
         .add-amount-section {
             background: var(--surface-1);
@@ -1373,7 +1419,7 @@
         }
 
         /* ============================================================
-               REPORTS — DONUT CHART
+               REPORTS
             ============================================================ */
         .chart-ring {
             position: relative;
@@ -1409,9 +1455,6 @@
             color: var(--accent);
         }
 
-        /* ============================================================
-               REPORTS — PERIOD TABS
-            ============================================================ */
         .period-tabs {
             display: inline-flex;
             padding: 4px;
@@ -1438,9 +1481,6 @@
             box-shadow: 0 4px 12px rgba(177, 188, 251, 0.20);
         }
 
-        /* ============================================================
-               REPORTS — LEGEND
-            ============================================================ */
         .legend-item {
             display: flex;
             align-items: center;
@@ -1485,9 +1525,6 @@
             color: var(--accent);
         }
 
-        /* ============================================================
-               REPORTS — BREAKDOWN ITEM
-            ============================================================ */
         .breakdown-item {
             background: var(--surface-1);
             border: 1px solid var(--border);
@@ -1657,9 +1694,6 @@
             color: var(--text-3);
         }
 
-        /* ============================================================
-               HISTORY — SUMMARY ROW
-            ============================================================ */
         .hist-summary {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -1756,7 +1790,7 @@
         }
 
         /* ============================================================
-               RESPONSIVE TWEAKS
+               RESPONSIVE
             ============================================================ */
         @media (max-width: 480px) {
             .hero-card .balance {
@@ -1811,6 +1845,9 @@
                 font-size: 12px;
                 padding: 3px 10px;
             }
+            .account-balance-row {
+                grid-template-columns: repeat(3, 1fr);
+            }
         }
 
         @media (max-width: 380px) {
@@ -1833,6 +1870,9 @@
             }
             .hero-stat-box .stat-value {
                 font-size: 13px;
+            }
+            .account-balance-row {
+                grid-template-columns: 1fr 1fr;
             }
         }
 
@@ -1896,7 +1936,7 @@
         }
 
         /* ============================================================
-               MONTHLY LIMIT SETTING — tambahan
+               MONTHLY LIMIT SETTING
             ============================================================ */
         .limit-edit-btn {
             background: none;
@@ -1915,47 +1955,6 @@
         .limit-edit-btn:hover {
             background: var(--surface-3);
             color: var(--text-1);
-        }
-
-        .limit-input-wrap {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-top: 4px;
-        }
-        .limit-input-wrap input {
-            background: var(--surface-2);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            padding: 6px 12px;
-            color: var(--text-1);
-            font-size: 14px;
-            width: 140px;
-            outline: none;
-        }
-        .limit-input-wrap input:focus {
-            border-color: var(--accent);
-        }
-        .limit-input-wrap button {
-            background: var(--accent);
-            color: #0a0e1a;
-            border: none;
-            border-radius: var(--radius-sm);
-            padding: 6px 14px;
-            font-weight: 600;
-            font-size: 12px;
-            cursor: pointer;
-            transition: 0.15s;
-        }
-        .limit-input-wrap button:hover {
-            transform: scale(1.03);
-        }
-        .limit-input-wrap .cancel-btn {
-            background: var(--surface-3);
-            color: var(--text-2);
-        }
-        .limit-input-wrap .cancel-btn:hover {
-            background: var(--surface-4);
         }
 
         .limit-display {
@@ -2030,6 +2029,7 @@
                             <option value="Bank">Bank</option>
                             <option value="Tunai">Tunai</option>
                             <option value="Tabungan">Tabungan</option>
+                            <option value="E-Wallet">E-Wallet</option>
                         </select>
                     </div>
                 </div>
@@ -2215,6 +2215,19 @@
                 </div>
             </section>
 
+            <!-- Account Balances -->
+            <section style="margin-top:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                    <span style="font-size:12px;font-weight:600;color:var(--text-2);letter-spacing:0.05em;text-transform:uppercase;">💳 Saldo per Akun</span>
+                </div>
+                <div class="account-balance-row" id="account-balance-row">
+                    <div class="account-badge"><div class="acc-name">Bank</div><div class="acc-balance" id="acc-balance-Bank">Rp 0</div></div>
+                    <div class="account-badge"><div class="acc-name">Tunai</div><div class="acc-balance" id="acc-balance-Tunai">Rp 0</div></div>
+                    <div class="account-badge"><div class="acc-name">Tabungan</div><div class="acc-balance" id="acc-balance-Tabungan">Rp 0</div></div>
+                    <div class="account-badge"><div class="acc-name">E-Wallet</div><div class="acc-balance" id="acc-balance-E-Wallet">Rp 0</div></div>
+                </div>
+            </section>
+
             <!-- Mini Stats -->
             <section style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px;">
                 <div class="mini-card" id="monthly-spending-card">
@@ -2336,6 +2349,7 @@
                             <option value="Bank">Bank</option>
                             <option value="Tunai">Tunai</option>
                             <option value="Tabungan">Tabungan</option>
+                            <option value="E-Wallet">E-Wallet</option>
                         </select>
                     </div>
                 </div>
@@ -2515,7 +2529,12 @@
         let editCategory = 'transport';
 
         // ============================================================
-        // MONTHLY LIMIT — fungsi baru
+        // ACCOUNT LIST
+        // ============================================================
+        const ACCOUNTS = ['Bank', 'Tunai', 'Tabungan', 'E-Wallet'];
+
+        // ============================================================
+        // MONTHLY LIMIT
         // ============================================================
         const LIMIT_KEY = 'catatanku_monthly_limit';
         const DEFAULT_LIMIT = 2000000;
@@ -2654,6 +2673,26 @@
         function saveTransactions(txs) { saveLocalTransactions(txs); }
 
         function generateId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+        // ============================================================
+        // FUNGSI SALDO PER AKUN
+        // ============================================================
+        function getAccountBalance(account) {
+            const txs = getTransactions();
+            const income = txs.filter(t => t.account === account && t.type === 'income').reduce((s, t) => s + Number(t.amount),
+                0);
+            const expense = txs.filter(t => t.account === account && t.type === 'expense').reduce((s, t) => s + Number(t
+                .amount), 0);
+            return income - expense;
+        }
+
+        function getAllBalances() {
+            const balances = {};
+            ACCOUNTS.forEach(acc => {
+                balances[acc] = getAccountBalance(acc);
+            });
+            return balances;
+        }
 
         // ============================================================
         // SYNC
@@ -3005,7 +3044,7 @@
         }
 
         // ============================================================
-        // MONTHLY LIMIT — modal & fungsi
+        // MONTHLY LIMIT
         // ============================================================
         function openLimitModal() {
             const current = getMonthlyLimit();
@@ -3201,6 +3240,16 @@
             document.getElementById('dash-expenses').textContent = formatCurrency(allExpense);
             document.getElementById('dash-monthly-spending').textContent = formatCurrency(totalExpense);
 
+            // Account balances
+            ACCOUNTS.forEach(acc => {
+                const bal = getAccountBalance(acc);
+                const el = document.getElementById('acc-balance-' + acc);
+                if (el) {
+                    el.textContent = formatCurrency(bal);
+                    el.className = 'acc-balance ' + (bal >= 0 ? 'positive' : 'negative');
+                }
+            });
+
             // Monthly limit
             const limit = getMonthlyLimit();
             const pct = Math.min((totalExpense / limit) * 100, 100);
@@ -3208,7 +3257,6 @@
             document.getElementById('dash-spending-pct').textContent = Math.round(pct) + '%';
             document.getElementById('dash-limit-display').textContent = formatCurrency(limit);
 
-            // Warna progress bar
             const bar = document.getElementById('dash-spending-bar');
             if (pct >= 100) {
                 bar.style.background = 'var(--expense)';
@@ -3279,6 +3327,7 @@
             const amtClass = isIncome ? 'income' : 'expense';
             const iconBg = isIncome ? 'rgba(110,231,183,0.10)' : 'rgba(177,188,251,0.08)';
             const iconColor = isIncome ? 'var(--income)' : 'var(--accent)';
+            const accountTag = t.account ? `<span class="account-tag">${t.account}</span>` : '';
 
             return `
                     <div class="tx-item">
@@ -3287,7 +3336,7 @@
                         </div>
                         <div class="info">
                             <div class="title">${t.note || getCategoryLabel(t.category)}</div>
-                            <div class="meta">${getCategoryLabel(t.category)}${showDate ? ' • ' + formatDate(t.date) : ''}</div>
+                            <div class="meta">${getCategoryLabel(t.category)}${showDate ? ' • ' + formatDate(t.date) : ''} ${accountTag}</div>
                         </div>
                         <div class="amount ${amtClass}">${sign}${formatCurrency(Math.abs(t.amount))}</div>
                         <div class="actions">
@@ -3490,12 +3539,10 @@
                 localStorage.setItem('catatanku_joined', new Date().toISOString().slice(0, 10));
             }
 
-            // Inisialisasi limit jika belum ada
             if (!localStorage.getItem(LIMIT_KEY)) {
                 setMonthlyLimit(DEFAULT_LIMIT);
             }
 
-            // Inisialisasi profil jika belum ada
             if (!localStorage.getItem('catatanku_profile')) {
                 let initialName = 'Pengguna';
                 let initialPhoto = '';
