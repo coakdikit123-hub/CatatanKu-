@@ -8,11 +8,12 @@
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js">
+    <!-- Tesseract.js versi 4 (lebih stabil) -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js">
     </script>
     <style>
         /* ============================================================
-           TEMA DARK - Lumina Finance Dark
+           TEMA DARK - Lumina Finance Dark (SAMA SEPERTI SEBELUMNYA)
            ============================================================ */
         * {
             font-family: 'Inter', sans-serif;
@@ -174,7 +175,6 @@
             text-transform: uppercase;
             margin-top: 2px;
         }
-        /* TOMBOL SCAN KHUSUS */
         .bottom-nav .scan-btn {
             position: relative;
             top: -16px;
@@ -675,7 +675,7 @@
             }
         }
 
-        /* MODAL EDIT */
+        /* MODAL EDIT & PROFILE */
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -754,7 +754,6 @@
             background: #3a4560;
         }
 
-        /* PROFILE MODAL */
         .profile-modal .modal-box {
             max-width: 360px;
         }
@@ -1291,11 +1290,20 @@
         }
 
         // ============================================================
-        // OCR FUNCTIONS
+        // OCR FUNCTIONS - DIPERBAIKI
         // ============================================================
         let ocrImageData = null;
         let ocrText = '';
         let parsedData = { amount: '', category: 'other', date: '', note: '', type: 'expense' };
+
+        // Cek apakah Tesseract tersedia
+        function isTesseractReady() {
+            if (typeof Tesseract === 'undefined') {
+                showToast('❌ Library OCR belum dimuat. Periksa koneksi internet.');
+                return false;
+            }
+            return true;
+        }
 
         function openOcrModal() {
             document.getElementById('ocr-modal').classList.add('active');
@@ -1361,6 +1369,8 @@
                 showToast('⚠️ Upload gambar terlebih dahulu');
                 return;
             }
+            if (!isTesseractReady()) return;
+
             const progressDiv = document.getElementById('ocr-progress');
             const statusEl = document.getElementById('ocr-status');
             const barEl = document.getElementById('ocr-progress-bar');
@@ -1373,15 +1383,23 @@
             resultEl.style.display = 'none';
 
             try {
-                const worker = await Tesseract.createWorker('ind');
-                worker.on('progress', (p) => {
-                    const progress = Math.round(p.progress * 100);
-                    barEl.style.width = progress + '%';
-                    statusEl.textContent = p.status || `Memproses... ${progress}%`;
+                // Gunakan worker dengan bahasa indonesia dan inggris
+                const worker = await Tesseract.createWorker({
+                    logger: (m) => {
+                        if (m.status) {
+                            const progress = Math.round(m.progress * 100);
+                            barEl.style.width = progress + '%';
+                            statusEl.textContent = m.status + ` (${progress}%)`;
+                        }
+                    }
                 });
+                await worker.loadLanguage('ind+eng');
+                await worker.initialize('ind+eng');
+                // Atau gunakan 'eng' saja jika 'ind' tidak support
+                // await worker.initialize('eng');
 
-                const ret = await worker.recognize(ocrImageData);
-                ocrText = ret.data.text;
+                const { data: { text } } = await worker.recognize(ocrImageData);
+                ocrText = text;
                 await worker.terminate();
 
                 resultEl.textContent = ocrText;
@@ -1391,9 +1409,10 @@
                 progressDiv.style.display = 'none';
                 parseOcrResult(ocrText);
                 document.getElementById('ocr-apply-btn').style.display = 'block';
+                showToast('✅ OCR berhasil! Klik "Gunakan" untuk mengisi form.');
             } catch (e) {
                 console.error('OCR error:', e);
-                showToast('❌ Gagal memproses OCR, coba lagi.');
+                showToast('❌ Gagal memproses OCR: ' + e.message);
                 progressDiv.style.display = 'none';
                 document.getElementById('ocr-process-btn').style.display = 'block';
             }
@@ -1401,65 +1420,94 @@
 
         function parseOcrResult(text) {
             parsedData = { amount: '', category: 'other', date: '', note: '', type: 'expense' };
-            const amountMatches = text.match(/(\d{2,}(?:\.\d{3})*|\d+)/g);
-            if (amountMatches) {
-                let maxAmount = 0;
-                for (const match of amountMatches) {
-                    const num = parseInt(match.replace(/\./g, ''));
-                    if (num > 1000 && num < 100000000) {
-                        if (num > maxAmount) maxAmount = num;
-                    }
-                }
-                if (maxAmount > 0) {
-                    parsedData.amount = maxAmount;
+            // Cari angka nominal (cari angka terbesar yang masuk akal)
+            const numberMatches = text.match(/\d+([,.]\d+)?/g);
+            if (numberMatches) {
+                // Ambil angka yang >= 1000 dan < 100 juta
+                let candidates = numberMatches.map(n => parseFloat(n.replace(',', '.'))).filter(n => n >= 1000 && n < 100000000);
+                if (candidates.length > 0) {
+                    // Ambil yang terbesar
+                    parsedData.amount = Math.max(...candidates);
                 } else {
-                    const firstNum = parseInt(amountMatches[0].replace(/\./g, ''));
-                    if (firstNum > 0) parsedData.amount = firstNum;
+                    // Ambil angka pertama yang > 0
+                    const first = parseFloat(numberMatches[0].replace(',', '.'));
+                    if (first > 0) parsedData.amount = first;
+                }
+                // Jika masih 0, coba cari angka diikuti 'rb' atau 'ribu'
+                const ribuMatch = text.match(/(\d+)\s*[rR]b/);
+                if (ribuMatch && !parsedData.amount) {
+                    parsedData.amount = parseInt(ribuMatch[1]) * 1000;
                 }
             }
 
-            const lowerText = text.toLowerCase();
-            const categoryKeywords = {
+            // Deteksi kategori
+            const lower = text.toLowerCase();
+            const catMap = {
                 dining: ['makan', 'resto', 'food', 'warung', 'cafe', 'coffee', 'minum', 'snack', 'bakso', 'soto', 'nasi'],
-                transport: ['transport', 'ojol', 'gojek', 'grab', 'taxi', 'bensin', 'bbm', 'angkot', 'bus', 'kereta', 'pesawat'],
+                transport: ['transport', 'ojol', 'gojek', 'grab', 'taxi', 'bensin', 'bbm', 'angkot', 'bus', 'kereta',
+                    'pesawat'
+                ],
                 shopping: ['belanja', 'shop', 'baju', 'sepatu', 'tas', 'elektronik', 'hp', 'laptop', 'fashion'],
                 bills: ['tagihan', 'listrik', 'air', 'pdam', 'pln', 'internet', 'wifi', 'telpon', 'pulsa', 'kartu kredit'],
-                fun: ['hiburan', 'movie', 'film', 'game', 'netflix', 'spotify', 'steam', 'playstation', 'wisata', 'liburan'],
+                fun: ['hiburan', 'movie', 'film', 'game', 'netflix', 'spotify', 'steam', 'playstation', 'wisata',
+                    'liburan'],
                 health: ['kesehatan', 'obat', 'dokter', 'rumah sakit', 'klinik', 'apotik', 'vitamin', 'lab', 'medical'],
                 gift: ['hadiah', 'gift', 'kado', 'ulang tahun', 'wedding', 'pernikahan']
             };
-            for (const [cat, keywords] of Object.entries(categoryKeywords)) {
-                for (const kw of keywords) {
-                    if (lowerText.includes(kw)) {
-                        parsedData.category = cat;
-                        break;
-                    }
+            for (const [cat, keywords] of Object.entries(catMap)) {
+                if (keywords.some(kw => lower.includes(kw))) {
+                    parsedData.category = cat;
+                    break;
                 }
-                if (parsedData.category !== 'other') break;
             }
 
-            const dateRegex = /(\d{2}[\/\-]\d{2}[\/\-]\d{4})|(\d{4}[\/\-]\d{2}[\/\-]\d{2})/g;
+            // Deteksi tanggal (format: dd/mm/yyyy, dd-mm-yyyy, yyyy-mm-dd, dd month yyyy)
+            const dateRegex = /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})|(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})|(\d{1,2}\s+(jan|feb|mar|apr|mei|jun|jul|agu|sep|okt|nov|des)\s+\d{4})/i;
             const dateMatch = text.match(dateRegex);
             if (dateMatch) {
                 let dateStr = dateMatch[0];
+                // Coba parse
                 const parts = dateStr.split(/[\/\-]/);
                 if (parts.length === 3) {
                     if (parts[0].length === 4) {
+                        // YYYY-MM-DD
                         parsedData.date = `${parts[0]}-${parts[1].padStart(2,'0')}-${parts[2].padStart(2,'0')}`;
                     } else if (parts[2].length === 4) {
+                        // DD/MM/YYYY atau MM/DD/YYYY -> asumsi DD/MM/YYYY
                         parsedData.date = `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
                     }
+                } else {
+                    // coba dengan bulan teks
+                    const monthMap = { jan: '01', feb: '02', mar: '03', apr: '04', mei: '05', jun: '06', jul: '07', agu: '08',
+                        sep: '09', okt: '10', nov: '11', des: '12' };
+                    const monthMatch = dateStr.match(/(\d{1,2})\s+(jan|feb|mar|apr|mei|jun|jul|agu|sep|okt|nov|des)\s+(\d{4})/i);
+                    if (monthMatch) {
+                        const day = monthMatch[1].padStart(2, '0');
+                        const month = monthMap[monthMatch[2].toLowerCase()] || '01';
+                        const year = monthMatch[3];
+                        parsedData.date = `${year}-${month}-${day}`;
+                    }
+                }
+                // Validasi tanggal
+                if (parsedData.date) {
+                    const d = new Date(parsedData.date);
+                    if (isNaN(d.getTime())) parsedData.date = '';
                 }
             }
 
-            if (lowerText.includes('gaji') || lowerText.includes('salary') || lowerText.includes('income') || lowerText.includes('pemasukan') || lowerText.includes('bonus')) {
+            // Deteksi jenis (income/expense)
+            if (lower.includes('gaji') || lower.includes('salary') || lower.includes('income') || lower.includes('pemasukan') ||
+                lower.includes('bonus') || lower.includes('transfer masuk')) {
                 parsedData.type = 'income';
-            } else if (lowerText.includes('pengeluaran') || lowerText.includes('expense') || lowerText.includes('belanja') || lowerText.includes('bayar')) {
+            } else if (lower.includes('pengeluaran') || lower.includes('expense') || lower.includes('belanja') || lower
+                .includes('bayar') || lower.includes('transfer keluar')) {
                 parsedData.type = 'expense';
             } else {
-                parsedData.type = text.includes('-') || text.includes('minus') ? 'expense' : 'expense';
+                // Default: jika ada tanda minus atau kata "kurang"
+                parsedData.type = (text.includes('-') || text.includes('minus')) ? 'expense' : 'expense';
             }
 
+            // Catatan
             parsedData.note = text.replace(/\s+/g, ' ').trim().slice(0, 100);
         }
 
@@ -1473,23 +1521,22 @@
             if (parsedData.category && parsedData.category !== 'other') {
                 selectCategory(parsedData.category);
             } else {
+                // Coba dari note
                 const lowerNote = parsedData.note.toLowerCase();
-                for (const [cat, keywords] of Object.entries({
-                        dining: ['makan', 'resto', 'food', 'warung', 'cafe', 'coffee'],
-                        transport: ['transport', 'ojol', 'gojek', 'grab', 'taxi', 'bensin', 'bbm'],
-                        shopping: ['belanja', 'shop', 'baju', 'sepatu', 'tas'],
-                        bills: ['tagihan', 'listrik', 'air', 'pdam', 'pln', 'internet', 'wifi'],
-                        fun: ['hiburan', 'movie', 'film', 'game', 'netflix', 'spotify'],
-                        health: ['kesehatan', 'obat', 'dokter', 'rumah sakit', 'klinik'],
-                        gift: ['hadiah', 'gift', 'kado']
-                    })) {
-                    for (const kw of keywords) {
-                        if (lowerNote.includes(kw)) {
-                            selectCategory(cat);
-                            break;
-                        }
+                const catMap = {
+                    dining: ['makan', 'resto', 'food', 'warung', 'cafe', 'coffee'],
+                    transport: ['transport', 'ojol', 'gojek', 'grab', 'taxi', 'bensin', 'bbm'],
+                    shopping: ['belanja', 'shop', 'baju', 'sepatu', 'tas'],
+                    bills: ['tagihan', 'listrik', 'air', 'pdam', 'pln', 'internet', 'wifi'],
+                    fun: ['hiburan', 'movie', 'film', 'game', 'netflix', 'spotify'],
+                    health: ['kesehatan', 'obat', 'dokter', 'rumah sakit', 'klinik'],
+                    gift: ['hadiah', 'gift', 'kado']
+                };
+                for (const [cat, keywords] of Object.entries(catMap)) {
+                    if (keywords.some(kw => lowerNote.includes(kw))) {
+                        selectCategory(cat);
+                        break;
                     }
-                    if (document.querySelector('#add-category-grid .category-chip.active')) break;
                 }
             }
             if (parsedData.date) {
@@ -1503,7 +1550,7 @@
         }
 
         // ============================================================
-        // TELEGRAM INTEGRATION
+        // TELEGRAM INTEGRATION & FUNGSI LAINNYA (SAMA SEPERTI SEBELUMNYA)
         // ============================================================
         let tg = null;
         let IS_TELEGRAM = false;
@@ -1721,7 +1768,7 @@
         }
 
         // ============================================================
-        // RENDER DASHBOARD, HISTORY, REPORTS
+        // RENDER DASHBOARD, HISTORY, REPORTS (SAMA SEPERTI SEBELUMNYA)
         // ============================================================
         function renderDashboard() {
             const txs = getTransactions();
@@ -2194,7 +2241,7 @@
                 }
             });
 
-            console.log('🚀 CatatanKu siap dengan Scan menonjol!');
+            console.log('🚀 CatatanKu siap dengan OCR yang diperbaiki!');
             console.log('👤 User ID:', USER_ID);
         })();
     </script>
