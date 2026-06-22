@@ -8,9 +8,6 @@
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
-    <!-- Tesseract.js untuk OCR -->
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js">
-    </script>
     <style>
         /* ============================================================
            TEMA DARK - Lumina Finance Dark
@@ -26,7 +23,7 @@
             min-height: 100dvh;
             margin: 0;
             padding: 0;
-            padding-bottom: 100px;
+            padding-bottom: 80px;
         }
         .bg-primary {
             background-color: #B1BCFB !important;
@@ -147,7 +144,7 @@
             background-color: #0f1420 !important;
             border-top-color: #2a3550 !important;
             padding: 8px 12px 12px;
-            height: 72px;
+            height: 64px;
         }
         .bottom-nav a {
             color: #94a3bb !important;
@@ -171,47 +168,6 @@
             letter-spacing: 0.05em;
             text-transform: uppercase;
             margin-top: 2px;
-        }
-        .bottom-nav .scan-btn {
-            position: relative;
-            top: -16px;
-            margin: 0 4px;
-        }
-        .bottom-nav .scan-btn .scan-wrapper {
-            width: 68px;
-            height: 68px;
-            border-radius: 9999px;
-            background: linear-gradient(145deg, #B1BCFB, #8a9cf5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 8px 28px rgba(177, 188, 251, 0.35);
-            transition: transform 0.2s, box-shadow 0.2s;
-            margin-bottom: 2px;
-            cursor: pointer;
-            border: 2px solid rgba(177, 188, 251, 0.2);
-        }
-        .bottom-nav .scan-btn .scan-wrapper .material-symbols-outlined {
-            font-size: 38px;
-            color: #0f1420;
-            font-variation-settings: 'FILL' 1;
-        }
-        .bottom-nav .scan-btn .scan-wrapper:hover {
-            transform: scale(1.05);
-            box-shadow: 0 8px 36px rgba(177, 188, 251, 0.5);
-        }
-        .bottom-nav .scan-btn .scan-wrapper:active {
-            transform: scale(0.92);
-        }
-        .bottom-nav .scan-btn span:last-child {
-            color: #B1BCFB;
-            font-weight: 700;
-            font-size: 12px;
-            letter-spacing: 0.06em;
-        }
-        .bottom-nav .scan-btn.active .scan-wrapper {
-            box-shadow: 0 8px 40px rgba(177, 188, 251, 0.6);
-            border-color: #B1BCFB;
         }
 
         input,
@@ -849,95 +805,6 @@
             color: #94a3bb;
             font-size: 14px;
         }
-
-        /* OCR MODAL */
-        .ocr-modal .modal-box {
-            max-width: 550px;
-        }
-        .ocr-dropzone {
-            border: 2px dashed #2a3550;
-            border-radius: 12px;
-            padding: 40px 20px;
-            text-align: center;
-            cursor: pointer;
-            transition: border-color 0.3s;
-            margin-bottom: 16px;
-        }
-        .ocr-dropzone:hover {
-            border-color: #B1BCFB;
-        }
-        .ocr-dropzone.dragover {
-            border-color: #B1BCFB;
-            background: rgba(177, 188, 251, 0.05);
-        }
-        .ocr-preview {
-            max-width: 100%;
-            max-height: 200px;
-            border-radius: 8px;
-            margin: 12px 0;
-            display: none;
-        }
-        .ocr-result {
-            background: #0f1420;
-            border-radius: 8px;
-            padding: 12px;
-            margin-top: 12px;
-            max-height: 150px;
-            overflow-y: auto;
-            font-size: 13px;
-            color: #94a3bb;
-            display: none;
-            white-space: pre-wrap;
-            word-break: break-word;
-        }
-        .ocr-progress {
-            display: none;
-            margin: 12px 0;
-        }
-        .ocr-progress .bar {
-            height: 4px;
-            background: #2a3550;
-            border-radius: 4px;
-            overflow: hidden;
-            margin-top: 6px;
-        }
-        .ocr-progress .bar .fill {
-            height: 100%;
-            width: 0%;
-            background: #B1BCFB;
-            border-radius: 4px;
-            transition: width 0.3s;
-        }
-        .ocr-progress p {
-            font-size: 13px;
-            color: #94a3bb;
-        }
-        .ocr-extracted {
-            background: #1a2238;
-            border-radius: 8px;
-            padding: 12px;
-            margin-top: 12px;
-            border: 1px solid #2a3550;
-            display: none;
-        }
-        .ocr-extracted .field {
-            display: flex;
-            justify-content: space-between;
-            padding: 4px 0;
-            border-bottom: 1px solid #2a3550;
-        }
-        .ocr-extracted .field:last-child {
-            border-bottom: none;
-        }
-        .ocr-extracted .field .label {
-            color: #94a3bb;
-            font-size: 13px;
-        }
-        .ocr-extracted .field .value {
-            color: #e8edf5;
-            font-size: 13px;
-            font-weight: 500;
-        }
     </style>
 </head>
 <body>
@@ -995,33 +862,6 @@
             <div class="user-id"><strong>ID Telegram</strong><br /><span id="profile-user-id">-</span></div>
             <div class="user-status" id="profile-status">🔒 Online</div>
             <button class="btn-logout" onclick="logout()">🚪 Logout</button>
-        </div>
-    </div>
-
-    <!-- OCR MODAL -->
-    <div id="ocr-modal" class="modal-overlay ocr-modal">
-        <div class="modal-box">
-            <h2><span class="material-symbols-outlined">scan</span> Scan Struk <button class="close-modal" onclick="closeOcrModal()">✕</button></h2>
-            <div class="ocr-dropzone" id="ocr-dropzone" onclick="document.getElementById('ocr-file-input').click()">
-                <span class="material-symbols-outlined" style="font-size:48px;color:#94a3bb;">upload_file</span>
-                <p style="color:#94a3bb;margin-top:8px;">Klik atau taruh gambar struk di sini</p>
-                <input type="file" id="ocr-file-input" accept="image/*" style="display:none;" />
-            </div>
-            <img id="ocr-preview" class="ocr-preview" />
-            <div class="ocr-progress" id="ocr-progress">
-                <p id="ocr-status">Memproses...</p>
-                <div class="bar"><div class="fill" id="ocr-progress-bar"></div></div>
-            </div>
-            <div class="ocr-result" id="ocr-result"></div>
-            <div class="ocr-extracted" id="ocr-extracted">
-                <p style="color:#94a3bb;font-size:12px;margin-bottom:8px;">📋 Hasil Ekstraksi:</p>
-                <div id="ocr-extracted-fields"></div>
-            </div>
-            <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">
-                <button class="btn-primary" onclick="processOcr()" id="ocr-process-btn" style="flex:1;">📷 Scan dengan OCR</button>
-                <button class="btn-primary" onclick="applyOcrResult()" id="ocr-apply-btn" style="flex:1;display:none;background:#2e7d32;">✅ Gunakan</button>
-            </div>
-            <p style="color:#5a6a82;font-size:12px;margin-top:8px;">📷 OCR menggunakan Tesseract.js (gratis, tanpa API key). Hasil mungkin tidak 100% akurat.</p>
         </div>
     </div>
 
@@ -1245,22 +1085,16 @@
     </div>
 
     <!-- ============================================================
-    BOTTOM NAV
+    BOTTOM NAV - 4 MENU (Tanpa Scan)
     ============================================================ -->
     <nav class="bottom-nav fixed bottom-0 left-0 w-full z-50 flex justify-around items-center border-t rounded-t-xl">
-        <a href="#" class="flex flex-col items-center justify-center" data-page="dashboard" onclick="navigateTo('dashboard')">
+        <a href="#" class="flex flex-col items-center justify-center active" data-page="dashboard" onclick="navigateTo('dashboard')">
             <span class="material-symbols-outlined">home</span>
             <span>Beranda</span>
         </a>
         <a href="#" class="flex flex-col items-center justify-center" data-page="history" onclick="navigateTo('history')">
             <span class="material-symbols-outlined">receipt_long</span>
             <span>Riwayat</span>
-        </a>
-        <a href="#" class="flex flex-col items-center justify-center scan-btn" data-page="scan" onclick="navigateTo('scan')">
-            <div class="scan-wrapper">
-                <span class="material-symbols-outlined">qr_code_scanner</span>
-            </div>
-            <span class="text-xs font-semibold">Scan</span>
         </a>
         <a href="#" class="flex flex-col items-center justify-center" data-page="add" onclick="navigateTo('add')">
             <span class="material-symbols-outlined" style="font-size:28px; color: #B1BCFB;">add_circle</span>
@@ -1309,262 +1143,6 @@
                 return false;
             }
             return true;
-        }
-
-        // ============================================================
-        // OCR FUNCTIONS - TESSERACT.JS (Client-Side)
-        // ============================================================
-        let ocrImageData = null;
-        let ocrText = '';
-        let parsedData = { amount: '', category: 'other', date: '', note: '', type: 'expense' };
-
-        function openOcrModal() {
-            document.getElementById('ocr-modal').classList.add('active');
-            document.getElementById('ocr-preview').style.display = 'none';
-            document.getElementById('ocr-result').style.display = 'none';
-            document.getElementById('ocr-extracted').style.display = 'none';
-            document.getElementById('ocr-progress').style.display = 'none';
-            document.getElementById('ocr-process-btn').style.display = 'block';
-            document.getElementById('ocr-apply-btn').style.display = 'none';
-            ocrImageData = null;
-            ocrText = '';
-            parsedData = { amount: '', category: 'other', date: '', note: '', type: 'expense' };
-        }
-
-        function closeOcrModal() {
-            document.getElementById('ocr-modal').classList.remove('active');
-        }
-
-        // Drag & drop
-        const dropzone = document.getElementById('ocr-dropzone');
-        const fileInput = document.getElementById('ocr-file-input');
-
-        dropzone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropzone.classList.add('dragover');
-        });
-        dropzone.addEventListener('dragleave', () => {
-            dropzone.classList.remove('dragover');
-        });
-        dropzone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropzone.classList.remove('dragover');
-            if (e.dataTransfer.files.length) {
-                handleFile(e.dataTransfer.files[0]);
-            }
-        });
-        fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length) {
-                handleFile(e.target.files[0]);
-            }
-        });
-
-        function handleFile(file) {
-            if (!file.type.startsWith('image/')) {
-                showToast('⚠️ Mohon upload file gambar');
-                return;
-            }
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                ocrImageData = e.target.result;
-                const preview = document.getElementById('ocr-preview');
-                preview.src = ocrImageData;
-                preview.style.display = 'block';
-                document.getElementById('ocr-process-btn').style.display = 'block';
-                document.getElementById('ocr-apply-btn').style.display = 'none';
-                document.getElementById('ocr-result').style.display = 'none';
-                document.getElementById('ocr-extracted').style.display = 'none';
-                showToast('✅ Gambar berhasil diunggah');
-            };
-            reader.readAsDataURL(file);
-        }
-
-        async function processOcr() {
-            if (!ocrImageData) {
-                showToast('⚠️ Upload gambar terlebih dahulu');
-                return;
-            }
-
-            // Cek Tesseract tersedia
-            if (typeof Tesseract === 'undefined') {
-                showToast('❌ Tesseract.js tidak tersedia. Periksa koneksi internet.');
-                return;
-            }
-
-            const progressDiv = document.getElementById('ocr-progress');
-            const statusEl = document.getElementById('ocr-status');
-            const barEl = document.getElementById('ocr-progress-bar');
-            const resultEl = document.getElementById('ocr-result');
-
-            progressDiv.style.display = 'block';
-            barEl.style.width = '0%';
-            statusEl.textContent = 'Memulai OCR...';
-            document.getElementById('ocr-process-btn').style.display = 'none';
-            document.getElementById('ocr-apply-btn').style.display = 'none';
-            resultEl.style.display = 'none';
-            document.getElementById('ocr-extracted').style.display = 'none';
-
-            try {
-                // Konversi base64 ke gambar untuk Tesseract
-                const img = new Image();
-                img.src = ocrImageData;
-                await new Promise((resolve) => { img.onload = resolve; });
-
-                const worker = await Tesseract.createWorker({
-                    logger: (m) => {
-                        if (m.status) {
-                            const progress = Math.round(m.progress * 100);
-                            barEl.style.width = progress + '%';
-                            statusEl.textContent = m.status + ` (${progress}%)`;
-                        }
-                    }
-                });
-                await worker.loadLanguage('ind+eng');
-                await worker.initialize('ind+eng');
-
-                const { data: { text } } = await worker.recognize(ocrImageData);
-                ocrText = text;
-                await worker.terminate();
-
-                resultEl.textContent = ocrText;
-                resultEl.style.display = 'block';
-                barEl.style.width = '100%';
-                statusEl.textContent = '✅ OCR selesai!';
-                progressDiv.style.display = 'none';
-
-                // Parse hasil
-                parseOcrResult(ocrText);
-                document.getElementById('ocr-apply-btn').style.display = 'block';
-
-                // Tampilkan hasil parsing
-                const extractedDiv = document.getElementById('ocr-extracted');
-                const fieldsDiv = document.getElementById('ocr-extracted-fields');
-                extractedDiv.style.display = 'block';
-
-                const typeLabel = parsedData.type === 'income' ? '💚 Pemasukan' : '🔴 Pengeluaran';
-                const categoryLabel = getCategoryLabel(parsedData.category);
-
-                fieldsDiv.innerHTML = `
-                    <div class="field"><span class="label">💰 Jumlah</span><span class="value">Rp ${parsedData.amount ? Number(parsedData.amount).toLocaleString('id-ID') : '—'}</span></div>
-                    <div class="field"><span class="label">📂 Jenis</span><span class="value">${typeLabel}</span></div>
-                    <div class="field"><span class="label">📁 Kategori</span><span class="value">${categoryLabel}</span></div>
-                    <div class="field"><span class="label">📅 Tanggal</span><span class="value">${parsedData.date || '—'}</span></div>
-                    <div class="field"><span class="label">📝 Catatan</span><span class="value">${parsedData.note || '—'}</span></div>
-                `;
-
-                showToast('✅ OCR selesai! Klik "Gunakan" untuk mengisi form.');
-
-            } catch (e) {
-                console.error('OCR error:', e);
-                showToast('❌ Error: ' + e.message);
-                progressDiv.style.display = 'none';
-                document.getElementById('ocr-process-btn').style.display = 'block';
-                document.getElementById('ocr-apply-btn').style.display = 'none';
-                resultEl.textContent = '❌ Error: ' + e.message;
-                resultEl.style.display = 'block';
-                resultEl.style.color = '#DF172A';
-            }
-        }
-
-        function parseOcrResult(text) {
-            parsedData = { amount: '', category: 'other', date: '', note: '', type: 'expense' };
-
-            // Cari nominal
-            const numberMatches = text.match(/\d+([,.]\d+)?/g);
-            if (numberMatches) {
-                let candidates = numberMatches.map(n => parseFloat(n.replace(',', '.'))).filter(n => n >= 1000 && n < 100000000);
-                if (candidates.length > 0) {
-                    parsedData.amount = Math.max(...candidates);
-                } else {
-                    const first = parseFloat(numberMatches[0].replace(',', '.'));
-                    if (first > 0) parsedData.amount = first;
-                }
-                const ribuMatch = text.match(/(\d+)\s*[rR]b/);
-                if (ribuMatch && !parsedData.amount) {
-                    parsedData.amount = parseInt(ribuMatch[1]) * 1000;
-                }
-            }
-
-            // Deteksi kategori
-            const lower = text.toLowerCase();
-            const catMap = {
-                dining: ['makan', 'resto', 'food', 'warung', 'cafe', 'coffee', 'minum', 'snack', 'bakso', 'soto', 'nasi'],
-                transport: ['transport', 'ojol', 'gojek', 'grab', 'taxi', 'bensin', 'bbm', 'angkot', 'bus', 'kereta', 'pesawat'],
-                shopping: ['belanja', 'shop', 'baju', 'sepatu', 'tas', 'elektronik', 'hp', 'laptop', 'fashion'],
-                bills: ['tagihan', 'listrik', 'air', 'pdam', 'pln', 'internet', 'wifi', 'telpon', 'pulsa', 'kartu kredit'],
-                fun: ['hiburan', 'movie', 'film', 'game', 'netflix', 'spotify', 'steam', 'playstation', 'wisata', 'liburan'],
-                health: ['kesehatan', 'obat', 'dokter', 'rumah sakit', 'klinik', 'apotik', 'vitamin', 'lab', 'medical'],
-                gift: ['hadiah', 'gift', 'kado', 'ulang tahun', 'wedding', 'pernikahan']
-            };
-            for (const [cat, keywords] of Object.entries(catMap)) {
-                if (keywords.some(kw => lower.includes(kw))) {
-                    parsedData.category = cat;
-                    break;
-                }
-            }
-
-            // Deteksi tanggal
-            const dateRegex = /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})|(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})|(\d{1,2}\s+(jan|feb|mar|apr|mei|jun|jul|agu|sep|okt|nov|des)\s+\d{4})/i;
-            const dateMatch = text.match(dateRegex);
-            if (dateMatch) {
-                let dateStr = dateMatch[0];
-                const parts = dateStr.split(/[\/\-]/);
-                if (parts.length === 3) {
-                    if (parts[0].length === 4) {
-                        parsedData.date = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
-                    } else if (parts[2].length === 4) {
-                        parsedData.date = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-                    }
-                } else {
-                    const monthMap = { jan: '01', feb: '02', mar: '03', apr: '04', mei: '05', jun: '06', jul: '07', agu: '08',
-                        sep: '09', okt: '10', nov: '11', des: '12' };
-                    const monthMatch = dateStr.match(/(\d{1,2})\s+(jan|feb|mar|apr|mei|jun|jul|agu|sep|okt|nov|des)\s+(\d{4})/i);
-                    if (monthMatch) {
-                        const day = monthMatch[1].padStart(2, '0');
-                        const month = monthMap[monthMatch[2].toLowerCase()] || '01';
-                        const year = monthMatch[3];
-                        parsedData.date = `${year}-${month}-${day}`;
-                    }
-                }
-                if (parsedData.date) {
-                    const d = new Date(parsedData.date);
-                    if (isNaN(d.getTime())) parsedData.date = '';
-                }
-            }
-
-            // Deteksi jenis
-            if (lower.includes('gaji') || lower.includes('salary') || lower.includes('income') || lower.includes('pemasukan') ||
-                lower.includes('bonus') || lower.includes('transfer masuk')) {
-                parsedData.type = 'income';
-            } else if (lower.includes('pengeluaran') || lower.includes('expense') || lower.includes('belanja') || lower
-                .includes('bayar') || lower.includes('transfer keluar')) {
-                parsedData.type = 'expense';
-            } else {
-                parsedData.type = (text.includes('-') || text.includes('minus')) ? 'expense' : 'expense';
-            }
-
-            // Catatan
-            parsedData.note = text.replace(/\s+/g, ' ').trim().slice(0, 100);
-        }
-
-        function applyOcrResult() {
-            if (parsedData.amount) {
-                document.getElementById('add-amount').value = parsedData.amount;
-            }
-            if (parsedData.type) {
-                setTransactionType(parsedData.type);
-            }
-            if (parsedData.category && parsedData.category !== 'other') {
-                selectCategory(parsedData.category);
-            }
-            if (parsedData.date) {
-                document.getElementById('add-date').value = parsedData.date;
-            }
-            if (parsedData.note) {
-                document.getElementById('add-note').value = parsedData.note;
-            }
-            showToast('✅ Data dari OCR berhasil diisi!');
-            closeOcrModal();
         }
 
         // ============================================================
@@ -1732,13 +1310,6 @@
         // NAVIGASI
         // ============================================================
         function navigateTo(page) {
-            if (page === 'scan') {
-                openOcrModal();
-                document.querySelectorAll('.bottom-nav a').forEach(el => el.classList.remove('active'));
-                document.querySelector('.bottom-nav a[data-page="scan"]')?.classList.add('active');
-                return;
-            }
-
             if (page === 'add') {
                 document.getElementById('add-amount').value = '';
                 document.getElementById('add-note').value = '';
@@ -2258,8 +1829,9 @@
                 }
             });
 
-            console.log('🚀 CatatanKu siap dengan Tesseract OCR!');
+            console.log('🚀 CatatanKu siap!');
             console.log('👤 User ID:', USER_ID);
+            console.log('🔄 Auto-sync every 15s');
         })();
     </script>
 </body>
