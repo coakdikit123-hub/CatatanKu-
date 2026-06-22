@@ -977,7 +977,7 @@
         }
 
         /* ============================================================
-               PROFILE MODAL — IMPROVED DESIGN
+               PROFILE MODAL — DENGAN FOTO PROFIL TELEGRAM
             ============================================================ */
         .profile-modal .modal-box {
             max-width: 420px;
@@ -1007,6 +1007,13 @@
             position: relative;
             user-select: none;
             border: 2px solid rgba(255, 255, 255, 0.10);
+            overflow: hidden;
+        }
+
+        .profile-modal .profile-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
 
         .profile-modal .profile-avatar .status-dot {
@@ -1022,11 +1029,12 @@
         }
 
         .profile-modal .profile-name {
-            font-size: 18px;
+            font-size: 20px;
             font-weight: 700;
             color: var(--text-1);
             margin-top: 8px;
             text-align: center;
+            letter-spacing: -0.3px;
         }
 
         .profile-modal .profile-id-wrap {
@@ -1034,7 +1042,7 @@
             align-items: center;
             justify-content: center;
             gap: 8px;
-            margin-top: 2px;
+            margin-top: 4px;
         }
 
         .profile-modal .profile-id {
@@ -1877,7 +1885,7 @@
     </div>
 
     <!-- ============================================================
-    MODAL PROFILE — IMPROVED DESIGN (tanpa tombol logout)
+    MODAL PROFILE — dengan foto profil & nama Telegram
     ============================================================ -->
     <div id="profile-modal" class="modal-overlay profile-modal">
         <div class="modal-box">
@@ -1886,10 +1894,11 @@
                 <button class="close-modal" onclick="closeProfileModal()">✕</button>
             </div>
 
-            <!-- Avatar -->
+            <!-- Avatar & Nama -->
             <div class="profile-avatar-wrap">
-                <div class="profile-avatar" id="profile-avatar-letter">
-                    👤
+                <div class="profile-avatar" id="profile-avatar-container">
+                    <img id="profile-avatar-img" src="" alt="Foto Profil" style="display:none;" />
+                    <span id="profile-avatar-initial" style="font-size:34px;font-weight:700;color:#0a0e1a;">👤</span>
                     <span class="status-dot"></span>
                 </div>
                 <div class="profile-name" id="profile-display-name">Pengguna</div>
@@ -1942,7 +1951,7 @@
                 </span>
             </div>
 
-            <!-- Catatan kecil -->
+            <!-- Catatan login sekali -->
             <div style="margin-top:16px;padding:10px 14px;background:var(--surface-3);border-radius:var(--radius-sm);border:1px solid var(--border);text-align:center;font-size:12px;color:var(--text-3);">
                 💡 Login satu kali — data Anda aman dan tersimpan di cloud.
             </div>
@@ -2289,15 +2298,33 @@
         let editCategory = 'transport';
 
         // ============================================================
-        // TELEGRAM
+        // TELEGRAM WebApp — ambil data pengguna
         // ============================================================
         let tg = null,
             IS_TELEGRAM = false;
+        let TELEGRAM_USER = null; // akan diisi dari WebApp
+
         try {
             tg = window.Telegram?.WebApp;
-            if (tg) { tg.ready();
+            if (tg) {
+                tg.ready();
                 tg.expand();
-                IS_TELEGRAM = true; }
+                IS_TELEGRAM = true;
+                // Ambil data user dari Telegram
+                if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+                    TELEGRAM_USER = tg.initDataUnsafe.user;
+                    console.log('✅ Telegram user:', TELEGRAM_USER);
+                } else {
+                    // Fallback: coba dari initData
+                    try {
+                        const params = new URLSearchParams(tg.initData);
+                        const userStr = params.get('user');
+                        if (userStr) {
+                            TELEGRAM_USER = JSON.parse(decodeURIComponent(userStr));
+                        }
+                    } catch (_) {}
+                }
+            }
         } catch (_) {}
 
         // ============================================================
@@ -2323,12 +2350,8 @@
         // ============================================================
         // AUTH — ONE-TIME LOGIN (tanpa logout)
         // ============================================================
-        // Fungsi logout dihapus — user hanya login sekali.
-        // Jika user ingin "logout", mereka harus clear browser data secara manual.
-
         async function checkUserBeforeAction() {
             if (!USER_ID || !USER_ID.match(/^\d+$/)) {
-                // Redirect ke login jika belum pernah login
                 window.location.href = '/login.html';
                 return false;
             }
@@ -2338,7 +2361,6 @@
                 const data = await res.json();
                 if (data.registered !== true) {
                     showToast('⚠️ Sesi tidak valid, silakan login ulang.');
-                    // Hapus ID dan redirect ke login
                     localStorage.removeItem('catatanku_user_id');
                     window.location.href = '/login.html';
                     return false;
@@ -2719,22 +2741,71 @@
         }
 
         // ============================================================
-        // PROFILE — IMPROVED
+        // PROFILE — dengan foto & nama dari Telegram
         // ============================================================
         function openProfileModal() {
             const userId = USER_ID || '—';
             document.getElementById('profile-user-id').textContent = userId;
 
-            // Avatar: ambil huruf pertama dari ID atau gunakan default
-            const avatarLetter = userId !== '—' ? userId.charAt(0).toUpperCase() : '👤';
-            document.getElementById('profile-avatar-letter').innerHTML = `
-                    ${avatarLetter}
-                    <span class="status-dot"></span>
-                `;
+            // Ambil data dari Telegram jika ada
+            const user = TELEGRAM_USER;
+            let displayName = 'Pengguna Web';
+            let avatarUrl = '';
+            let initial = '👤';
 
-            // Display name
-            document.getElementById('profile-display-name').textContent =
-                IS_TELEGRAM ? 'Pengguna Telegram' : 'Pengguna Web';
+            if (user) {
+                // Nama: prioritas first_name + last_name
+                if (user.first_name) {
+                    displayName = user.first_name;
+                    if (user.last_name) displayName += ' ' + user.last_name;
+                } else if (user.username) {
+                    displayName = '@' + user.username;
+                } else {
+                    displayName = 'Pengguna Telegram';
+                }
+
+                // Inisial untuk fallback
+                if (user.first_name) {
+                    initial = user.first_name.charAt(0).toUpperCase();
+                } else if (user.username) {
+                    initial = user.username.charAt(0).toUpperCase();
+                }
+
+                // Foto profil jika tersedia (dari Telegram WebApp)
+                // Biasanya disediakan melalui `tg.initDataUnsafe.user.photo_url`
+                // Tapi tidak semua versi menyediakan, jadi kita coba
+                if (user.photo_url) {
+                    avatarUrl = user.photo_url;
+                } else {
+                    // Coba ambil dari parameter lain
+                    try {
+                        const params = new URLSearchParams(tg?.initData);
+                        const userStr = params.get('user');
+                        if (userStr) {
+                            const parsed = JSON.parse(decodeURIComponent(userStr));
+                            if (parsed.photo_url) avatarUrl = parsed.photo_url;
+                        }
+                    } catch (_) {}
+                }
+            }
+
+            // Update UI
+            document.getElementById('profile-display-name').textContent = displayName;
+
+            // Avatar
+            const avatarContainer = document.getElementById('profile-avatar-container');
+            const avatarImg = document.getElementById('profile-avatar-img');
+            const avatarInitial = document.getElementById('profile-avatar-initial');
+
+            if (avatarUrl) {
+                avatarImg.src = avatarUrl;
+                avatarImg.style.display = 'block';
+                avatarInitial.style.display = 'none';
+            } else {
+                avatarImg.style.display = 'none';
+                avatarInitial.style.display = 'block';
+                avatarInitial.textContent = initial;
+            }
 
             // Status
             document.getElementById('profile-status-text').textContent =
@@ -2743,7 +2814,7 @@
             // Render stats
             renderProfileStats();
 
-            // Joined date (simulasi dari localStorage atau gunakan tanggal sekarang)
+            // Joined date
             const joined = localStorage.getItem('catatanku_joined') || new Date().toISOString().slice(0, 10);
             if (!localStorage.getItem('catatanku_joined')) {
                 localStorage.setItem('catatanku_joined', new Date().toISOString().slice(0, 10));
@@ -3116,6 +3187,13 @@
             renderCategoryChips('add-category-grid', selectedCategory);
             setTransactionType('income');
             renderDashboard();
+
+            // Jika ada data Telegram, simpan nama untuk ditampilkan di header (opsional)
+            if (TELEGRAM_USER && TELEGRAM_USER.first_name) {
+                const name = TELEGRAM_USER.first_name;
+                // Bisa ditampilkan di header atau di tempat lain
+                // Misal: document.getElementById('user-greeting').textContent = 'Halo, ' + name;
+            }
 
             setTimeout(() => {
                 if (USER_ID) { syncFromBackend();
