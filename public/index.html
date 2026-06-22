@@ -1034,7 +1034,7 @@
         }
 
         /* ============================================================
-               PROFILE MODAL
+               PROFILE MODAL — dengan urutan: Pemasukan, Pengeluaran, Transaksi, Saldo
             ============================================================ */
         .profile-modal .modal-box {
             max-width: 420px;
@@ -1172,6 +1172,7 @@
             }
         }
 
+        /* Profile Stats Grid — URUTAN: Pemasukan, Pengeluaran, Transaksi, Saldo */
         .profile-stats-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -1966,7 +1967,6 @@
             flex-wrap: wrap;
         }
 
-        /* header card dengan judul dan tombol edit */
         .card-header-with-edit {
             display: flex;
             justify-content: space-between;
@@ -2060,7 +2060,7 @@
     </div>
 
     <!-- ============================================================
-    MODAL PROFILE
+    MODAL PROFILE — URUTAN: Pemasukan, Pengeluaran, Transaksi, Saldo
     ============================================================ -->
     <div id="profile-modal" class="modal-overlay profile-modal">
         <div class="modal-box">
@@ -2089,22 +2089,27 @@
                 </div>
             </div>
 
+            <!-- Profile Stats Grid — URUTAN: Pemasukan, Pengeluaran, Transaksi, Saldo -->
             <div class="profile-stats-grid">
-                <div class="profile-stat-card">
-                    <span class="icon">📋</span>
-                    <div class="value" id="profile-total-tx">0</div>
-                    <div class="label">Transaksi</div>
-                </div>
+                <!-- 1. PEMASUKAN -->
                 <div class="profile-stat-card">
                     <span class="icon">📈</span>
                     <div class="value income" id="profile-total-income">Rp 0</div>
                     <div class="label">Pemasukan</div>
                 </div>
+                <!-- 2. PENGELUARAN -->
                 <div class="profile-stat-card">
                     <span class="icon">📉</span>
                     <div class="value expense" id="profile-total-expense">Rp 0</div>
                     <div class="label">Pengeluaran</div>
                 </div>
+                <!-- 3. TRANSAKSI -->
+                <div class="profile-stat-card">
+                    <span class="icon">📋</span>
+                    <div class="value" id="profile-total-tx">0</div>
+                    <div class="label">Transaksi</div>
+                </div>
+                <!-- 4. SALDO -->
                 <div class="profile-stat-card">
                     <span class="icon">💰</span>
                     <div class="value balance" id="profile-balance">Rp 0</div>
@@ -3191,9 +3196,10 @@
             const totalExpense = txs.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
             const balance = totalIncome - totalExpense;
 
-            document.getElementById('profile-total-tx').textContent = totalTx;
+            // Update sesuai urutan: Pemasukan, Pengeluaran, Transaksi, Saldo
             document.getElementById('profile-total-income').textContent = formatCurrency(totalIncome);
             document.getElementById('profile-total-expense').textContent = formatCurrency(totalExpense);
+            document.getElementById('profile-total-tx').textContent = totalTx;
             document.getElementById('profile-balance').textContent = formatCurrency(balance);
 
             const syncEl = document.getElementById('profile-sync-status');
