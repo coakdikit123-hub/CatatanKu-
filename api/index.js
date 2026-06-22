@@ -5,25 +5,12 @@ const { kv } = require('@vercel/kv');
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json());
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'admin123';
 
-// ============================================================
-// GEMINI API KEY - PRIORITAS ENV, FALLBACK HARDCODE
-// ============================================================
-let GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-
-if (!GEMINI_API_KEY) {
-  console.warn('⚠️ GEMINI_API_KEY tidak ditemukan di environment! Menggunakan hardcoded key (TIDAK AMAN).');
-  // ⚠️ GANTI 'YOUR_GEMINI_API_KEY_HERE' dengan API Key asli
-  GEMINI_API_KEY = 'AQ.Ab8RN6IiYYWPgAnsrLqhrIPD7stfXmDGMQyA47XtU2XFKQgSJg';
-}
-
 console.log('🔍 BOT_TOKEN exists?', !!BOT_TOKEN);
-console.log('🔍 GEMINI_API_KEY exists?', !!GEMINI_API_KEY);
-console.log('🔍 GEMINI_API_KEY source:', process.env.GEMINI_API_KEY ? 'Environment' : 'Hardcoded (fallback)');
 
 if (!BOT_TOKEN) {
   console.error('❌ BOT_TOKEN tidak ditemukan!');
@@ -161,123 +148,6 @@ async function clearAllTransactions(userId) {
     console.error('❌ Gagal clear Redis:', e.message);
     throw e;
   }
-}
-
-// ============================================================
-// GEMINI AI OCR - DIPERBAIKI DENGAN MULTIPLE MODEL FALLBACK
-// ============================================================
-async function processOCRWithGemini(base64Image) {
-  if (!GEMINI_API_KEY || GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
-    throw new Error('GEMINI_API_KEY tidak valid. Masukkan API Key yang benar.');
-  }
-
-  const prompt = `Anda adalah AI yang membantu mengekstrak informasi dari struk belanja, nota, atau kwitansi.
-
-Ekstrak informasi berikut dari gambar struk ini dengan format JSON:
-{
-    "amount": (nominal dalam angka, hanya angka, tanpa titik atau koma),
-    "type": (jenis transaksi: "income" untuk pemasukan, "expense" untuk pengeluaran),
-    "category": (kategori: "dining", "transport", "shopping", "bills", "fun", "health", "gift", atau "other"),
-    "date": (tanggal dalam format YYYY-MM-DD, jika tidak ada gunakan hari ini),
-    "note": (deskripsi singkat tentang transaksi, max 50 karakter),
-    "confidence": (tingkat keyakinan 0-100 dalam bentuk angka)
-}
-
-Aturan:
-- Jika ada nominal, ambil angka terbesar atau total.
-- Jika kata seperti "makan", "resto", "warung" → category "dining"
-- Jika "transport", "ojol", "gojek", "grab", "bensin" → "transport"
-- Jika "belanja", "shop", "baju" → "shopping"
-- Jika "tagihan", "listrik", "air", "pln" → "bills"
-- Jika "hiburan", "film", "game", "netflix" → "fun"
-- Jika "kesehatan", "obat", "dokter" → "health"
-- Jika "hadiah", "gift" → "gift"
-- Jika ada kata "gaji", "bonus", "pemasukan" → type "income"
-- Jika ada kata "bayar", "belanja", "pengeluaran" → type "expense"
-- Hanya balas dengan JSON, tanpa teks lain.`;
-
-  const requestBody = {
-    contents: [{
-      parts: [
-        { text: prompt },
-        { inline_data: { mime_type: "image/jpeg", data: base64Image } }
-      ]
-    }]
-  };
-
-  // Daftar model yang dicoba (dari yang paling stabil)
-  const models = [
-    'gemini-pro-vision',     // Gemini 1.0 Pro Vision (paling stabil)
-    'gemini-1.5-pro',        // Gemini 1.5 Pro
-    'gemini-1.5-flash'       // Gemini 1.5 Flash
-  ];
-
-  // Coba endpoint v1 dan v1beta
-  const endpoints = ['v1', 'v1beta'];
-
-  let lastError = null;
-
-  for (const model of models) {
-    for (const version of endpoints) {
-      try {
-        const url = `https://generativelanguage.googleapis.com/${version}/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
-        console.log(`🔄 Mencoba model: ${model} (${version})`);
-
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody)
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          const errorMsg = errorData.error?.message || `HTTP ${response.status}`;
-          console.warn(`⚠️ Model ${model} (${version}) gagal: ${errorMsg}`);
-          lastError = new Error(`Model ${model} (${version}) gagal: ${errorMsg}`);
-          continue;
-        }
-
-        const data = await response.json();
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-
-        // Cari JSON dalam response
-        let jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) {
-          try {
-            return JSON.parse(text);
-          } catch (e) {
-            const lines = text.split('\n');
-            let jsonStr = '';
-            let inJson = false;
-            for (const line of lines) {
-              if (line.includes('{')) inJson = true;
-              if (inJson) jsonStr += line;
-              if (line.includes('}')) break;
-            }
-            if (jsonStr) {
-              try {
-                return JSON.parse(jsonStr);
-              } catch (e2) {
-                throw new Error('Gagal parsing JSON');
-              }
-            } else {
-              throw new Error('Tidak ditemukan JSON dalam response');
-            }
-          }
-        }
-
-        console.log(`✅ OCR berhasil dengan model: ${model} (${version})`);
-        return JSON.parse(jsonMatch[0]);
-
-      } catch (e) {
-        console.warn(`❌ Error model ${model} (${version}):`, e.message);
-        lastError = e;
-      }
-    }
-  }
-
-  // Jika semua model gagal
-  throw new Error(`Semua model gagal. Error terakhir: ${lastError?.message || 'Tidak diketahui'}`);
 }
 
 // ============================================================
@@ -537,42 +407,6 @@ app.get('/api/summary/:userId', async (req, res) => {
 });
 
 // ============================================================
-// GEMINI OCR ENDPOINT
-// ============================================================
-app.post('/api/ocr', async (req, res) => {
-  try {
-    const { image } = req.body;
-    if (!image) {
-      return res.status(400).json({ error: 'Gambar tidak ditemukan' });
-    }
-
-    const base64Data = image.includes(',') ? image.split(',')[1] : image;
-
-    console.log('📸 Memproses OCR dengan Gemini AI...');
-    const result = await processOCRWithGemini(base64Data);
-    console.log('✅ OCR selesai:', result);
-
-    res.json({
-      success: true,
-      data: {
-        amount: result.amount || '',
-        type: result.type || 'expense',
-        category: result.category || 'other',
-        date: result.date || '',
-        note: result.note || '',
-        confidence: result.confidence || ''
-      }
-    });
-  } catch (e) {
-    console.error('❌ OCR error:', e.message);
-    res.status(500).json({
-      success: false,
-      error: e.message
-    });
-  }
-});
-
-// ============================================================
 // ADMIN ENDPOINTS
 // ============================================================
 app.get('/api/admin/users', async (req, res) => {
@@ -614,22 +448,14 @@ app.delete('/api/admin/users/:userId', async (req, res) => {
   }
 });
 
-// ============================================================
-// HEALTH CHECK
-// ============================================================
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
-    bot_token_set: !!BOT_TOKEN,
-    gemini_api_key_set: !!GEMINI_API_KEY && GEMINI_API_KEY !== 'YOUR_GEMINI_API_KEY_HERE',
-    gemini_source: process.env.GEMINI_API_KEY ? 'Environment' : 'Hardcoded (fallback)'
+    bot_token_set: !!BOT_TOKEN
   });
 });
 
-// ============================================================
-// ROOT
-// ============================================================
 app.get('/', (req, res) => {
   res.redirect('/index.html');
 });
