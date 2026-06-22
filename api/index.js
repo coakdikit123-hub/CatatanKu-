@@ -5,7 +5,7 @@ const { kv } = require('@vercel/kv');
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: '10mb' })); // untuk menerima base64 gambar
+app.use(express.json({ limit: '10mb' }));
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'admin123';
@@ -160,7 +160,7 @@ async function clearAllTransactions(userId) {
 // ============================================================
 async function processOCRWithGemini(base64Image) {
   if (!GEMINI_API_KEY) {
-    throw new Error('GEMINI_API_KEY tidak diset di server');
+    throw new Error('GEMINI_API_KEY tidak diset di environment variables. Tambahkan di Vercel Dashboard -> Settings -> Environment Variables, lalu redeploy.');
   }
 
   const prompt = `Anda adalah AI yang membantu mengekstrak informasi dari struk belanja, nota, atau kwitansi.
@@ -509,32 +509,24 @@ app.get('/api/summary/:userId', async (req, res) => {
 });
 
 // ============================================================
-// GEMINI OCR ENDPOINT
+// GEMINI OCR ENDPOINT (DIPERBAIKI)
 // ============================================================
 app.post('/api/ocr', async (req, res) => {
   try {
     const { image } = req.body;
     if (!image) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Gambar tidak ditemukan' 
-      });
+      return res.status(400).json({ error: 'Gambar tidak ditemukan' });
     }
 
     // Cek API Key
     if (!GEMINI_API_KEY) {
-      return res.status(500).json({
-        success: false,
-        error: 'GEMINI_API_KEY tidak diset di server. Hubungi admin.'
+      return res.status(503).json({ 
+        error: 'GEMINI_API_KEY tidak diset. Tambahkan di Vercel Dashboard -> Settings -> Environment Variables, lalu redeploy.' 
       });
     }
 
-    // image adalah base64 tanpa prefix
     const base64Data = image.includes(',') ? image.split(',')[1] : image;
-
     console.log('📸 Memproses OCR dengan Gemini AI...');
-    console.log('📏 Base64 length:', base64Data.length);
-
     const result = await processOCRWithGemini(base64Data);
     console.log('✅ OCR selesai:', result);
 
@@ -546,15 +538,14 @@ app.post('/api/ocr', async (req, res) => {
         category: result.category || 'other',
         date: result.date || '',
         note: result.note || '',
-        confidence: result.confidence || '50'
+        confidence: result.confidence || ''
       }
     });
   } catch (e) {
     console.error('❌ OCR error:', e.message);
-    console.error('Stack:', e.stack);
     res.status(500).json({
       success: false,
-      error: e.message || 'Gagal memproses OCR'
+      error: e.message
     });
   }
 });
