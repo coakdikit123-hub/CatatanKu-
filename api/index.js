@@ -154,8 +154,31 @@ async function clearAllTransactions(userId) {
 // BOT TELEGRAM HANDLER
 // ============================================================
 const bot = new Telegraf(BOT_TOKEN || 'dummy', { handlerTimeout: 90000 });
-const appUrl = process.env.VERCEL_URL || 'catatan-ku-silk.vercel.app';
+const appUrl = process.env.VERCEL_URL
+  ? `https://${process.env.VERCEL_URL}`
+  : 'https://catatan-ku-silk.vercel.app';
 
+// ============================================================
+// HELPER: Buat keyboard Mini App (web_app button)
+// Semua button menggunakan type: web_app agar terbuka
+// sebagai Telegram Mini App, bukan browser eksternal.
+// ============================================================
+function miniAppKeyboard(buttons) {
+  // buttons: array of array of { text, path? }
+  // path opsional, default ke '/'
+  return {
+    inline_keyboard: buttons.map(row =>
+      row.map(btn => ({
+        text: btn.text,
+        web_app: { url: `${appUrl}${btn.path || '/'}` }
+      }))
+    )
+  };
+}
+
+// ============================================================
+// MIDDLEWARE: cek login sebelum semua pesan (kecuali /start)
+// ============================================================
 bot.use(async (ctx, next) => {
   if (!ctx.from) return next();
   const userId = ctx.from.id.toString();
@@ -166,69 +189,66 @@ bot.use(async (ctx, next) => {
 
   const registered = await isUserRegistered(userId);
   if (!registered) {
-    const loginMsg =
-      `⚠️ *Anda belum login!*\n\n` +
-      `Untuk menggunakan bot ini, silakan login terlebih dahulu melalui Mini App.\n\n` +
-      `🔑 Klik tombol di bawah untuk membuka halaman login.`;
-
-    await ctx.reply(loginMsg, {
-      parse_mode: 'Markdown',
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '🔑 Login via Mini App', url: `https://${appUrl}/login.html` }],
-          [{ text: '📊 Buka CatatanKu', url: `https://${appUrl}` }]
-        ]
+    await ctx.reply(
+      `⚠️ *Anda belum login!*\n\nSilakan login terlebih dahulu melalui Mini App CatatanKu.`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: miniAppKeyboard([
+          [{ text: '🔑 Login ke CatatanKu', path: '/login.html' }]
+        ])
       }
-    });
+    );
     return;
   }
-
   return next();
 });
 
+// ============================================================
+// COMMAND: /start
+// ============================================================
 bot.start(async (ctx) => {
   const userId = ctx.from.id.toString();
   const registered = await isUserRegistered(userId);
 
-  let message, buttons;
   if (registered) {
-    message =
-      `👋 Halo! Selamat datang kembali di CatatanKu!\n\n` +
-      `Kirim pesan seperti:\n\n` +
-      `➜ -5000 (pengeluaran Rp 5.000)\n` +
-      `➜ +20000 makan siang (pemasukan Rp 20.000)\n` +
-      `➜ -15000 transport (pengeluaran transportasi)\n\n` +
-      `📊 Buka Mini App untuk melihat laporan keuanganmu.`;
-    buttons = {
-      inline_keyboard: [
-        [{ text: '📊 Buka CatatanKu', url: `https://${appUrl}` }],
-        [{ text: '📈 Lihat Riwayat', url: `https://${appUrl}/#history` }]
-      ]
-    };
+    await ctx.reply(
+      `👋 *Halo! Selamat datang kembali di CatatanKu!*\n\nCatat transaksi langsung dari sini:\n\n` +
+      `➜ \`-5000\` → pengeluaran Rp 5.000\n` +
+      `➜ \`+20000 makan siang\` → pemasukan Rp 20.000\n` +
+      `➜ \`-15000 transport\` → pengeluaran transportasi\n\n` +
+      `📊 Buka Mini App untuk melihat laporan lengkap.`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: miniAppKeyboard([
+          [{ text: '📊 Buka CatatanKu', path: '/' }],
+          [{ text: '📈 Lihat Riwayat', path: '/#history' }]
+        ])
+      }
+    );
   } else {
-    message =
-      `⚠️ *Anda belum login!*\n\n` +
-      `Untuk mulai menggunakan CatatanKu, silakan login terlebih dahulu.`;
-    buttons = {
-      inline_keyboard: [
-        [{ text: '🔑 Login via Mini App', url: `https://${appUrl}/login.html` }],
-        [{ text: '📊 Buka CatatanKu', url: `https://${appUrl}` }]
-      ]
-    };
+    await ctx.reply(
+      `👋 *Selamat datang di CatatanKu!*\n\n` +
+      `CatatanKu membantu kamu mencatat keuangan langsung dari Telegram.\n\n` +
+      `🔑 Login terlebih dahulu untuk mulai mencatat.`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: miniAppKeyboard([
+          [{ text: '🔑 Login ke CatatanKu', path: '/login.html' }]
+        ])
+      }
+    );
   }
-
-  await ctx.reply(message, {
-    parse_mode: 'Markdown',
-    reply_markup: buttons
-  });
 });
 
+// ============================================================
+// HANDLER: pesan teks (input transaksi)
+// ============================================================
 bot.on('text', async (ctx) => {
   try {
     const text = ctx.message.text;
     const userId = ctx.from.id.toString();
 
-    if (text.startsWith('/start')) return;
+    if (text.startsWith('/')) return; // abaikan semua command lain
 
     const registered = await isUserRegistered(userId);
     if (!registered) {
@@ -236,44 +256,52 @@ bot.on('text', async (ctx) => {
         `⚠️ *Anda belum login!*\n\nSilakan login terlebih dahulu.`,
         {
           parse_mode: 'Markdown',
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '🔑 Login via Mini App', url: `https://${appUrl}/login.html` }]
-            ]
-          }
+          reply_markup: miniAppKeyboard([
+            [{ text: '🔑 Login ke CatatanKu', path: '/login.html' }]
+          ])
         }
       );
       return;
     }
 
     if (!/\d/.test(text)) {
-      await ctx.reply('❌ Kirim pesan dengan nominal, contoh: `-5000` atau `+20000 makan`', { parse_mode: 'Markdown' });
+      await ctx.reply(
+        '❓ Format tidak dikenali.\n\nContoh:\n`-5000 makan siang`\n`+50000 gaji`',
+        { parse_mode: 'Markdown' }
+      );
       return;
     }
 
     const tx = parseTransaction(text, userId);
     if (!tx) {
-      await ctx.reply('❌ Format tidak dikenali. Contoh: `-5000` atau `+20000 makan siang`', { parse_mode: 'Markdown' });
+      await ctx.reply(
+        '❌ Format tidak dikenali.\n\nContoh: `-5000` atau `+20000 makan siang`',
+        { parse_mode: 'Markdown' }
+      );
       return;
     }
 
     await addTransaction(userId, tx);
+
     const emoji = tx.type === 'income' ? '✅' : '📤';
     const typeLabel = tx.type === 'income' ? 'Pemasukan' : 'Pengeluaran';
+    const categoryMap = {
+      dining: 'Makan', shopping: 'Belanja', transport: 'Transportasi',
+      bills: 'Tagihan', fun: 'Hiburan', health: 'Kesehatan',
+      gift: 'Hadiah', other: 'Lainnya'
+    };
+
     await ctx.reply(
       `${emoji} *Transaksi berhasil dicatat!*\n\n` +
-      `💳 ${typeLabel}: Rp ${tx.amount.toLocaleString('id-ID')}\n` +
-      `📂 Kategori: ${tx.category}\n` +
-      `📝 Catatan: ${tx.note}\n` +
-      `📅 Tanggal: ${tx.date}\n\n` +
-      `📊 [Lihat di CatatanKu](https://${appUrl})`,
+      `💳 *${typeLabel}:* Rp ${tx.amount.toLocaleString('id-ID')}\n` +
+      `📂 *Kategori:* ${categoryMap[tx.category] || tx.category}\n` +
+      `📝 *Catatan:* ${tx.note}\n` +
+      `📅 *Tanggal:* ${tx.date}`,
       {
         parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '📊 Buka CatatanKu', url: `https://${appUrl}` }]
-          ]
-        }
+        reply_markup: miniAppKeyboard([
+          [{ text: '📊 Lihat di CatatanKu', path: '/' }]
+        ])
       }
     );
   } catch (e) {
@@ -289,9 +317,11 @@ app.post('/api/webhook', async (req, res) => {
   console.log('📥 Webhook received');
   try {
     if (!BOT_TOKEN) {
+      console.error('❌ BOT_TOKEN tidak ada');
       return res.status(500).json({ error: 'BOT_TOKEN missing' });
     }
     await bot.handleUpdate(req.body);
+    console.log('✅ Webhook processed successfully');
     res.status(200).json({ ok: true });
   } catch (err) {
     console.error('❌ Webhook error:', err.message);
@@ -302,6 +332,7 @@ app.post('/api/webhook', async (req, res) => {
 // ============================================================
 // API ENDPOINTS
 // ============================================================
+
 app.post('/api/register', async (req, res) => {
   console.log('📥 Register request:', req.body);
   try {
@@ -311,21 +342,13 @@ app.post('/api/register', async (req, res) => {
     }
     const user = await registerUser(userId);
     if (user) {
+      console.log(`✅ User ${userId} berhasil register`);
       res.json({ success: true, user });
     } else {
       res.status(500).json({ error: 'Gagal registrasi user' });
     }
   } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-app.get('/api/check-session/:userId', async (req, res) => {
-  try {
-    const userId = req.params.userId;
-    const registered = await isUserRegistered(userId);
-    res.json({ valid: registered });
-  } catch (e) {
+    console.error('❌ Error register:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
@@ -344,6 +367,10 @@ app.get('/api/check-user/:userId', async (req, res) => {
 app.get('/api/transactions/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
+    const registered = await isUserRegistered(userId);
+    if (!registered) {
+      return res.status(401).json({ error: 'User tidak terdaftar' });
+    }
     const txs = await getTransactions(userId);
     res.json(txs);
   } catch (e) {
@@ -359,7 +386,7 @@ app.post('/api/transactions', async (req, res) => {
     }
     const registered = await isUserRegistered(userId);
     if (!registered) {
-      return res.status(401).json({ error: 'Unauthorized: user not registered' });
+      return res.status(401).json({ error: 'User tidak terdaftar' });
     }
     const newTx = {
       ...tx,
@@ -370,6 +397,7 @@ app.post('/api/transactions', async (req, res) => {
     await addTransaction(userId, newTx);
     res.json({ success: true, transaction: newTx });
   } catch (e) {
+    console.error('❌ Error POST /transactions:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
@@ -377,6 +405,10 @@ app.post('/api/transactions', async (req, res) => {
 app.delete('/api/transactions/:userId/:txId', async (req, res) => {
   try {
     const { userId, txId } = req.params;
+    const registered = await isUserRegistered(userId);
+    if (!registered) {
+      return res.status(401).json({ error: 'User tidak terdaftar' });
+    }
     await deleteTransaction(userId, txId);
     res.json({ success: true });
   } catch (e) {
@@ -387,6 +419,10 @@ app.delete('/api/transactions/:userId/:txId', async (req, res) => {
 app.delete('/api/transactions/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
+    const registered = await isUserRegistered(userId);
+    if (!registered) {
+      return res.status(401).json({ error: 'User tidak terdaftar' });
+    }
     await clearAllTransactions(userId);
     res.json({ success: true });
   } catch (e) {
@@ -397,6 +433,10 @@ app.delete('/api/transactions/:userId', async (req, res) => {
 app.get('/api/summary/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
+    const registered = await isUserRegistered(userId);
+    if (!registered) {
+      return res.status(401).json({ error: 'User tidak terdaftar' });
+    }
     const txs = await getTransactions(userId);
     const total_income = txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
     const total_expense = txs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
@@ -406,9 +446,24 @@ app.get('/api/summary/:userId', async (req, res) => {
   }
 });
 
-// ============================================================
-// ADMIN ENDPOINTS
-// ============================================================
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString(), bot_token_set: !!BOT_TOKEN });
+});
+
+app.get('/api/test', (req, res) => {
+  res.json({
+    message: 'API is working',
+    bot_token_set: !!BOT_TOKEN,
+    vercel_url: process.env.VERCEL_URL,
+    app_url: appUrl,
+    env_vars: {
+      BOT_TOKEN: BOT_TOKEN ? '✅' : '❌',
+      KV_REST_API_URL: process.env.KV_REST_API_URL ? '✅' : '❌',
+      KV_REST_API_TOKEN: process.env.KV_REST_API_TOKEN ? '✅' : '❌'
+    }
+  });
+});
+
 app.get('/api/admin/users', async (req, res) => {
   const token = req.headers['x-admin-token'];
   if (token !== ADMIN_TOKEN) {
@@ -446,14 +501,6 @@ app.delete('/api/admin/users/:userId', async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
-});
-
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    bot_token_set: !!BOT_TOKEN
-  });
 });
 
 app.get('/', (req, res) => {
