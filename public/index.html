@@ -103,11 +103,47 @@
             -webkit-backdrop-filter: blur(20px);
             border-top: 1px solid var(--border) !important;
         }
-        .bottom-nav a { color: var(--text-3) !important; transition: color 0.2s; }
+        .bottom-nav a {
+            color: var(--text-3) !important;
+            transition: color 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            padding: 4px 0;
+            flex: 1;
+            position: relative;
+            gap: 2px;
+        }
         .bottom-nav a.active { color: var(--accent) !important; }
         .bottom-nav a.active .material-symbols-outlined { font-variation-settings: 'FILL' 1; }
-        .bottom-nav a .material-symbols-outlined { font-size: 24px; }
-        .bottom-nav a span:last-child { font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; margin-top: 3px; }
+        .bottom-nav a .material-symbols-outlined { font-size: 24px; transition: all 0.2s; }
+        .bottom-nav a span:last-child { font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; margin-top: 2px; }
+
+        /* Tombol tambah di tengah - lebih besar */
+        .bottom-nav .nav-add {
+            position: relative;
+            top: -8px;
+        }
+        .bottom-nav .nav-add .material-symbols-outlined {
+            font-size: 36px !important;
+            color: var(--accent) !important;
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            filter: drop-shadow(0 4px 12px rgba(177,188,251,0.3));
+            transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
+        }
+        .bottom-nav .nav-add:hover .material-symbols-outlined {
+            transform: scale(1.08);
+        }
+        .bottom-nav .nav-add:active .material-symbols-outlined {
+            transform: scale(0.9);
+        }
+        .bottom-nav .nav-add span:last-child {
+            color: var(--accent);
+            font-weight: 700;
+            margin-top: 0;
+        }
 
         /* ===== INPUTS ===== */
         input, textarea, select {
@@ -657,9 +693,6 @@
                 <button class="icon-btn" onclick="syncFromBackend()" title="Sinkronisasi">
                     <span class="material-symbols-outlined">sync</span>
                 </button>
-                <button class="icon-btn" onclick="openProfileModal()" title="Profil">
-                    <span class="material-symbols-outlined">person</span>
-                </button>
             </div>
         </header>
 
@@ -924,21 +957,26 @@
 
     <!-- ===== BOTTOM NAV ===== -->
     <nav class="bottom-nav fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-2 py-2 border-t rounded-t-2xl">
-        <a href="#" class="flex flex-col items-center justify-center px-4 py-1 active" data-page="dashboard" onclick="navigateTo('dashboard')">
+        <a href="#" class="flex flex-col items-center justify-center" data-page="dashboard" onclick="navigateTo('dashboard')">
             <span class="material-symbols-outlined">home</span>
             <span>Beranda</span>
         </a>
-        <a href="#" class="flex flex-col items-center justify-center px-4 py-1" data-page="history" onclick="navigateTo('history')">
+        <a href="#" class="flex flex-col items-center justify-center" data-page="history" onclick="navigateTo('history')">
             <span class="material-symbols-outlined">receipt_long</span>
             <span>Riwayat</span>
         </a>
-        <a href="#" class="flex flex-col items-center justify-center px-4 py-1" data-page="add" onclick="navigateTo('add')">
-            <span class="material-symbols-outlined" style="font-size:32px;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24;color:var(--accent);">add_circle</span>
+        <!-- ADD DI TENGAH LEBIH BESAR -->
+        <a href="#" class="flex flex-col items-center justify-center nav-add" data-page="add" onclick="navigateTo('add')">
+            <span class="material-symbols-outlined">add_circle</span>
             <span style="color:var(--accent);">Tambah</span>
         </a>
-        <a href="#" class="flex flex-col items-center justify-center px-4 py-1" data-page="reports" onclick="navigateTo('reports')">
+        <a href="#" class="flex flex-col items-center justify-center" data-page="reports" onclick="navigateTo('reports')">
             <span class="material-symbols-outlined">pie_chart</span>
             <span>Laporan</span>
+        </a>
+        <a href="#" class="flex flex-col items-center justify-center" data-page="profile" onclick="openProfileModal()">
+            <span class="material-symbols-outlined">person</span>
+            <span>Profil</span>
         </a>
     </nav>
 
@@ -1022,8 +1060,16 @@
             document.getElementById('profile-user-id').textContent = USER_ID;
             document.getElementById('profile-status').textContent = IS_TELEGRAM ? '● Online via Telegram' : '● Online via Web';
             document.getElementById('profile-modal').classList.add('active');
+            // Set active nav ke profile
+            document.querySelectorAll('.bottom-nav a').forEach(el => el.classList.remove('active'));
+            document.querySelector('.bottom-nav a[data-page="profile"]')?.classList.add('active');
         }
-        function closeProfileModal() { document.getElementById('profile-modal').classList.remove('active'); }
+        function closeProfileModal() {
+            document.getElementById('profile-modal').classList.remove('active');
+            // Kembali ke dashboard
+            document.querySelectorAll('.bottom-nav a').forEach(el => el.classList.remove('active'));
+            document.querySelector('.bottom-nav a[data-page="dashboard"]')?.classList.add('active');
+        }
 
         // ============================================================
         // DATA LAYER
@@ -1156,7 +1202,7 @@
                 document.getElementById('add-amount').value = '';
                 document.getElementById('add-note').value = '';
                 document.getElementById('add-date').value = todayStr();
-                document.getElementById('add-account').value = 'Dompet Utama';
+                document.getElementById('add-account').value = 'Bank';
                 selectedCategory = 'transport';
                 transactionType = 'income';
                 setTransactionType('income');
@@ -1346,7 +1392,7 @@
                 document.getElementById('edit-id').value = id;
                 document.getElementById('edit-amount').value = tx.amount;
                 document.getElementById('edit-date').value = tx.date;
-                document.getElementById('edit-account').value = tx.account || 'Dompet Utama';
+                document.getElementById('edit-account').value = tx.account || 'Bank';
                 document.getElementById('edit-note').value = tx.note || '';
                 editType = tx.type;
                 editCategory = tx.category;
