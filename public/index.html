@@ -165,7 +165,7 @@
         }
 
         /* ============================================================
-               BOTTOM NAV — dengan 6 item, Profil di posisi pertama
+               BOTTOM NAV — 5 item, Profil di header
             ============================================================ */
         .bottom-nav {
             background: rgba(7, 11, 23, 0.96);
@@ -2098,6 +2098,10 @@
             </div>
             <div class="actions">
                 <span class="status-badge online" id="status-badge">● Online</span>
+                <!-- Profil di header kanan -->
+                <button class="icon-btn" onclick="openProfileModal()" title="Profil">
+                    <span class="material-symbols-outlined">person</span>
+                </button>
                 <button class="icon-btn" onclick="syncFromBackend()" title="Sinkronisasi">
                     <span class="material-symbols-outlined">sync</span>
                 </button>
@@ -2407,13 +2411,9 @@
     </div>
 
     <!-- ============================================================
-    BOTTOM NAV — Profil di posisi pertama
+    BOTTOM NAV — 5 item (Profil di header)
     ============================================================ -->
     <nav class="bottom-nav">
-        <a href="#" data-page="profile" onclick="openProfileModal()">
-            <span class="material-symbols-outlined">person</span>
-            <span>Profil</span>
-        </a>
         <a href="#" data-page="dashboard" onclick="navigateTo('dashboard')">
             <span class="material-symbols-outlined">home</span>
             <span>Beranda</span>
@@ -2718,15 +2718,10 @@
         }
 
         // ============================================================
-        // NAVIGATION — semua halaman termasuk profile
+        // NAVIGATION — profile di header, bukan navbar
         // ============================================================
         function navigateTo(page) {
-            // Jika page === 'profile', buka modal profil, bukan page biasa
-            if (page === 'profile') {
-                openProfileModal();
-                return;
-            }
-
+            // Profile di-handle oleh tombol di header, bukan di sini
             if (page === 'add') {
                 document.getElementById('add-amount').value = '';
                 document.getElementById('add-note').value = '';
@@ -3362,7 +3357,7 @@
         }
 
         // ============================================================
-        // PROFILE — Customizable
+        // PROFILE — Customizable (di header)
         // ============================================================
         function openProfileModal() {
             const profile = getProfile();
@@ -3395,14 +3390,11 @@
             document.getElementById('profile-joined').textContent = formatDate(joined);
 
             document.getElementById('profile-modal').classList.add('active');
-            document.querySelectorAll('.bottom-nav a').forEach(el => el.classList.remove('active'));
-            document.querySelector('.bottom-nav a[data-page="profile"]')?.classList.add('active');
+            // Highlight profile di header tidak perlu active state
         }
 
         function closeProfileModal() {
             document.getElementById('profile-modal').classList.remove('active');
-            document.querySelectorAll('.bottom-nav a').forEach(el => el.classList.remove('active'));
-            document.querySelector('.bottom-nav a[data-page="dashboard"]')?.classList.add('active');
         }
 
         function saveProfileName() {
