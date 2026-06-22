@@ -160,7 +160,7 @@ async function clearAllTransactions(userId) {
 // ============================================================
 async function processOCRWithGemini(base64Image) {
   if (!GEMINI_API_KEY) {
-    throw new Error('GEMINI_API_KEY tidak diset');
+    throw new Error('GEMINI_API_KEY tidak diset di server');
   }
 
   const prompt = `Anda adalah AI yang membantu mengekstrak informasi dari struk belanja, nota, atau kwitansi.
@@ -214,11 +214,9 @@ Aturan:
   // Cari JSON dalam response
   let jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
-    // Coba parse langsung
     try {
       return JSON.parse(text);
     } catch (e) {
-      // Coba ekstrak dengan regex
       const lines = text.split('\n');
       let jsonStr = '';
       let inJson = false;
@@ -517,13 +515,26 @@ app.post('/api/ocr', async (req, res) => {
   try {
     const { image } = req.body;
     if (!image) {
-      return res.status(400).json({ error: 'Gambar tidak ditemukan' });
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Gambar tidak ditemukan' 
+      });
+    }
+
+    // Cek API Key
+    if (!GEMINI_API_KEY) {
+      return res.status(500).json({
+        success: false,
+        error: 'GEMINI_API_KEY tidak diset di server. Hubungi admin.'
+      });
     }
 
     // image adalah base64 tanpa prefix
     const base64Data = image.includes(',') ? image.split(',')[1] : image;
 
     console.log('📸 Memproses OCR dengan Gemini AI...');
+    console.log('📏 Base64 length:', base64Data.length);
+
     const result = await processOCRWithGemini(base64Data);
     console.log('✅ OCR selesai:', result);
 
@@ -535,14 +546,15 @@ app.post('/api/ocr', async (req, res) => {
         category: result.category || 'other',
         date: result.date || '',
         note: result.note || '',
-        confidence: result.confidence || ''
+        confidence: result.confidence || '50'
       }
     });
   } catch (e) {
     console.error('❌ OCR error:', e.message);
+    console.error('Stack:', e.stack);
     res.status(500).json({
       success: false,
-      error: e.message
+      error: e.message || 'Gagal memproses OCR'
     });
   }
 });
