@@ -9,16 +9,25 @@ app.use(express.json({ limit: '10mb' }));
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'admin123';
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+
+// ============================================================
+// GEMINI API KEY - PRIORITAS ENV, FALLBACK HARDCODE
+// ============================================================
+let GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+
+// Jika tidak ada di environment, gunakan hardcoded (TIDAK AMAN UNTUK PRODUKSI!)
+if (!GEMINI_API_KEY) {
+  console.warn('⚠️ GEMINI_API_KEY tidak ditemukan di environment! Menggunakan hardcoded key (TIDAK AMAN).');
+  // ⚠️ GANTI 'YOUR_GEMINI_API_KEY_HERE' dengan API Key asli dari Google AI Studio
+  GEMINI_API_KEY = 'AQ.Ab8RN6IiYYWPgAnsrLqhrIPD7stfXmDGMQyA47XtU2XFKQgSJg';
+}
 
 console.log('🔍 BOT_TOKEN exists?', !!BOT_TOKEN);
 console.log('🔍 GEMINI_API_KEY exists?', !!GEMINI_API_KEY);
+console.log('🔍 GEMINI_API_KEY source:', process.env.GEMINI_API_KEY ? 'Environment' : 'Hardcoded (fallback)');
 
 if (!BOT_TOKEN) {
   console.error('❌ BOT_TOKEN tidak ditemukan!');
-}
-if (!GEMINI_API_KEY) {
-  console.warn('⚠️ GEMINI_API_KEY tidak ditemukan! OCR AI tidak akan berfungsi.');
 }
 
 // ============================================================
@@ -159,8 +168,8 @@ async function clearAllTransactions(userId) {
 // GEMINI AI OCR
 // ============================================================
 async function processOCRWithGemini(base64Image) {
-  if (!GEMINI_API_KEY) {
-    throw new Error('GEMINI_API_KEY tidak diset di environment variables. Tambahkan di Vercel Dashboard -> Settings -> Environment Variables, lalu redeploy.');
+  if (!GEMINI_API_KEY || GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
+    throw new Error('GEMINI_API_KEY tidak valid. Masukkan API Key yang benar.');
   }
 
   const prompt = `Anda adalah AI yang membantu mengekstrak informasi dari struk belanja, nota, atau kwitansi.
@@ -214,9 +223,11 @@ Aturan:
   // Cari JSON dalam response
   let jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
+    // Coba parse langsung
     try {
       return JSON.parse(text);
     } catch (e) {
+      // Coba ekstrak dengan regex
       const lines = text.split('\n');
       let jsonStr = '';
       let inJson = false;
@@ -509,7 +520,7 @@ app.get('/api/summary/:userId', async (req, res) => {
 });
 
 // ============================================================
-// GEMINI OCR ENDPOINT (DIPERBAIKI)
+// GEMINI OCR ENDPOINT
 // ============================================================
 app.post('/api/ocr', async (req, res) => {
   try {
@@ -518,14 +529,9 @@ app.post('/api/ocr', async (req, res) => {
       return res.status(400).json({ error: 'Gambar tidak ditemukan' });
     }
 
-    // Cek API Key
-    if (!GEMINI_API_KEY) {
-      return res.status(503).json({ 
-        error: 'GEMINI_API_KEY tidak diset. Tambahkan di Vercel Dashboard -> Settings -> Environment Variables, lalu redeploy.' 
-      });
-    }
-
+    // image adalah base64 tanpa prefix
     const base64Data = image.includes(',') ? image.split(',')[1] : image;
+
     console.log('📸 Memproses OCR dengan Gemini AI...');
     const result = await processOCRWithGemini(base64Data);
     console.log('✅ OCR selesai:', result);
@@ -592,17 +598,22 @@ app.delete('/api/admin/users/:userId', async (req, res) => {
   }
 });
 
-// HEALTH CHECK
+// ============================================================
+// HEALTH CHECK (dengan status API key)
+// ============================================================
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
     bot_token_set: !!BOT_TOKEN,
-    gemini_api_key_set: !!GEMINI_API_KEY
+    gemini_api_key_set: !!GEMINI_API_KEY && GEMINI_API_KEY !== 'YOUR_GEMINI_API_KEY_HERE',
+    gemini_source: process.env.GEMINI_API_KEY ? 'Environment' : 'Hardcoded (fallback)'
   });
 });
 
+// ============================================================
 // ROOT
+// ============================================================
 app.get('/', (req, res) => {
   res.redirect('/index.html');
 });
