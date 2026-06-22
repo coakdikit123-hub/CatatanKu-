@@ -977,58 +977,205 @@
         }
 
         /* ============================================================
-               PROFILE MODAL
+               PROFILE MODAL — IMPROVED DESIGN
             ============================================================ */
         .profile-modal .modal-box {
-            max-width: 380px;
-        }
-        .profile-modal .avatar {
-            width: 68px;
-            height: 68px;
-            border-radius: 50%;
-            background: var(--accent);
-            color: #0a0e1a;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 28px;
-            font-weight: 700;
-            margin: 0 auto 12px;
-            box-shadow: 0 8px 24px rgba(177, 188, 251, 0.25);
-        }
-        .profile-modal .user-id {
-            text-align: center;
-            color: var(--text-2);
-            font-size: 14px;
-            margin-bottom: 2px;
-        }
-        .profile-modal .user-id strong {
-            color: var(--text-1);
-        }
-        .profile-modal .user-status {
-            text-align: center;
-            color: var(--income);
-            font-size: 13px;
-            margin-bottom: 20px;
+            max-width: 420px;
+            padding: 6px 20px 24px;
         }
 
-        .profile-modal .btn-logout {
-            width: 100%;
-            padding: 13px;
-            background: rgba(248, 113, 113, 0.10);
-            color: var(--expense);
-            border: 1px solid rgba(248, 113, 113, 0.20);
-            border-radius: var(--radius-sm);
-            font-weight: 600;
-            cursor: pointer;
-            transition: 0.15s;
+        .profile-modal .profile-avatar-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 4px;
+            margin-bottom: 16px;
+        }
+
+        .profile-modal .profile-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(145deg, #B1BCFB 0%, #7a8edb 100%);
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 6px;
+            font-size: 34px;
+            font-weight: 700;
+            color: #0a0e1a;
+            box-shadow: 0 8px 32px rgba(177, 188, 251, 0.30);
+            position: relative;
+            user-select: none;
+            border: 2px solid rgba(255, 255, 255, 0.10);
         }
-        .profile-modal .btn-logout:hover {
-            background: rgba(248, 113, 113, 0.18);
+
+        .profile-modal .profile-avatar .status-dot {
+            position: absolute;
+            bottom: 4px;
+            right: 4px;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--income);
+            border: 2px solid var(--surface-2);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+        }
+
+        .profile-modal .profile-name {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-1);
+            margin-top: 8px;
+            text-align: center;
+        }
+
+        .profile-modal .profile-id-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 2px;
+        }
+
+        .profile-modal .profile-id {
+            font-size: 14px;
+            color: var(--text-2);
+            font-weight: 500;
+            letter-spacing: 0.02em;
+            background: var(--surface-3);
+            padding: 4px 14px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            font-family: 'Inter', monospace;
+        }
+
+        .profile-modal .profile-copy-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--surface-3);
+            border: 1px solid var(--border);
+            color: var(--text-2);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+        }
+        .profile-modal .profile-copy-btn:hover {
+            background: var(--accent-dim);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        .profile-modal .profile-copy-btn .material-symbols-outlined {
+            font-size: 16px;
+        }
+
+        .profile-modal .profile-status-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 6px;
+            font-size: 13px;
+            color: var(--text-3);
+        }
+
+        .profile-modal .profile-status-row .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--income);
+            display: inline-block;
+            animation: pulse-dot 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.5;
+                transform: scale(0.85);
+            }
+        }
+
+        /* Profile Stats Grid */
+        .profile-stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 18px;
+            margin-bottom: 18px;
+        }
+
+        .profile-stat-card {
+            background: var(--surface-3);
+            border-radius: var(--radius-sm);
+            padding: 14px 12px;
+            text-align: center;
+            border: 1px solid var(--border);
+            transition: border-color 0.2s, transform 0.15s;
+        }
+        .profile-stat-card:hover {
+            border-color: var(--border-hover);
+            transform: translateY(-2px);
+        }
+
+        .profile-stat-card .icon {
+            font-size: 20px;
+            display: block;
+            margin-bottom: 4px;
+        }
+        .profile-stat-card .value {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-1);
+            letter-spacing: -0.02em;
+        }
+        .profile-stat-card .label {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-3);
+            margin-top: 2px;
+        }
+        .profile-stat-card .value.income {
+            color: var(--income);
+        }
+        .profile-stat-card .value.expense {
+            color: var(--expense);
+        }
+        .profile-stat-card .value.balance {
+            color: var(--accent);
+        }
+
+        /* Profile Info Row */
+        .profile-info-row {
+            background: var(--surface-3);
+            border-radius: var(--radius-sm);
+            padding: 14px 16px;
+            border: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+            margin-top: 4px;
+        }
+        .profile-info-row .label {
+            color: var(--text-3);
+        }
+        .profile-info-row .value {
+            color: var(--text-1);
+            font-weight: 500;
+        }
+        .profile-info-row .value .material-symbols-outlined {
+            font-size: 14px;
+            vertical-align: middle;
+            margin-right: 4px;
         }
 
         /* ============================================================
@@ -1549,6 +1696,21 @@
             .modal-box {
                 padding: 6px 16px 24px;
             }
+            .profile-modal .profile-avatar {
+                width: 68px;
+                height: 68px;
+                font-size: 28px;
+            }
+            .profile-stats-grid {
+                gap: 8px;
+            }
+            .profile-stat-card .value {
+                font-size: 15px;
+            }
+            .profile-modal .profile-id {
+                font-size: 12px;
+                padding: 3px 10px;
+            }
         }
 
         @media (max-width: 380px) {
@@ -1715,7 +1877,7 @@
     </div>
 
     <!-- ============================================================
-    MODAL PROFILE
+    MODAL PROFILE — IMPROVED DESIGN (tanpa tombol logout)
     ============================================================ -->
     <div id="profile-modal" class="modal-overlay profile-modal">
         <div class="modal-box">
@@ -1724,21 +1886,66 @@
                 <button class="close-modal" onclick="closeProfileModal()">✕</button>
             </div>
 
-            <div class="avatar" id="profile-avatar">👤</div>
-            <div class="user-id"><strong>ID Telegram</strong><br /><span id="profile-user-id">—</span></div>
-            <div class="user-status" id="profile-status">● Online</div>
-
-            <div style="background:var(--surface-3);border-radius:var(--radius-sm);padding:16px;margin-bottom:16px;border:1px solid var(--border);">
-                <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;">
-                    <span style="color:var(--text-2);">Status</span>
-                    <span class="status-badge online">● Aktif</span>
+            <!-- Avatar -->
+            <div class="profile-avatar-wrap">
+                <div class="profile-avatar" id="profile-avatar-letter">
+                    👤
+                    <span class="status-dot"></span>
+                </div>
+                <div class="profile-name" id="profile-display-name">Pengguna</div>
+                <div class="profile-id-wrap">
+                    <span class="profile-id" id="profile-user-id">—</span>
+                    <button class="profile-copy-btn" onclick="copyUserId()" title="Salin ID">
+                        <span class="material-symbols-outlined">content_copy</span>
+                    </button>
+                </div>
+                <div class="profile-status-row">
+                    <span class="dot"></span>
+                    <span id="profile-status-text">Online via Web</span>
                 </div>
             </div>
 
-            <button class="btn-logout" onclick="logout()">
-                <span class="material-symbols-outlined" style="font-size:18px;">logout</span>
-                Keluar dari Akun
-            </button>
+            <!-- Stats Grid -->
+            <div class="profile-stats-grid">
+                <div class="profile-stat-card">
+                    <span class="icon">📋</span>
+                    <div class="value" id="profile-total-tx">0</div>
+                    <div class="label">Transaksi</div>
+                </div>
+                <div class="profile-stat-card">
+                    <span class="icon">📈</span>
+                    <div class="value income" id="profile-total-income">Rp 0</div>
+                    <div class="label">Pemasukan</div>
+                </div>
+                <div class="profile-stat-card">
+                    <span class="icon">📉</span>
+                    <div class="value expense" id="profile-total-expense">Rp 0</div>
+                    <div class="label">Pengeluaran</div>
+                </div>
+                <div class="profile-stat-card">
+                    <span class="icon">💰</span>
+                    <div class="value balance" id="profile-balance">Rp 0</div>
+                    <div class="label">Saldo</div>
+                </div>
+            </div>
+
+            <!-- Info Rows -->
+            <div class="profile-info-row">
+                <span class="label">📅 Bergabung</span>
+                <span class="value" id="profile-joined">—</span>
+            </div>
+            <div class="profile-info-row" style="margin-top:8px;">
+                <span class="label">🔄 Sinkronisasi</span>
+                <span class="value" id="profile-sync-status">
+                    <span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">sync</span>
+                    Tersinkron
+                </span>
+            </div>
+
+            <!-- Catatan kecil -->
+            <div style="margin-top:16px;padding:10px 14px;background:var(--surface-3);border-radius:var(--radius-sm);border:1px solid var(--border);text-align:center;font-size:12px;color:var(--text-3);">
+                💡 Login satu kali — data Anda aman dan tersimpan di cloud.
+            </div>
         </div>
     </div>
 
@@ -2114,28 +2321,33 @@
         }
 
         // ============================================================
-        // AUTH
+        // AUTH — ONE-TIME LOGIN (tanpa logout)
         // ============================================================
-        function logout() {
-            localStorage.removeItem('catatanku_user_id');
-            window.location.href = '/login.html';
-        }
+        // Fungsi logout dihapus — user hanya login sekali.
+        // Jika user ingin "logout", mereka harus clear browser data secara manual.
 
         async function checkUserBeforeAction() {
-            if (!USER_ID || !USER_ID.match(/^\d+$/)) { logout(); return false; }
+            if (!USER_ID || !USER_ID.match(/^\d+$/)) {
+                // Redirect ke login jika belum pernah login
+                window.location.href = '/login.html';
+                return false;
+            }
             try {
                 const res = await fetch(`/api/check-user/${USER_ID}`);
                 if (!res.ok) throw new Error('Gagal cek user');
                 const data = await res.json();
                 if (data.registered !== true) {
-                    showToast('⚠️ Sesi berakhir, silakan login ulang.');
-                    logout();
+                    showToast('⚠️ Sesi tidak valid, silakan login ulang.');
+                    // Hapus ID dan redirect ke login
+                    localStorage.removeItem('catatanku_user_id');
+                    window.location.href = '/login.html';
                     return false;
                 }
                 return true;
             } catch (_) {
                 showToast('⚠️ Gagal verifikasi, silakan login ulang.');
-                logout();
+                localStorage.removeItem('catatanku_user_id');
+                window.location.href = '/login.html';
                 return false;
             }
         }
@@ -2172,6 +2384,7 @@
                 renderDashboard();
                 renderHistory();
                 renderReports();
+                renderProfileStats();
             } catch (e) { console.error('Sync error:', e.message); }
         }
 
@@ -2186,8 +2399,12 @@
                     body: JSON.stringify({ userId: USER_ID, ...tx })
                 });
                 if (!res.ok) {
-                    if (res.status === 401) { showToast('⚠️ Sesi berakhir, silakan login ulang.');
-                        logout(); return false; }
+                    if (res.status === 401) {
+                        showToast('⚠️ Sesi berakhir, silakan login ulang.');
+                        localStorage.removeItem('catatanku_user_id');
+                        window.location.href = '/login.html';
+                        return false;
+                    }
                     throw new Error('Gagal simpan');
                 }
                 return true;
@@ -2201,8 +2418,12 @@
             try {
                 const res = await fetch(`/api/transactions/${USER_ID}/${txId}`, { method: 'DELETE' });
                 if (!res.ok) {
-                    if (res.status === 401) { showToast('⚠️ Sesi berakhir.');
-                        logout(); return false; }
+                    if (res.status === 401) {
+                        showToast('⚠️ Sesi berakhir.');
+                        localStorage.removeItem('catatanku_user_id');
+                        window.location.href = '/login.html';
+                        return false;
+                    }
                     throw new Error('Gagal hapus');
                 }
                 return true;
@@ -2227,8 +2448,12 @@
             try {
                 const res = await fetch(`/api/transactions/${USER_ID}`, { method: 'DELETE' });
                 if (!res.ok) {
-                    if (res.status === 401) { showToast('⚠️ Sesi berakhir.');
-                        logout(); return false; }
+                    if (res.status === 401) {
+                        showToast('⚠️ Sesi berakhir.');
+                        localStorage.removeItem('catatanku_user_id');
+                        window.location.href = '/login.html';
+                        return false;
+                    }
                     throw new Error('Gagal hapus semua');
                 }
                 return true;
@@ -2314,6 +2539,7 @@
                 stopAutoSync();
                 if (page === 'history') renderHistory();
                 if (page === 'reports') renderReports();
+                if (page === 'profile') renderProfileStats();
             }
 
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2493,11 +2719,37 @@
         }
 
         // ============================================================
-        // PROFILE
+        // PROFILE — IMPROVED
         // ============================================================
         function openProfileModal() {
-            document.getElementById('profile-user-id').textContent = USER_ID;
-            document.getElementById('profile-status').textContent = IS_TELEGRAM ? '● Online via Telegram' : '● Online via Web';
+            const userId = USER_ID || '—';
+            document.getElementById('profile-user-id').textContent = userId;
+
+            // Avatar: ambil huruf pertama dari ID atau gunakan default
+            const avatarLetter = userId !== '—' ? userId.charAt(0).toUpperCase() : '👤';
+            document.getElementById('profile-avatar-letter').innerHTML = `
+                    ${avatarLetter}
+                    <span class="status-dot"></span>
+                `;
+
+            // Display name
+            document.getElementById('profile-display-name').textContent =
+                IS_TELEGRAM ? 'Pengguna Telegram' : 'Pengguna Web';
+
+            // Status
+            document.getElementById('profile-status-text').textContent =
+                IS_TELEGRAM ? 'Online via Telegram' : 'Online via Web';
+
+            // Render stats
+            renderProfileStats();
+
+            // Joined date (simulasi dari localStorage atau gunakan tanggal sekarang)
+            const joined = localStorage.getItem('catatanku_joined') || new Date().toISOString().slice(0, 10);
+            if (!localStorage.getItem('catatanku_joined')) {
+                localStorage.setItem('catatanku_joined', new Date().toISOString().slice(0, 10));
+            }
+            document.getElementById('profile-joined').textContent = formatDate(joined);
+
             document.getElementById('profile-modal').classList.add('active');
             document.querySelectorAll('.bottom-nav a').forEach(el => el.classList.remove('active'));
             document.querySelector('.bottom-nav a[data-page="profile"]')?.classList.add('active');
@@ -2507,6 +2759,57 @@
             document.getElementById('profile-modal').classList.remove('active');
             document.querySelectorAll('.bottom-nav a').forEach(el => el.classList.remove('active'));
             document.querySelector('.bottom-nav a[data-page="dashboard"]')?.classList.add('active');
+        }
+
+        function renderProfileStats() {
+            const txs = getTransactions();
+            const totalTx = txs.length;
+            const totalIncome = txs.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
+            const totalExpense = txs.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
+            const balance = totalIncome - totalExpense;
+
+            document.getElementById('profile-total-tx').textContent = totalTx;
+            document.getElementById('profile-total-income').textContent = formatCurrency(totalIncome);
+            document.getElementById('profile-total-expense').textContent = formatCurrency(totalExpense);
+            document.getElementById('profile-balance').textContent = formatCurrency(balance);
+
+            // Sync status
+            const syncEl = document.getElementById('profile-sync-status');
+            if (navigator.onLine) {
+                syncEl.innerHTML =
+                    `<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">sync</span> Tersinkron`;
+            } else {
+                syncEl.innerHTML =
+                    `<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;color:var(--expense);">sync_disabled</span> Offline`;
+            }
+        }
+
+        function copyUserId() {
+            const id = document.getElementById('profile-user-id').textContent;
+            if (id && id !== '—') {
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(id).then(() => {
+                        showToast('✅ ID Telegram disalin!');
+                    }).catch(() => {
+                        // fallback
+                        const el = document.createElement('textarea');
+                        el.value = id;
+                        document.body.appendChild(el);
+                        el.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(el);
+                        showToast('✅ ID Telegram disalin!');
+                    });
+                } else {
+                    const el = document.createElement('textarea');
+                    el.value = id;
+                    document.body.appendChild(el);
+                    el.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(el);
+                    showToast('✅ ID Telegram disalin!');
+                }
+            }
         }
 
         // ============================================================
@@ -2793,11 +3096,22 @@
         // INIT
         // ============================================================
         (async function init() {
+            // Cek apakah user sudah login
+            if (!USER_ID || !USER_ID.match(/^\d+$/)) {
+                window.location.href = '/login.html';
+                return;
+            }
+
             const valid = await checkUserBeforeAction();
             if (!valid) return;
 
             document.getElementById('loading-overlay').style.display = 'none';
             document.getElementById('add-date').value = todayStr();
+
+            // Set joined date jika belum ada
+            if (!localStorage.getItem('catatanku_joined')) {
+                localStorage.setItem('catatanku_joined', new Date().toISOString().slice(0, 10));
+            }
 
             renderCategoryChips('add-category-grid', selectedCategory);
             setTransactionType('income');
@@ -2813,6 +3127,7 @@
                     if (currentPage === 'dashboard') renderDashboard();
                     if (currentPage === 'history') renderHistory();
                     if (currentPage === 'reports') renderReports();
+                    if (currentPage === 'profile') renderProfileStats();
                     if (currentPage === 'dashboard' && USER_ID) syncFromBackend();
                 }
             });
