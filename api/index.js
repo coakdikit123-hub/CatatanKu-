@@ -15,10 +15,9 @@ const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'admin123';
 // ============================================================
 let GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-// Jika tidak ada di environment, gunakan hardcoded (TIDAK AMAN UNTUK PRODUKSI!)
 if (!GEMINI_API_KEY) {
   console.warn('⚠️ GEMINI_API_KEY tidak ditemukan di environment! Menggunakan hardcoded key (TIDAK AMAN).');
-  // ⚠️ GANTI 'YOUR_GEMINI_API_KEY_HERE' dengan API Key asli dari Google AI Studio
+  // ⚠️ GANTI 'YOUR_GEMINI_API_KEY_HERE' dengan API Key asli
   GEMINI_API_KEY = 'AQ.Ab8RN6IiYYWPgAnsrLqhrIPD7stfXmDGMQyA47XtU2XFKQgSJg';
 }
 
@@ -165,7 +164,7 @@ async function clearAllTransactions(userId) {
 }
 
 // ============================================================
-// GEMINI AI OCR
+// GEMINI AI OCR - DIPERBAIKI
 // ============================================================
 async function processOCRWithGemini(base64Image) {
   if (!GEMINI_API_KEY || GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
@@ -206,7 +205,10 @@ Aturan:
     }]
   };
 
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+  // Gunakan model yang valid: gemini-1.5-pro atau gemini-pro-vision
+  const model = 'gemini-1.5-pro'; // atau 'gemini-pro-vision'
+
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(requestBody)
@@ -223,11 +225,9 @@ Aturan:
   // Cari JSON dalam response
   let jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
-    // Coba parse langsung
     try {
       return JSON.parse(text);
     } catch (e) {
-      // Coba ekstrak dengan regex
       const lines = text.split('\n');
       let jsonStr = '';
       let inJson = false;
@@ -257,7 +257,6 @@ Aturan:
 const bot = new Telegraf(BOT_TOKEN || 'dummy', { handlerTimeout: 90000 });
 const appUrl = process.env.VERCEL_URL || 'catatan-ku-silk.vercel.app';
 
-// MIDDLEWARE: Cek login
 bot.use(async (ctx, next) => {
   if (!ctx.from) return next();
   const userId = ctx.from.id.toString();
@@ -404,8 +403,6 @@ app.post('/api/webhook', async (req, res) => {
 // ============================================================
 // API ENDPOINTS
 // ============================================================
-
-// REGISTER USER
 app.post('/api/register', async (req, res) => {
   console.log('📥 Register request:', req.body);
   try {
@@ -424,7 +421,6 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-// CEK SESSION
 app.get('/api/check-session/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
@@ -435,7 +431,6 @@ app.get('/api/check-session/:userId', async (req, res) => {
   }
 });
 
-// CEK USER
 app.get('/api/check-user/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
@@ -447,7 +442,6 @@ app.get('/api/check-user/:userId', async (req, res) => {
   }
 });
 
-// GET transaksi
 app.get('/api/transactions/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
@@ -458,19 +452,16 @@ app.get('/api/transactions/:userId', async (req, res) => {
   }
 });
 
-// POST transaksi
 app.post('/api/transactions', async (req, res) => {
   try {
     const { userId, ...tx } = req.body;
     if (!userId || !tx.amount) {
       return res.status(400).json({ error: 'userId dan amount wajib diisi' });
     }
-
     const registered = await isUserRegistered(userId);
     if (!registered) {
       return res.status(401).json({ error: 'Unauthorized: user not registered' });
     }
-
     const newTx = {
       ...tx,
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
@@ -484,7 +475,6 @@ app.post('/api/transactions', async (req, res) => {
   }
 });
 
-// DELETE transaksi
 app.delete('/api/transactions/:userId/:txId', async (req, res) => {
   try {
     const { userId, txId } = req.params;
@@ -495,7 +485,6 @@ app.delete('/api/transactions/:userId/:txId', async (req, res) => {
   }
 });
 
-// DELETE semua
 app.delete('/api/transactions/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
@@ -506,7 +495,6 @@ app.delete('/api/transactions/:userId', async (req, res) => {
   }
 });
 
-// SUMMARY
 app.get('/api/summary/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
@@ -529,7 +517,6 @@ app.post('/api/ocr', async (req, res) => {
       return res.status(400).json({ error: 'Gambar tidak ditemukan' });
     }
 
-    // image adalah base64 tanpa prefix
     const base64Data = image.includes(',') ? image.split(',')[1] : image;
 
     console.log('📸 Memproses OCR dengan Gemini AI...');
@@ -599,7 +586,7 @@ app.delete('/api/admin/users/:userId', async (req, res) => {
 });
 
 // ============================================================
-// HEALTH CHECK (dengan status API key)
+// HEALTH CHECK
 // ============================================================
 app.get('/api/health', (req, res) => {
   res.json({
