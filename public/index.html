@@ -2032,7 +2032,7 @@
     </div>
 
     <!-- ============================================================
-    MODAL PROFILE
+    MODAL PROFILE — DIPERBAIKI
     ============================================================ -->
     <div id="profile-modal" class="modal-overlay profile-modal">
         <div class="modal-box">
@@ -2098,8 +2098,8 @@
             </div>
             <div class="actions">
                 <span class="status-badge online" id="status-badge">● Online</span>
-                <!-- Profil di header kanan -->
-                <button class="icon-btn" onclick="openProfileModal()" title="Profil">
+                <!-- Profil di header kanan — perbaikan: gunakan id untuk event listener -->
+                <button class="icon-btn" id="profile-btn" title="Profil">
                     <span class="material-symbols-outlined">person</span>
                 </button>
                 <button class="icon-btn" onclick="syncFromBackend()" title="Sinkronisasi">
@@ -2437,7 +2437,7 @@
     </nav>
 
     <!-- ============================================================
-    JAVASCRIPT
+    JAVASCRIPT — DIPERBAIKI dengan event listener untuk profil
     ============================================================ -->
     <script>
         // ============================================================
@@ -3357,40 +3357,48 @@
         }
 
         // ============================================================
-        // PROFILE — Customizable (di header)
+        // PROFILE — Customizable (di header) — DIPERBAIKI
         // ============================================================
         function openProfileModal() {
-            const profile = getProfile();
-            const userId = USER_ID || '—';
-            document.getElementById('profile-user-id').textContent = userId;
-            document.getElementById('profile-name-input').value = profile.name || 'Pengguna Web';
-            document.getElementById('profile-display-name').textContent = profile.name || 'Pengguna Web';
+            console.log('✅ openProfileModal dipanggil');
+            try {
+                const profile = getProfile();
+                const userId = USER_ID || '—';
+                document.getElementById('profile-user-id').textContent = userId;
+                document.getElementById('profile-name-input').value = profile.name || 'Pengguna Web';
+                document.getElementById('profile-display-name').textContent = profile.name || 'Pengguna Web';
 
-            const avatarImg = document.getElementById('profile-avatar-img');
-            const avatarInitial = document.getElementById('profile-avatar-initial');
-            if (profile.avatar) {
-                avatarImg.src = profile.avatar;
-                avatarImg.style.display = 'block';
-                avatarInitial.style.display = 'none';
-            } else {
-                avatarImg.style.display = 'none';
-                avatarInitial.style.display = 'block';
-                avatarInitial.textContent = profile.name ? profile.name.charAt(0).toUpperCase() : '👤';
+                const avatarImg = document.getElementById('profile-avatar-img');
+                const avatarInitial = document.getElementById('profile-avatar-initial');
+                if (profile.avatar) {
+                    avatarImg.src = profile.avatar;
+                    avatarImg.style.display = 'block';
+                    avatarInitial.style.display = 'none';
+                } else {
+                    avatarImg.style.display = 'none';
+                    avatarInitial.style.display = 'block';
+                    avatarInitial.textContent = profile.name ? profile.name.charAt(0).toUpperCase() : '👤';
+                }
+
+                document.getElementById('profile-status-text').textContent =
+                    IS_TELEGRAM ? 'Online via Telegram' : 'Online via Web';
+
+                renderProfileStats();
+
+                const joined = localStorage.getItem('catatanku_joined') || new Date().toISOString().slice(0, 10);
+                if (!localStorage.getItem('catatanku_joined')) {
+                    localStorage.setItem('catatanku_joined', new Date().toISOString().slice(0, 10));
+                }
+                document.getElementById('profile-joined').textContent = formatDate(joined);
+
+                // Aktifkan modal
+                const modal = document.getElementById('profile-modal');
+                modal.classList.add('active');
+                console.log('✅ Modal profil aktif');
+            } catch (e) {
+                console.error('❌ Error di openProfileModal:', e);
+                showToast('⚠️ Gagal membuka profil');
             }
-
-            document.getElementById('profile-status-text').textContent =
-                IS_TELEGRAM ? 'Online via Telegram' : 'Online via Web';
-
-            renderProfileStats();
-
-            const joined = localStorage.getItem('catatanku_joined') || new Date().toISOString().slice(0, 10);
-            if (!localStorage.getItem('catatanku_joined')) {
-                localStorage.setItem('catatanku_joined', new Date().toISOString().slice(0, 10));
-            }
-            document.getElementById('profile-joined').textContent = formatDate(joined);
-
-            document.getElementById('profile-modal').classList.add('active');
-            // Highlight profile di header tidak perlu active state
         }
 
         function closeProfileModal() {
@@ -3474,7 +3482,7 @@
         }
 
         // ============================================================
-        // INIT
+        // INIT — dengan event listener untuk tombol profil
         // ============================================================
         (async function init() {
             if (!USER_ID || !USER_ID.match(/^\d+$/)) {
@@ -3494,6 +3502,21 @@
             renderCategoryChips('add-category-grid', selectedCategory);
             setTransactionType('income');
             renderAll();
+
+            // === PERBAIKAN: Tambahkan event listener untuk tombol profil ===
+            const profileBtn = document.getElementById('profile-btn');
+            if (profileBtn) {
+                // Hapus event listener lama jika ada (pakai onclick di HTML)
+                profileBtn.removeEventListener('click', openProfileModal);
+                profileBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    console.log('🖱️ Tombol profil diklik');
+                    openProfileModal();
+                });
+                console.log('✅ Event listener profil terpasang');
+            } else {
+                console.error('❌ Tombol profil tidak ditemukan di DOM');
+            }
 
             setTimeout(() => {
                 if (USER_ID) { syncFromBackend();
