@@ -1885,7 +1885,7 @@
     </div>
 
     <!-- ============================================================
-    MODAL PROFILE — dengan foto profil & nama Telegram
+    MODAL PROFILE — dengan foto profil & nama Telegram (disimpan di localStorage)
     ============================================================ -->
     <div id="profile-modal" class="modal-overlay profile-modal">
         <div class="modal-box">
@@ -2298,11 +2298,11 @@
         let editCategory = 'transport';
 
         // ============================================================
-        // TELEGRAM WebApp — ambil data pengguna
+        // TELEGRAM WebApp — ambil data pengguna & simpan ke localStorage
         // ============================================================
         let tg = null,
             IS_TELEGRAM = false;
-        let TELEGRAM_USER = null; // akan diisi dari WebApp
+        let TELEGRAM_USER = null;
 
         try {
             tg = window.Telegram?.WebApp;
@@ -2311,21 +2311,38 @@
                 tg.expand();
                 IS_TELEGRAM = true;
                 // Ambil data user dari Telegram
+                let userData = null;
                 if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
-                    TELEGRAM_USER = tg.initDataUnsafe.user;
-                    console.log('✅ Telegram user:', TELEGRAM_USER);
+                    userData = tg.initDataUnsafe.user;
                 } else {
-                    // Fallback: coba dari initData
+                    // Fallback: parse dari initData
                     try {
                         const params = new URLSearchParams(tg.initData);
                         const userStr = params.get('user');
                         if (userStr) {
-                            TELEGRAM_USER = JSON.parse(decodeURIComponent(userStr));
+                            userData = JSON.parse(decodeURIComponent(userStr));
                         }
+                    } catch (_) {}
+                }
+                if (userData) {
+                    TELEGRAM_USER = userData;
+                    // Simpan ke localStorage agar bisa digunakan di lain waktu
+                    try {
+                        localStorage.setItem('catatanku_telegram_user', JSON.stringify(userData));
                     } catch (_) {}
                 }
             }
         } catch (_) {}
+
+        // Jika tidak ada data dari Telegram, coba ambil dari localStorage
+        if (!TELEGRAM_USER) {
+            try {
+                const stored = localStorage.getItem('catatanku_telegram_user');
+                if (stored) {
+                    TELEGRAM_USER = JSON.parse(stored);
+                }
+            } catch (_) {}
+        }
 
         // ============================================================
         // TOAST
@@ -2741,13 +2758,13 @@
         }
 
         // ============================================================
-        // PROFILE — dengan foto & nama dari Telegram
+        // PROFILE — dengan foto & nama dari Telegram (disimpan di localStorage)
         // ============================================================
         function openProfileModal() {
             const userId = USER_ID || '—';
             document.getElementById('profile-user-id').textContent = userId;
 
-            // Ambil data dari Telegram jika ada
+            // Ambil data user dari TELEGRAM_USER atau localStorage
             const user = TELEGRAM_USER;
             let displayName = 'Pengguna Web';
             let avatarUrl = '';
@@ -2764,30 +2781,20 @@
                     displayName = 'Pengguna Telegram';
                 }
 
-                // Inisial untuk fallback
+                // Inisial
                 if (user.first_name) {
                     initial = user.first_name.charAt(0).toUpperCase();
                 } else if (user.username) {
                     initial = user.username.charAt(0).toUpperCase();
                 }
 
-                // Foto profil jika tersedia (dari Telegram WebApp)
-                // Biasanya disediakan melalui `tg.initDataUnsafe.user.photo_url`
-                // Tapi tidak semua versi menyediakan, jadi kita coba
+                // Foto profil
                 if (user.photo_url) {
                     avatarUrl = user.photo_url;
-                } else {
-                    // Coba ambil dari parameter lain
-                    try {
-                        const params = new URLSearchParams(tg?.initData);
-                        const userStr = params.get('user');
-                        if (userStr) {
-                            const parsed = JSON.parse(decodeURIComponent(userStr));
-                            if (parsed.photo_url) avatarUrl = parsed.photo_url;
-                        }
-                    } catch (_) {}
                 }
             }
+
+            // Jika tidak ada user, coba dari localStorage (sudah diambil di atas)
 
             // Update UI
             document.getElementById('profile-display-name').textContent = displayName;
@@ -2862,7 +2869,6 @@
                     navigator.clipboard.writeText(id).then(() => {
                         showToast('✅ ID Telegram disalin!');
                     }).catch(() => {
-                        // fallback
                         const el = document.createElement('textarea');
                         el.value = id;
                         document.body.appendChild(el);
@@ -3187,13 +3193,6 @@
             renderCategoryChips('add-category-grid', selectedCategory);
             setTransactionType('income');
             renderDashboard();
-
-            // Jika ada data Telegram, simpan nama untuk ditampilkan di header (opsional)
-            if (TELEGRAM_USER && TELEGRAM_USER.first_name) {
-                const name = TELEGRAM_USER.first_name;
-                // Bisa ditampilkan di header atau di tempat lain
-                // Misal: document.getElementById('user-greeting').textContent = 'Halo, ' + name;
-            }
 
             setTimeout(() => {
                 if (USER_ID) { syncFromBackend();
