@@ -977,7 +977,7 @@
         }
 
         /* ============================================================
-               PROFILE MODAL — DENGAN FOTO PROFIL TELEGRAM
+               PROFILE MODAL — dengan fitur kustomisasi
             ============================================================ */
         .profile-modal .modal-box {
             max-width: 420px;
@@ -1008,6 +1008,11 @@
             user-select: none;
             border: 2px solid rgba(255, 255, 255, 0.10);
             overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .profile-modal .profile-avatar:hover {
+            transform: scale(1.02);
         }
 
         .profile-modal .profile-avatar img {
@@ -1184,6 +1189,93 @@
             font-size: 14px;
             vertical-align: middle;
             margin-right: 4px;
+        }
+
+        /* Edit profile button & form */
+        .profile-edit-btn {
+            width: 100%;
+            padding: 12px;
+            margin-top: 16px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            background: var(--surface-3);
+            color: var(--text-1);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .profile-edit-btn:hover {
+            background: var(--surface-4);
+            border-color: var(--border-hover);
+        }
+
+        .profile-edit-form {
+            display: none;
+            margin-top: 16px;
+            padding: 16px;
+            background: var(--surface-3);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+        }
+        .profile-edit-form.active {
+            display: block;
+        }
+        .profile-edit-form .form-group {
+            margin-bottom: 12px;
+        }
+        .profile-edit-form .form-group label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-2);
+            display: block;
+            margin-bottom: 4px;
+        }
+        .profile-edit-form .form-group input {
+            width: 100%;
+            padding: 10px 14px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            background: var(--surface-2);
+            color: var(--text-1);
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .profile-edit-form .form-group input:focus {
+            border-color: var(--accent);
+        }
+        .profile-edit-form .form-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .profile-edit-form .form-actions button {
+            flex: 1;
+            padding: 10px;
+            border-radius: var(--radius-sm);
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.15s;
+        }
+        .profile-edit-form .form-actions .btn-save {
+            background: var(--accent);
+            color: #0a0e1a;
+        }
+        .profile-edit-form .form-actions .btn-save:hover {
+            transform: scale(1.02);
+        }
+        .profile-edit-form .form-actions .btn-cancel {
+            background: var(--surface-4);
+            color: var(--text-2);
+            border: 1px solid var(--border);
+        }
+        .profile-edit-form .form-actions .btn-cancel:hover {
+            background: var(--surface-3);
         }
 
         /* ============================================================
@@ -1885,7 +1977,7 @@
     </div>
 
     <!-- ============================================================
-    MODAL PROFILE — dengan foto profil & nama Telegram (disimpan di localStorage)
+    MODAL PROFILE — dengan fitur kustomisasi nama & foto
     ============================================================ -->
     <div id="profile-modal" class="modal-overlay profile-modal">
         <div class="modal-box">
@@ -1896,10 +1988,11 @@
 
             <!-- Avatar & Nama -->
             <div class="profile-avatar-wrap">
-                <div class="profile-avatar" id="profile-avatar-container">
+                <div class="profile-avatar" id="profile-avatar-container" onclick="document.getElementById('avatar-input').click()">
                     <img id="profile-avatar-img" src="" alt="Foto Profil" style="display:none;" />
                     <span id="profile-avatar-initial" style="font-size:34px;font-weight:700;color:#0a0e1a;">👤</span>
                     <span class="status-dot"></span>
+                    <input type="file" id="avatar-input" accept="image/*" style="display:none;" />
                 </div>
                 <div class="profile-name" id="profile-display-name">Pengguna</div>
                 <div class="profile-id-wrap">
@@ -1910,7 +2003,7 @@
                 </div>
                 <div class="profile-status-row">
                     <span class="dot"></span>
-                    <span id="profile-status-text">Online via Web</span>
+                    <span id="profile-status-text">Online</span>
                 </div>
             </div>
 
@@ -1949,6 +2042,28 @@
                     <span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">sync</span>
                     Tersinkron
                 </span>
+            </div>
+
+            <!-- Tombol Edit Profil -->
+            <button class="profile-edit-btn" onclick="toggleEditProfile()">
+                <span class="material-symbols-outlined" style="font-size:18px;">edit</span>
+                Edit Profil
+            </button>
+
+            <!-- Form Edit Profil -->
+            <div class="profile-edit-form" id="profile-edit-form">
+                <div class="form-group">
+                    <label>Nama Pengguna</label>
+                    <input type="text" id="edit-name-input" placeholder="Nama baru" />
+                </div>
+                <div class="form-group">
+                    <label>URL Foto (opsional)</label>
+                    <input type="text" id="edit-photo-url-input" placeholder="https://example.com/foto.jpg" />
+                </div>
+                <div class="form-actions">
+                    <button class="btn-cancel" onclick="toggleEditProfile()">Batal</button>
+                    <button class="btn-save" onclick="saveProfileChanges()">Simpan</button>
+                </div>
             </div>
 
             <!-- Catatan login sekali -->
@@ -2298,51 +2413,57 @@
         let editCategory = 'transport';
 
         // ============================================================
-        // TELEGRAM WebApp — ambil data pengguna & simpan ke localStorage
+        // PROFIL KUSTOM — disimpan di localStorage
+        // ============================================================
+        function getProfile() {
+            try {
+                const data = localStorage.getItem('catatanku_profile');
+                return data ? JSON.parse(data) : { name: 'Pengguna', photo: '' };
+            } catch { return { name: 'Pengguna', photo: '' }; }
+        }
+
+        function saveProfile(profile) {
+            localStorage.setItem('catatanku_profile', JSON.stringify(profile));
+        }
+
+        // ============================================================
+        // TELEGRAM WebApp — ambil data awal jika ada (hanya untuk inisialisasi)
         // ============================================================
         let tg = null,
             IS_TELEGRAM = false;
-        let TELEGRAM_USER = null;
-
         try {
             tg = window.Telegram?.WebApp;
             if (tg) {
                 tg.ready();
                 tg.expand();
                 IS_TELEGRAM = true;
-                // Ambil data user dari Telegram
-                let userData = null;
-                if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
-                    userData = tg.initDataUnsafe.user;
-                } else {
-                    // Fallback: parse dari initData
-                    try {
-                        const params = new URLSearchParams(tg.initData);
-                        const userStr = params.get('user');
-                        if (userStr) {
-                            userData = JSON.parse(decodeURIComponent(userStr));
+                // Jika belum ada profil kustom, coba ambil dari Telegram
+                const profile = getProfile();
+                if (!profile.name || profile.name === 'Pengguna') {
+                    let userData = null;
+                    if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+                        userData = tg.initDataUnsafe.user;
+                    } else {
+                        try {
+                            const params = new URLSearchParams(tg.initData);
+                            const userStr = params.get('user');
+                            if (userStr) userData = JSON.parse(decodeURIComponent(userStr));
+                        } catch (_) {}
+                    }
+                    if (userData) {
+                        let name = 'Pengguna';
+                        if (userData.first_name) {
+                            name = userData.first_name;
+                            if (userData.last_name) name += ' ' + userData.last_name;
+                        } else if (userData.username) {
+                            name = '@' + userData.username;
                         }
-                    } catch (_) {}
-                }
-                if (userData) {
-                    TELEGRAM_USER = userData;
-                    // Simpan ke localStorage agar bisa digunakan di lain waktu
-                    try {
-                        localStorage.setItem('catatanku_telegram_user', JSON.stringify(userData));
-                    } catch (_) {}
+                        const photo = userData.photo_url || '';
+                        saveProfile({ name, photo });
+                    }
                 }
             }
         } catch (_) {}
-
-        // Jika tidak ada data dari Telegram, coba ambil dari localStorage
-        if (!TELEGRAM_USER) {
-            try {
-                const stored = localStorage.getItem('catatanku_telegram_user');
-                if (stored) {
-                    TELEGRAM_USER = JSON.parse(stored);
-                }
-            } catch (_) {}
-        }
 
         // ============================================================
         // TOAST
@@ -2758,65 +2879,43 @@
         }
 
         // ============================================================
-        // PROFILE — dengan foto & nama dari Telegram (disimpan di localStorage)
+        // PROFILE — dengan fitur kustomisasi
         // ============================================================
         function openProfileModal() {
             const userId = USER_ID || '—';
             document.getElementById('profile-user-id').textContent = userId;
 
-            // Ambil data user dari TELEGRAM_USER atau localStorage
-            const user = TELEGRAM_USER;
-            let displayName = 'Pengguna Web';
-            let avatarUrl = '';
-            let initial = '👤';
+            // Load profile dari localStorage
+            const profile = getProfile();
+            const displayName = profile.name || 'Pengguna';
+            const photoUrl = profile.photo || '';
 
-            if (user) {
-                // Nama: prioritas first_name + last_name
-                if (user.first_name) {
-                    displayName = user.first_name;
-                    if (user.last_name) displayName += ' ' + user.last_name;
-                } else if (user.username) {
-                    displayName = '@' + user.username;
-                } else {
-                    displayName = 'Pengguna Telegram';
-                }
-
-                // Inisial
-                if (user.first_name) {
-                    initial = user.first_name.charAt(0).toUpperCase();
-                } else if (user.username) {
-                    initial = user.username.charAt(0).toUpperCase();
-                }
-
-                // Foto profil
-                if (user.photo_url) {
-                    avatarUrl = user.photo_url;
-                }
-            }
-
-            // Jika tidak ada user, coba dari localStorage (sudah diambil di atas)
-
-            // Update UI
             document.getElementById('profile-display-name').textContent = displayName;
 
             // Avatar
-            const avatarContainer = document.getElementById('profile-avatar-container');
             const avatarImg = document.getElementById('profile-avatar-img');
             const avatarInitial = document.getElementById('profile-avatar-initial');
 
-            if (avatarUrl) {
-                avatarImg.src = avatarUrl;
+            if (photoUrl) {
+                avatarImg.src = photoUrl;
                 avatarImg.style.display = 'block';
                 avatarInitial.style.display = 'none';
             } else {
                 avatarImg.style.display = 'none';
                 avatarInitial.style.display = 'block';
-                avatarInitial.textContent = initial;
+                avatarInitial.textContent = displayName.charAt(0).toUpperCase() || '👤';
             }
 
             // Status
             document.getElementById('profile-status-text').textContent =
                 IS_TELEGRAM ? 'Online via Telegram' : 'Online via Web';
+
+            // Isi form edit dengan data saat ini
+            document.getElementById('edit-name-input').value = displayName;
+            document.getElementById('edit-photo-url-input').value = photoUrl;
+
+            // Tutup form edit jika terbuka
+            document.getElementById('profile-edit-form').classList.remove('active');
 
             // Render stats
             renderProfileStats();
@@ -2838,6 +2937,64 @@
             document.querySelectorAll('.bottom-nav a').forEach(el => el.classList.remove('active'));
             document.querySelector('.bottom-nav a[data-page="dashboard"]')?.classList.add('active');
         }
+
+        function toggleEditProfile() {
+            const form = document.getElementById('profile-edit-form');
+            form.classList.toggle('active');
+            // Isi form dengan data terkini
+            const profile = getProfile();
+            document.getElementById('edit-name-input').value = profile.name || 'Pengguna';
+            document.getElementById('edit-photo-url-input').value = profile.photo || '';
+        }
+
+        function saveProfileChanges() {
+            const name = document.getElementById('edit-name-input').value.trim() || 'Pengguna';
+            const photo = document.getElementById('edit-photo-url-input').value.trim();
+            const profile = { name, photo };
+            saveProfile(profile);
+            // Update tampilan
+            document.getElementById('profile-display-name').textContent = name;
+            const avatarImg = document.getElementById('profile-avatar-img');
+            const avatarInitial = document.getElementById('profile-avatar-initial');
+            if (photo) {
+                avatarImg.src = photo;
+                avatarImg.style.display = 'block';
+                avatarInitial.style.display = 'none';
+            } else {
+                avatarImg.style.display = 'none';
+                avatarInitial.style.display = 'block';
+                avatarInitial.textContent = name.charAt(0).toUpperCase() || '👤';
+            }
+            // Tutup form
+            document.getElementById('profile-edit-form').classList.remove('active');
+            showToast('✅ Profil diperbarui!');
+        }
+
+        // Upload avatar via file input
+        document.getElementById('avatar-input').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                const dataUrl = ev.target.result;
+                // Simpan sebagai foto profil (data URL)
+                const profile = getProfile();
+                profile.photo = dataUrl;
+                saveProfile(profile);
+                // Update tampilan
+                const avatarImg = document.getElementById('profile-avatar-img');
+                const avatarInitial = document.getElementById('profile-avatar-initial');
+                avatarImg.src = dataUrl;
+                avatarImg.style.display = 'block';
+                avatarInitial.style.display = 'none';
+                // Update form
+                document.getElementById('edit-photo-url-input').value = dataUrl;
+                showToast('✅ Foto profil diperbarui!');
+            };
+            reader.readAsDataURL(file);
+            // Reset input agar bisa upload ulang
+            e.target.value = '';
+        });
 
         function renderProfileStats() {
             const txs = getTransactions();
@@ -3188,6 +3345,24 @@
             // Set joined date jika belum ada
             if (!localStorage.getItem('catatanku_joined')) {
                 localStorage.setItem('catatanku_joined', new Date().toISOString().slice(0, 10));
+            }
+
+            // Inisialisasi profil jika belum ada
+            if (!localStorage.getItem('catatanku_profile')) {
+                // Coba ambil dari Telegram jika ada
+                let initialName = 'Pengguna';
+                let initialPhoto = '';
+                if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
+                    const u = tg.initDataUnsafe.user;
+                    if (u.first_name) {
+                        initialName = u.first_name;
+                        if (u.last_name) initialName += ' ' + u.last_name;
+                    } else if (u.username) {
+                        initialName = '@' + u.username;
+                    }
+                    initialPhoto = u.photo_url || '';
+                }
+                saveProfile({ name: initialName, photo: initialPhoto });
             }
 
             renderCategoryChips('add-category-grid', selectedCategory);
