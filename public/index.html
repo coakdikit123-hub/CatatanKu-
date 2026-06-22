@@ -1845,7 +1845,6 @@
                 font-size: 12px;
                 padding: 3px 10px;
             }
-            /* Tetap 2 kolom di layar kecil */
             .account-balance-row {
                 grid-template-columns: repeat(2, 1fr);
             }
@@ -1872,7 +1871,6 @@
             .hero-stat-box .stat-value {
                 font-size: 13px;
             }
-            /* Tetap 2 kolom di layar sangat kecil */
             .account-balance-row {
                 grid-template-columns: repeat(2, 1fr);
             }
@@ -1938,25 +1936,26 @@
         }
 
         /* ============================================================
-               MONTHLY LIMIT SETTING
+               MONTHLY LIMIT SETTING — tombol edit di pojok kanan atas
             ============================================================ */
         .limit-edit-btn {
             background: none;
             border: none;
             color: var(--text-3);
             cursor: pointer;
-            font-size: 11px;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 2px 8px;
-            border-radius: 12px;
+            padding: 2px 4px;
+            border-radius: 6px;
             transition: all 0.15s;
-            margin-left: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         .limit-edit-btn:hover {
             background: var(--surface-3);
             color: var(--text-1);
+        }
+        .limit-edit-btn .material-symbols-outlined {
+            font-size: 18px;
         }
 
         .limit-display {
@@ -1965,6 +1964,17 @@
             justify-content: center;
             gap: 6px;
             flex-wrap: wrap;
+        }
+
+        /* header card dengan judul dan tombol edit */
+        .card-header-with-edit {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+        .card-header-with-edit .title {
+            margin-bottom: 0;
         }
     </style>
 </head>
@@ -2184,7 +2194,6 @@
             </div>
             <div class="actions">
                 <span class="status-badge online" id="status-badge">● Online</span>
-                <!-- Tombol profil di header telah dihapus sesuai permintaan -->
                 <button class="icon-btn" onclick="syncFromBackend()" title="Sinkronisasi">
                     <span class="material-symbols-outlined">sync</span>
                 </button>
@@ -2230,8 +2239,14 @@
 
             <!-- Mini Stats -->
             <section style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px;">
+                <!-- Kartu Pengeluaran Bulan Ini — dengan tombol edit di pojok kanan atas -->
                 <div class="mini-card" id="monthly-spending-card">
-                    <div class="title">Pengeluaran Bulan Ini</div>
+                    <div class="card-header-with-edit">
+                        <div class="title">Pengeluaran Bulan Ini</div>
+                        <button class="limit-edit-btn" onclick="openLimitModal()" title="Ubah batas">
+                            <span class="material-symbols-outlined">edit</span>
+                        </button>
+                    </div>
                     <div class="value" id="dash-monthly-spending">Rp 0</div>
                     <div class="bar-track">
                         <div class="bar-fill" id="dash-spending-bar"></div>
@@ -2240,9 +2255,6 @@
                         <span class="limit-display">
                             <span id="dash-spending-pct">0%</span> dari batas
                             <span id="dash-limit-display">Rp 2.000.000</span>
-                            <button class="limit-edit-btn" onclick="openLimitModal()" title="Ubah batas">
-                                <span class="material-symbols-outlined" style="font-size:14px;">edit</span>
-                            </button>
                         </span>
                     </div>
                 </div>
