@@ -140,6 +140,9 @@
             background-color: #0f1420 !important;
             border-bottom-color: #2a3550 !important;
         }
+        /* ============================================================
+           BOTTOM NAV - 5 MENU (dengan Profil)
+           ============================================================ */
         .bottom-nav {
             background-color: #0f1420 !important;
             border-top-color: #2a3550 !important;
@@ -151,6 +154,12 @@
             transition: color 0.2s;
             text-decoration: none;
             position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 4px 8px;
+            flex: 1;
         }
         .bottom-nav a.active {
             color: #B1BCFB !important;
@@ -168,6 +177,11 @@
             letter-spacing: 0.05em;
             text-transform: uppercase;
             margin-top: 2px;
+        }
+        .bottom-nav a .add-icon {
+            font-size: 32px;
+            color: #B1BCFB;
+            font-variation-settings: 'FILL' 1;
         }
 
         input,
@@ -191,9 +205,17 @@
         .category-chip .icon-wrap {
             background-color: #1a2238 !important;
             border-color: #2a3550 !important;
+            width: 60px;
+            height: 60px;
+            border-radius: 9999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s ease;
         }
         .category-chip .icon-wrap .material-symbols-outlined {
             color: #94a3bb !important;
+            font-size: 28px;
         }
         .category-chip.active .icon-wrap {
             background-color: #B1BCFB !important;
@@ -208,18 +230,13 @@
         .category-chip:hover .icon-wrap {
             background-color: #28324a !important;
         }
-        .icon-wrap {
-            width: 56px;
-            height: 56px;
-            border-radius: 9999px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.15s ease;
-        }
         .category-chip {
             cursor: pointer;
             transition: all 0.15s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
         }
         .category-chip .label {
             font-size: 12px;
@@ -228,6 +245,7 @@
             letter-spacing: 0.02em;
             color: #94a3bb;
             transition: color 0.15s ease;
+            text-align: center;
         }
         .tab-btn {
             border-color: #2a3550 !important;
@@ -378,7 +396,7 @@
             letter-spacing: 0.08em;
             text-transform: uppercase;
             color: #94a3bb;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
             display: block;
         }
         .form-input,
@@ -444,18 +462,18 @@
         .category-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 12px;
+            gap: 16px 12px;
         }
         @media (max-width: 400px) {
             .category-grid {
-                gap: 8px;
+                gap: 12px 8px;
             }
-            .icon-wrap {
-                width: 48px;
-                height: 48px;
+            .category-chip .icon-wrap {
+                width: 52px;
+                height: 52px;
             }
-            .icon-wrap .material-symbols-outlined {
-                font-size: 22px;
+            .category-chip .icon-wrap .material-symbols-outlined {
+                font-size: 24px;
             }
         }
         .type-toggle {
@@ -838,7 +856,7 @@
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div><label class="form-label">Tanggal</label><input id="edit-date" class="form-input" type="date" required /></div>
-                    <div><label class="form-label">Akun</label><select id="edit-account" class="form-select">
+                    <div><label class="form-label">Tersimpan di</label><select id="edit-account" class="form-select">
                             <option value="Tunai">Tunai</option>
                             <option value="Bank">Bank</option>
                             <option value="Tabungan">Tabungan</option>
@@ -877,9 +895,6 @@
                 <span id="status-badge" class="status-badge status-online">🔒 Online</span>
                 <button class="p-2 rounded-full hover:bg-surface-low transition-colors" onclick="syncFromBackend()" title="Sinkronisasi">
                     <span class="material-symbols-outlined text-primary">sync</span>
-                </button>
-                <button class="p-2 rounded-full hover:bg-surface-low transition-colors" onclick="openProfileModal()" title="Profile">
-                    <span class="material-symbols-outlined text-primary">person</span>
                 </button>
             </div>
         </header>
@@ -961,7 +976,7 @@
     </div>
 
     <!-- ============================================================
-    PAGE: ADD TRANSACTION (DESAIN DIPERBAIKI)
+    PAGE: ADD TRANSACTION
     ============================================================ -->
     <div id="page-add" class="page">
         <div class="add-page-header">
@@ -994,7 +1009,7 @@
                     </div>
                 </div>
 
-                <!-- Kategori -->
+                <!-- Kategori - Desain diperbaiki -->
                 <div class="form-section">
                     <label class="form-label">Kategori</label>
                     <div class="category-grid" id="add-category-grid"></div>
@@ -1111,7 +1126,7 @@
     </div>
 
     <!-- ============================================================
-    BOTTOM NAV - 4 MENU (Beranda, Riwayat, Tambah, Laporan)
+    BOTTOM NAV - 5 MENU (Beranda, Riwayat, Tambah, Laporan, Profil)
     ============================================================ -->
     <nav class="bottom-nav fixed bottom-0 left-0 w-full z-50 flex justify-around items-center border-t rounded-t-xl">
         <a href="#" class="flex flex-col items-center justify-center active" data-page="dashboard" onclick="navigateTo('dashboard')">
@@ -1123,12 +1138,16 @@
             <span>Riwayat</span>
         </a>
         <a href="#" class="flex flex-col items-center justify-center" data-page="add" onclick="navigateTo('add')">
-            <span class="material-symbols-outlined" style="font-size:28px; color: #B1BCFB;">add_circle</span>
+            <span class="material-symbols-outlined add-icon">add_circle</span>
             <span>Tambah</span>
         </a>
         <a href="#" class="flex flex-col items-center justify-center" data-page="reports" onclick="navigateTo('reports')">
             <span class="material-symbols-outlined">pie_chart</span>
             <span>Laporan</span>
+        </a>
+        <a href="#" class="flex flex-col items-center justify-center" data-page="profile" onclick="openProfileModal()">
+            <span class="material-symbols-outlined">person</span>
+            <span>Profil</span>
         </a>
     </nav>
 
@@ -1205,10 +1224,16 @@
             document.getElementById('profile-user-id').textContent = USER_ID;
             document.getElementById('profile-status').textContent = IS_TELEGRAM ? '🔒 Online (Telegram)' : '🔒 Online (Web)';
             document.getElementById('profile-modal').classList.add('active');
+            // Set active nav
+            document.querySelectorAll('.bottom-nav a').forEach(el => el.classList.remove('active'));
+            document.querySelector('.bottom-nav a[data-page="profile"]')?.classList.add('active');
         }
 
         function closeProfileModal() {
             document.getElementById('profile-modal').classList.remove('active');
+            // Kembali ke dashboard
+            document.querySelectorAll('.bottom-nav a').forEach(el => el.classList.remove('active'));
+            document.querySelector('.bottom-nav a[data-page="dashboard"]')?.classList.add('active');
         }
 
         function logout() {
@@ -1481,7 +1506,9 @@
             grid.innerHTML = CATEGORIES.map(cat => {
                 const active = selectedCategory === cat.id ? 'active' : '';
                 return `<div class="category-chip ${active}" onclick="selectCategory('${cat.id}')">
-                        <div class="icon-wrap"><span class="material-symbols-outlined">${cat.icon}</span></div>
+                        <div class="icon-wrap">
+                            <span class="material-symbols-outlined">${cat.icon}</span>
+                        </div>
                         <span class="label">${cat.label}</span>
                     </div>`;
             }).join('');
@@ -1564,7 +1591,9 @@
             grid.innerHTML = CATEGORIES.map(cat => {
                 const active = editCategory === cat.id ? 'active' : '';
                 return `<div class="category-chip ${active}" onclick="setEditCategory('${cat.id}')">
-                        <div class="icon-wrap"><span class="material-symbols-outlined">${cat.icon}</span></div>
+                        <div class="icon-wrap">
+                            <span class="material-symbols-outlined">${cat.icon}</span>
+                        </div>
                         <span class="label">${cat.label}</span>
                     </div>`;
             }).join('');
