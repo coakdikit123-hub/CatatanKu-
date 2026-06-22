@@ -165,7 +165,7 @@
         }
 
         /* ============================================================
-               BOTTOM NAV — dengan 6 item (tambah Budget)
+               BOTTOM NAV — dengan 6 item, Profil di posisi pertama
             ============================================================ */
         .bottom-nav {
             background: rgba(7, 11, 23, 0.96);
@@ -201,6 +201,7 @@
             -webkit-tap-highlight-color: transparent;
             min-width: 0;
             font-size: 10px;
+            cursor: pointer;
         }
 
         .bottom-nav a .material-symbols-outlined {
@@ -509,34 +510,6 @@
         }
         .budget-item .budget-bar .bar-fill.danger {
             background: var(--expense);
-        }
-
-        .budget-item .budget-actions {
-            display: flex;
-            gap: 6px;
-            margin-top: 8px;
-            justify-content: flex-end;
-        }
-        .budget-item .budget-actions button {
-            background: var(--surface-2);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 4px 10px;
-            font-size: 11px;
-            font-weight: 600;
-            color: var(--text-2);
-            cursor: pointer;
-            transition: all 0.15s;
-        }
-        .budget-item .budget-actions button:hover {
-            background: var(--surface-3);
-            border-color: var(--border-hover);
-            color: var(--text-1);
-        }
-        .budget-item .budget-actions button.danger:hover {
-            background: var(--expense-dim);
-            border-color: rgba(248, 113, 113, 0.3);
-            color: var(--expense);
         }
 
         /* ============================================================
@@ -1141,7 +1114,7 @@
         }
 
         /* ============================================================
-               PROFILE MODAL
+               PROFILE MODAL — Customizable
             ============================================================ */
         .profile-modal .modal-box {
             max-width: 420px;
@@ -1211,19 +1184,11 @@
             opacity: 1;
         }
 
-        .profile-modal .profile-name {
-            font-size: 20px;
-            font-weight: 700;
-            color: var(--text-1);
-            margin-top: 8px;
-            text-align: center;
-            letter-spacing: -0.3px;
-        }
         .profile-modal .profile-name-edit {
             display: flex;
             gap: 8px;
             align-items: center;
-            margin-top: 4px;
+            margin-top: 8px;
         }
         .profile-modal .profile-name-edit input {
             background: var(--surface-3);
@@ -1410,7 +1375,7 @@
         }
 
         /* ============================================================
-               ADD PAGE — AMOUNT INPUT
+               ADD PAGE
             ============================================================ */
         .add-amount-section {
             background: var(--surface-1);
@@ -1481,7 +1446,7 @@
         }
 
         /* ============================================================
-               REPORTS — DONUT CHART
+               REPORTS
             ============================================================ */
         .chart-ring {
             position: relative;
@@ -1517,9 +1482,6 @@
             color: var(--accent);
         }
 
-        /* ============================================================
-               REPORTS — PERIOD TABS
-            ============================================================ */
         .period-tabs {
             display: inline-flex;
             padding: 4px;
@@ -1544,9 +1506,6 @@
             box-shadow: 0 4px 12px rgba(177, 188, 251, 0.20);
         }
 
-        /* ============================================================
-               REPORTS — LEGEND
-            ============================================================ */
         .legend-item {
             display: flex;
             align-items: center;
@@ -1589,9 +1548,6 @@
             color: var(--accent);
         }
 
-        /* ============================================================
-               REPORTS — BREAKDOWN ITEM
-            ============================================================ */
         .breakdown-item {
             background: var(--surface-1);
             border: 1px solid var(--border);
@@ -1718,7 +1674,7 @@
         }
 
         /* ============================================================
-               SEARCH
+               SEARCH & HISTORY
             ============================================================ */
         .search-wrap {
             position: relative;
@@ -1754,9 +1710,6 @@
             color: var(--text-3);
         }
 
-        /* ============================================================
-               HISTORY — SUMMARY ROW
-            ============================================================ */
         .hist-summary {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -2079,7 +2032,7 @@
     </div>
 
     <!-- ============================================================
-    MODAL PROFILE — dengan customisasi nama & foto
+    MODAL PROFILE
     ============================================================ -->
     <div id="profile-modal" class="modal-overlay profile-modal">
         <div class="modal-box">
@@ -2187,7 +2140,7 @@
                 </div>
             </section>
 
-            <!-- Mini Stats + Budget Overview -->
+            <!-- Mini Stats + Budget -->
             <section style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
                 <div class="mini-card">
                     <div class="title">Pengeluaran Bulan Ini</div>
@@ -2213,7 +2166,7 @@
                     <span class="material-symbols-outlined" style="color:var(--warning);font-size:24px;">warning</span>
                     <div>
                         <div style="font-size:13px;font-weight:600;color:var(--warning);" id="budget-alert-text">⚠️ Budget hampir habis!</div>
-                        <div style="font-size:11px;color:var(--text-3);" id="budget-alert-detail">Kategori Makan telah mencapai 85% dari budget</div>
+                        <div style="font-size:11px;color:var(--text-3);" id="budget-alert-detail"></div>
                     </div>
                 </div>
             </div>
@@ -2419,7 +2372,7 @@
     </div>
 
     <!-- ============================================================
-    PAGE: BUDGET (khusus)
+    PAGE: BUDGET
     ============================================================ -->
     <div id="page-budget" class="page">
         <header class="app-header">
@@ -2454,9 +2407,13 @@
     </div>
 
     <!-- ============================================================
-    BOTTOM NAV — 6 item
+    BOTTOM NAV — Profil di posisi pertama
     ============================================================ -->
     <nav class="bottom-nav">
+        <a href="#" data-page="profile" onclick="openProfileModal()">
+            <span class="material-symbols-outlined">person</span>
+            <span>Profil</span>
+        </a>
         <a href="#" data-page="dashboard" onclick="navigateTo('dashboard')">
             <span class="material-symbols-outlined">home</span>
             <span>Beranda</span>
@@ -2476,10 +2433,6 @@
         <a href="#" data-page="reports" onclick="navigateTo('reports')">
             <span class="material-symbols-outlined">pie_chart</span>
             <span>Laporan</span>
-        </a>
-        <a href="#" data-page="profile" onclick="openProfileModal()">
-            <span class="material-symbols-outlined">person</span>
-            <span>Profil</span>
         </a>
     </nav>
 
@@ -2610,7 +2563,6 @@
                 if (!res.ok) throw new Error('Gagal sync');
                 const data = await res.json();
                 saveLocalTransactions(data);
-                // Also sync budgets
                 try {
                     const bRes = await fetch(`/api/budgets/${USER_ID}`);
                     if (bRes.ok) {
@@ -2737,7 +2689,7 @@
         function getYearEnd() { const d = new Date(); return new Date(d.getFullYear(), 11, 31).toISOString().slice(0, 10); }
 
         // ============================================================
-        // CATEGORIES
+        // CATEGORIES & ACCOUNTS
         // ============================================================
         const CATEGORIES = [
             { id: 'shopping', label: 'Belanja', icon: 'shopping_bag' },
@@ -2754,9 +2706,6 @@
 
         function getCategoryLabel(id) { const c = CATEGORIES.find(c => c.id === id); return c ? c.label : 'Lainnya'; }
 
-        // ============================================================
-        // ACCOUNTS
-        // ============================================================
         const ACCOUNTS = ['Bank', 'Tunai', 'Tabungan', 'E-Wallet'];
 
         function getAccountBalance(account) {
@@ -2769,9 +2718,15 @@
         }
 
         // ============================================================
-        // NAVIGATION
+        // NAVIGATION — semua halaman termasuk profile
         // ============================================================
         function navigateTo(page) {
+            // Jika page === 'profile', buka modal profil, bukan page biasa
+            if (page === 'profile') {
+                openProfileModal();
+                return;
+            }
+
             if (page === 'add') {
                 document.getElementById('add-amount').value = '';
                 document.getElementById('add-note').value = '';
@@ -2801,7 +2756,6 @@
                 stopAutoSync();
                 if (page === 'history') renderHistory();
                 if (page === 'reports') renderReports();
-                if (page === 'profile') renderProfileStats();
                 if (page === 'budget') renderBudgetPage();
             }
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2876,7 +2830,6 @@
             const success = await pushToBackend(tx);
             showToast(success ? '✅ Transaksi tersimpan!' : '⚠️ Tersimpan lokal, gagal sync ke server');
 
-            // Check budget
             checkBudgetAlert(selectedCategory);
 
             document.getElementById('add-amount').value = '';
@@ -2977,7 +2930,7 @@
         }
 
         // ============================================================
-        // BUDGET — Fitur Budgeting
+        // BUDGET
         // ============================================================
         function openBudgetModal() {
             const budgets = getBudgets();
@@ -3019,7 +2972,6 @@
             showToast('✅ Budget berhasil disimpan!');
             closeBudgetModal();
             renderAll();
-            // Kirim notifikasi ke Telegram jika budget melewati batas
             checkAllBudgets();
         }
 
@@ -3051,11 +3003,7 @@
             Object.keys(budgets).forEach(cat => checkBudgetAlert(cat));
         }
 
-        // ============================================================
-        // NOTIFIKASI TELEGRAM
-        // ============================================================
         function sendTelegramNotification(message) {
-            // Kirim notifikasi ke backend untuk diteruskan ke Telegram
             if (!USER_ID) return;
             try {
                 fetch('/api/notify', {
@@ -3140,7 +3088,6 @@
             document.getElementById('dash-spending-bar').style.width = pct + '%';
             document.getElementById('dash-spending-label').textContent = Math.round(pct) + '% dari batas Rp 2.000.000';
 
-            // Account balances
             ACCOUNTS.forEach(acc => {
                 const bal = getAccountBalance(acc);
                 const el = document.getElementById('acc-balance-' + acc);
@@ -3150,7 +3097,6 @@
                 }
             });
 
-            // Budget summary
             const budgets = getBudgets();
             const budgetKeys = Object.keys(budgets);
             if (budgetKeys.length === 0) {
@@ -3167,7 +3113,6 @@
                     `${Math.round(pctBudget)}% terpakai • ${pctBudget >= 100 ? '⚠️ Melewati batas!' : pctBudget >= 80 ? '⚠️ Hampir habis!' : '✅ Aman'}`;
             }
 
-            // Budget alert banner
             const alertBanner = document.getElementById('budget-alert-banner');
             let alertFound = false;
             let alertMsg = '',
@@ -3192,7 +3137,6 @@
                 alertBanner.style.display = 'none';
             }
 
-            // Top category
             const catMap = {};
             monthTxs.filter(t => t.type === 'expense').forEach(t => {
                 catMap[t.category] = (catMap[t.category] || 0) + Number(t.amount);
@@ -3215,7 +3159,6 @@
                     `<span class="material-symbols-outlined" style="font-size:20px;color:var(--text-3);">restaurant</span>`;
             }
 
-            // Recent transactions
             const sorted = [...txs].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
             const recent = sorted.slice(0, 5);
             const container = document.getElementById('dash-recent-list');
@@ -3226,7 +3169,6 @@
                 container.innerHTML = recent.map(t => renderTxItem(t, false)).join('');
             }
 
-            // Change %
             const now = new Date();
             const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().slice(0, 10);
             const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().slice(0, 10);
@@ -3429,7 +3371,6 @@
             document.getElementById('profile-name-input').value = profile.name || 'Pengguna Web';
             document.getElementById('profile-display-name').textContent = profile.name || 'Pengguna Web';
 
-            // Avatar
             const avatarImg = document.getElementById('profile-avatar-img');
             const avatarInitial = document.getElementById('profile-avatar-initial');
             if (profile.avatar) {
@@ -3471,7 +3412,6 @@
             profile.name = name;
             saveProfile(profile);
             document.getElementById('profile-display-name').textContent = name;
-            // Update avatar initial
             const avatarInitial = document.getElementById('profile-avatar-initial');
             if (!profile.avatar) {
                 avatarInitial.textContent = name.charAt(0).toUpperCase();
@@ -3488,7 +3428,6 @@
                 const profile = getProfile();
                 profile.avatar = dataUrl;
                 saveProfile(profile);
-                // Update UI
                 const avatarImg = document.getElementById('profile-avatar-img');
                 const avatarInitial = document.getElementById('profile-avatar-initial');
                 avatarImg.src = dataUrl;
@@ -3574,7 +3513,6 @@
                     if (currentPage === 'dashboard') renderDashboard();
                     if (currentPage === 'history') renderHistory();
                     if (currentPage === 'reports') renderReports();
-                    if (currentPage === 'profile') renderProfileStats();
                     if (currentPage === 'budget') renderBudgetPage();
                     if (currentPage === 'dashboard' && USER_ID) syncFromBackend();
                 }
