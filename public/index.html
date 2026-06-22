@@ -392,11 +392,11 @@
         }
 
         /* ============================================================
-               ACCOUNT BALANCE ROW
+               ACCOUNT BALANCE ROW — 2x2 Grid
             ============================================================ */
         .account-balance-row {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            grid-template-columns: repeat(2, 1fr);
             gap: 8px;
             margin-top: 12px;
         }
@@ -1845,8 +1845,9 @@
                 font-size: 12px;
                 padding: 3px 10px;
             }
+            /* Tetap 2 kolom di layar kecil */
             .account-balance-row {
-                grid-template-columns: repeat(3, 1fr);
+                grid-template-columns: repeat(2, 1fr);
             }
         }
 
@@ -1871,8 +1872,9 @@
             .hero-stat-box .stat-value {
                 font-size: 13px;
             }
+            /* Tetap 2 kolom di layar sangat kecil */
             .account-balance-row {
-                grid-template-columns: 1fr 1fr;
+                grid-template-columns: repeat(2, 1fr);
             }
         }
 
@@ -2182,9 +2184,7 @@
             </div>
             <div class="actions">
                 <span class="status-badge online" id="status-badge">● Online</span>
-                <button class="icon-btn" onclick="openProfileModal()" title="Profil">
-                    <span class="material-symbols-outlined">person</span>
-                </button>
+                <!-- Tombol profil di header telah dihapus sesuai permintaan -->
                 <button class="icon-btn" onclick="syncFromBackend()" title="Sinkronisasi">
                     <span class="material-symbols-outlined">sync</span>
                 </button>
@@ -2215,7 +2215,7 @@
                 </div>
             </section>
 
-            <!-- Account Balances -->
+            <!-- Account Balances — 2x2 Grid -->
             <section style="margin-top:12px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
                     <span style="font-size:12px;font-weight:600;color:var(--text-2);letter-spacing:0.05em;text-transform:uppercase;">💳 Saldo per Akun</span>
