@@ -105,7 +105,7 @@ function parseTransaction(text, userId) {
 }
 
 // ============================================================
-// FUNGSI PARSING OCR — ROBUST UNTUK STRUK
+// FUNGSI PARSING OCR — DIPERBAIKI untuk format struk
 // ============================================================
 function parseOcrText(text) {
   if (!text || text.trim().length < 3) return null;
@@ -141,7 +141,7 @@ function parseOcrText(text) {
     }
   }
 
-  // Jika tidak ketemu, cari angka terbesar di seluruh teks
+  // Jika tidak ketemu, cari angka terbesar
   if (!grandTotal) {
     const allNums = fullText.match(/\d{1,3}(?:\.\d{3})*/g);
     if (allNums) {
@@ -233,194 +233,54 @@ function parseOcrText(text) {
     console.log('📅 Tanggal default:', date);
   }
 
-  // === 4. EKSTRAK ITEMS — METODE ROBUST ===
+  // === 4. EKSTRAK ITEMS ===
   const items = [];
 
-  // STEP 1: Kumpulkan semua angka dengan posisi barisnya
-  const numberMap = [];
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const numMatches = line.match(/\d{1,3}(?:\.\d{3})*/g);
-    if (numMatches) {
-      for (const numStr of numMatches) {
-        const num = parseInt(numStr.replace(/\./g, ''));
-        if (num > 0 && num < 999999999) {
-          numberMap.push({ lineIndex: i, number: num, raw: numStr });
+  // Cari semua baris yang mengandung angka (harga)
+  const priceLines = [];
+  for (const line of lines) {
+    const match = line.match(/([\d.,]+)\s*$/);
+    if (match) {
+      const price = parseInt(match[1].replace(/\./g, '').replace(/,/g, ''));
+      if (price > 0 && price < 999999999) {
+        const namePart = line.replace(/\s*[\d.,]+\s*$/, '').trim();
+        if (namePart.length > 2 && !/^(subtotal|total|grand|jumlah|pb1|pajak|tax|qr|bt|items)/i.test(namePart)) {
+          priceLines.push({ line, name: namePart, price });
         }
       }
     }
   }
-  console.log('🔢 Number map:', numberMap);
 
-  // STEP 2: Identifikasi di mana item dimulai
-  let itemStartIndex = -1;
-  let itemEndIndex = -1;
-
-  // Cari "items" untuk menentukan akhir daftar item
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].toLowerCase();
-    if (line.includes('items') && /\d/.test(line)) {
-      itemEndIndex = i;
-      break;
-    }
-  }
-
-  // Cari "subtotal" atau "total" sebagai penanda akhir
-  if (itemEndIndex === -1) {
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].toLowerCase();
-      if (line.includes('subtotal') || line.includes('total') || line.includes('jumlah')) {
-        itemEndIndex = i;
-        break;
-      }
-    }
-  }
-
-  // Cari awal item (setelah header)
-  // Mulai dari baris yang mengandung kata kunci merchant atau setelah header
-  let headerEndIndex = -1;
-  for (let i = 0; i < Math.min(10, lines.length); i++) {
-    const line = lines[i];
-    // Jika line mengandung kata kunci header
-    if (/date|info|purpose|cashier|meja|table|dine in|take away/i.test(line)) {
-      headerEndIndex = i;
-    }
-    // Jika line adalah "DINE IN" atau sejenisnya
-    if (/dine in|take away|dine/i.test(line)) {
-      headerEndIndex = i;
-      break;
-    }
-  }
-
-  // Jika headerEndIndex ditemukan, mulai dari sana
-  if (headerEndIndex !== -1) {
-    itemStartIndex = headerEndIndex + 1;
-  } else {
-    // Fallback: cari baris pertama yang bukan header
-    for (let i = 0; i < Math.min(10, lines.length); i++) {
-      const line = lines[i];
-      if (line.length > 5 &&
-        !/date|info|purpose|cashier|meja|table|dine in|take away|total|subtotal|jumlah|items/i.test(line) &&
-        !/^\d+$/.test(line) &&
-        !/\d{1,3}\.\d{3}/.test(line)) {
-        itemStartIndex = i;
-        break;
-      }
-    }
-  }
-
-  if (itemStartIndex === -1) {
-    itemStartIndex = 5; // default
-  }
-  if (itemEndIndex === -1) {
-    itemEndIndex = lines.length - 1;
-  }
-
-  console.log('📌 Item range:', itemStartIndex, 'to', itemEndIndex);
-
-  // STEP 3: Ekstrak item dari range yang ditemukan
-  const rawItemLines = [];
-  for (let i = itemStartIndex; i < itemEndIndex && i < lines.length; i++) {
-    const line = lines[i];
-    // Skip baris yang jelas bukan item
-    if (line.length < 2) continue;
-    if (/^\d+\s*items?$/i.test(line)) continue;
-    if (/^(subtotal|total|jumlah|grand|pb1|pajak|tax|qr|bt|cashier|kasir|terima|kembali)/i.test(line)) continue;
-    if (/^\d+\s*$/.test(line) && parseInt(line) > 0 && parseInt(line) < 10) continue; // quantity murni
-    if (/^(tanggal|date|info|purpose|meja|table|dine in|take away)/i.test(line)) continue;
-
-    rawItemLines.push(line);
-  }
-
-  console.log('📋 Raw item lines:', rawItemLines);
-
-  // STEP 4: Cari quantity di awal (angka kecil seperti 2, 1, 1, 1)
+  // Cari quantity (angka di awal)
+  let qtyIndex = 0;
   const quantities = [];
-  for (let i = 0; i < Math.min(10, lines.length); i++) {
-    const line = lines[i];
-    if (/^\d+$/.test(line) && parseInt(line) > 0 && parseInt(line) < 10) {
-      quantities.push(parseInt(line));
-    }
-  }
-  console.log('🔢 Quantities found:', quantities);
-
-  // STEP 5: Cari item names dan prices
-  // Cari semua angka yang bisa menjadi price (>= 1000)
-  const potentialPrices = [];
-  for (const item of numberMap) {
-    if (item.number >= 1000 && item.number < 999999999) {
-      // Skip jika ini adalah grand total atau subtotal
-      const lineLower = lines[item.lineIndex].toLowerCase();
-      if (lineLower.includes('subtotal') || lineLower.includes('total') ||
-        lineLower.includes('jumlah') || lineLower.includes('grand') ||
-        lineLower.includes('pb1') || lineLower.includes('pajak') ||
-        lineLower.includes('tax') || lineLower.includes('qr') ||
-        lineLower.includes('bt')) {
-        continue;
-      }
-      potentialPrices.push(item);
-    }
-  }
-  console.log('💰 Potential prices:', potentialPrices);
-
-  // STEP 6: Match item names with prices
-  const itemNames = [];
-  const itemPrices = [];
-
-  // Ambil nama item dari rawItemLines (hapus angka di akhir jika ada)
-  for (const line of rawItemLines) {
-    // Jika line berisi angka di akhir (harga), hapus
-    let cleaned = line.replace(/\s*[\d.,]+\s*$/, '').trim();
-    // Jika line dimulai dengan angka (quantity), hapus
-    cleaned = cleaned.replace(/^\d+\s+/, '').trim();
-    if (cleaned.length > 2 && !/^\d+$/.test(cleaned)) {
-      itemNames.push(cleaned);
-    }
-  }
-
-  // Ambil harga dari potentialPrices (urutkan berdasarkan baris)
-  // Tapi kita perlu match dengan jumlah item
-  const priceValues = potentialPrices.map(p => p.number);
-  // Ambil sebanyak itemNames
-  for (let i = 0; i < Math.min(itemNames.length, priceValues.length); i++) {
-    itemPrices.push(priceValues[i]);
-  }
-
-  // Jika jumlah harga tidak sama dengan jumlah nama, coba alternatif
-  if (itemPrices.length === 0 && rawItemLines.length > 0) {
-    // Coba ambil harga dari akhir baris
-    for (const line of rawItemLines) {
-      const priceMatch = line.match(/([\d.,]+)\s*$/);
-      if (priceMatch) {
-        const price = parseInt(priceMatch[1].replace(/\./g, '').replace(/,/g, ''));
-        if (price > 0 && price < 999999999) {
-          itemPrices.push(price);
-          // Nama item tanpa harga
-          const namePart = line.replace(/\s*[\d.,]+\s*$/, '').trim();
-          if (namePart.length > 2) {
-            // Update itemNames
-          }
-        }
+  for (const line of lines) {
+    const qtyMatch = line.match(/^(\d+)\s*$/);
+    if (qtyMatch) {
+      const qty = parseInt(qtyMatch[1]);
+      if (qty > 0 && qty < 10) {
+        quantities.push(qty);
       }
     }
   }
 
-  // STEP 7: Gabungkan quantity dengan item
-  for (let i = 0; i < Math.min(itemNames.length, itemPrices.length); i++) {
+  // Gabungkan quantity dengan item (jika jumlah quantity sama dengan jumlah item)
+  for (let i = 0; i < priceLines.length; i++) {
+    const item = priceLines[i];
     const qty = (i < quantities.length) ? quantities[i] : 1;
     items.push({
-      name: itemNames[i],
-      price: itemPrices[i],
+      name: item.name,
+      price: item.price,
       quantity: qty,
-      total: itemPrices[i] * qty
+      total: item.price * qty
     });
   }
 
-  // Jika masih tidak ada item, coba metode lain: cari baris dengan angka di akhir
+  // Jika masih tidak ada item, coba metode lain
   if (items.length === 0) {
     for (const line of lines) {
       if (line.length < 3) continue;
-      if (/^(subtotal|total|jumlah|grand|pb1|pajak|tax|qr|bt|items)/i.test(line)) continue;
+      if (/^(subtotal|total|grand|jumlah|pb1|pajak|tax|qr|bt|items)/i.test(line)) continue;
       if (/^\d+\s*items?$/i.test(line)) continue;
 
       const priceMatch = line.match(/([\d.,]+)\s*$/);
@@ -452,7 +312,7 @@ function parseOcrText(text) {
 
   console.log('📦 Items extracted:', items);
 
-  // === 7. Tentukan Kategori ===
+  // === 5. Tentukan Kategori ===
   let category = 'other';
   const lowerText = fullText.toLowerCase();
   const keywords = {
@@ -487,7 +347,7 @@ function parseOcrText(text) {
     gift: 'Hadiah', other: 'Lainnya'
   };
 
-  // === 8. Hasil Akhir ===
+  // === 6. Hasil Akhir ===
   const amount = grandTotal || (items.length > 0 ? items.reduce((sum, i) => sum + i.total, 0) : null);
   const note = merchant || (items.length > 0 ? items[0].name : 'Struk');
 
@@ -576,8 +436,9 @@ function formatReceiptResponse(parsed, userId) {
     response += `📅 *Tanggal:* ${formattedDate}\n`;
   }
 
-  // Informasi transaksi
+  // Informasi transaksi dan tautan ke Mini App
   response += `\n📌 *Dicatat di:* ${formattedDate}`;
+  response += `\n📊 *Data otomatis muncul di Mini App* — buka CatatanKu untuk melihat.`;
 
   return response;
 }
@@ -867,7 +728,8 @@ bot.on('text', async (ctx) => {
       `💳 *${typeLabel}:* Rp ${tx.amount.toLocaleString('id-ID')}\n` +
       `📂 *Kategori:* ${categoryMap[tx.category] || tx.category}\n` +
       `📝 *Catatan:* ${tx.note}\n` +
-      `📅 *Tanggal:* ${tx.date}`,
+      `📅 *Tanggal:* ${tx.date}\n\n` +
+      `📊 *Data otomatis muncul di Mini App* — buka CatatanKu untuk melihat.`,
       {
         parse_mode: 'Markdown',
         reply_markup: miniAppKeyboard([
@@ -882,7 +744,7 @@ bot.on('text', async (ctx) => {
 });
 
 // ============================================================
-// HANDLER: FOTO
+// HANDLER: FOTO — DIPERBAIKI
 // ============================================================
 bot.on('photo', async (ctx) => {
   const processingMsg = await ctx.reply(
@@ -910,7 +772,7 @@ bot.on('photo', async (ctx) => {
       return;
     }
 
-    // Dapatkan file foto
+    // Dapatkan file foto (resolusi tertinggi)
     const photo = ctx.message.photo[ctx.message.photo.length - 1];
     const fileLink = await ctx.telegram.getFileLink(photo.file_id);
     console.log('📸 File link:', fileLink);
