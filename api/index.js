@@ -105,7 +105,7 @@ function parseTransaction(text, userId) {
 }
 
 // ============================================================
-// FUNGSI PARSING OCR — DIPERBAIKI untuk format struk
+// FUNGSI PARSING OCR — SEDERHANA & ROBUST
 // ============================================================
 function parseOcrText(text) {
   if (!text || text.trim().length < 3) return null;
@@ -155,8 +155,7 @@ function parseOcrText(text) {
 
   // === 2. Cari Merchant ===
   let merchant = null;
-  const firstLines = lines.slice(0, 8);
-  for (const line of firstLines) {
+  for (const line of lines.slice(0, 8)) {
     if (line.length > 3 && line.length < 60 &&
       !/\d/.test(line.replace(/[0-9,.]/g, '')) &&
       !/total|jumlah|bayar|kembali|kasir|terima|tanggal|disc|tax|pajak|ppn|grand|subtotal|pb1|qr/i.test(line) &&
@@ -171,7 +170,7 @@ function parseOcrText(text) {
   }
   console.log('🏪 Merchant:', merchant);
 
-  // === 3. Cari Tanggal & Waktu ===
+  // === 3. Cari Tanggal ===
   let date = null;
   let time = null;
   const datePatterns = [
@@ -179,9 +178,7 @@ function parseOcrText(text) {
     /(\d{2})-(\d{2})-(\d{4})\s+(\d{2}):(\d{2})/,
     /(\d{2})\/(\d{2})\/(\d{4})/,
     /(\d{2})-(\d{2})-(\d{4})/,
-    /(\d{4})-(\d{2})-(\d{2})/,
     /(\d{2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{4})/i,
-    /(\d{2})\s+(Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember)\s+(\d{4})/i,
   ];
 
   for (const pattern of datePatterns) {
@@ -190,16 +187,6 @@ function parseOcrText(text) {
       if (pattern.toString().includes('Jan|Feb')) {
         const months = { Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06',
           Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12' };
-        const day = match[1].padStart(2, '0');
-        const month = months[match[2]] || '01';
-        const year = match[3];
-        date = `${year}-${month}-${day}`;
-        if (match[4] && match[5]) {
-          time = `${match[4]}:${match[5]}`;
-        }
-      } else if (pattern.toString().includes('Januari')) {
-        const months = { Januari: '01', Februari: '02', Maret: '03', April: '04', Mei: '05', Juni: '06',
-          Juli: '07', Agustus: '08', September: '09', Oktober: '10', November: '11', Desember: '12' };
         const day = match[1].padStart(2, '0');
         const month = months[match[2]] || '01';
         const year = match[3];
@@ -230,79 +217,48 @@ function parseOcrText(text) {
 
   if (!date) {
     date = new Date().toISOString().slice(0, 10);
-    console.log('📅 Tanggal default:', date);
   }
 
   // === 4. EKSTRAK ITEMS ===
   const items = [];
 
-  // Cari semua baris yang mengandung angka (harga)
-  const priceLines = [];
+  // Cari baris dengan format: "nama produk - harga" atau "nama produk harga"
   for (const line of lines) {
-    const match = line.match(/([\d.,]+)\s*$/);
-    if (match) {
-      const price = parseInt(match[1].replace(/\./g, '').replace(/,/g, ''));
-      if (price > 0 && price < 999999999) {
-        const namePart = line.replace(/\s*[\d.,]+\s*$/, '').trim();
-        if (namePart.length > 2 && !/^(subtotal|total|grand|jumlah|pb1|pajak|tax|qr|bt|items)/i.test(namePart)) {
-          priceLines.push({ line, name: namePart, price });
-        }
-      }
-    }
-  }
+    // Skip baris yang bukan item
+    if (line.length < 3) continue;
+    if (/^(subtotal|total|grand|jumlah|pb1|pajak|tax|qr|bt|items|tanggal|date|kasir|cashier|meja|table)/i.test(line)) continue;
+    if (/^\d+\s*items?$/i.test(line)) continue;
+    if (/^[-=*_]+$/.test(line)) continue;
 
-  // Cari quantity (angka di awal)
-  let qtyIndex = 0;
-  const quantities = [];
-  for (const line of lines) {
-    const qtyMatch = line.match(/^(\d+)\s*$/);
+    // Cari harga di akhir baris
+    const priceMatch = line.match(/([\d.,]+)\s*$/);
+    if (!priceMatch) continue;
+
+    const price = parseInt(priceMatch[1].replace(/\./g, '').replace(/,/g, ''));
+    if (isNaN(price) || price < 100 || price > 999999999) continue;
+
+    // Nama produk (hapus harga dari akhir)
+    let namePart = line.replace(/\s*[\d.,]+\s*$/, '').trim();
+    if (namePart.length < 2) continue;
+
+    // Cek quantity di awal (format: "2x Nama Produk")
+    let quantity = 1;
+    const qtyMatch = namePart.match(/^(\d+)\s*[xX]\s*(.+)$/);
     if (qtyMatch) {
-      const qty = parseInt(qtyMatch[1]);
-      if (qty > 0 && qty < 10) {
-        quantities.push(qty);
+      quantity = parseInt(qtyMatch[1]);
+      namePart = qtyMatch[2].trim();
+    } else {
+      // Cek format: "2 Nama Produk"
+      const qtyMatch2 = namePart.match(/^(\d+)\s+(.+)$/);
+      if (qtyMatch2 && parseInt(qtyMatch2[1]) > 0 && parseInt(qtyMatch2[1]) < 10) {
+        quantity = parseInt(qtyMatch2[1]);
+        namePart = qtyMatch2[2].trim();
       }
     }
-  }
 
-  // Gabungkan quantity dengan item (jika jumlah quantity sama dengan jumlah item)
-  for (let i = 0; i < priceLines.length; i++) {
-    const item = priceLines[i];
-    const qty = (i < quantities.length) ? quantities[i] : 1;
-    items.push({
-      name: item.name,
-      price: item.price,
-      quantity: qty,
-      total: item.price * qty
-    });
-  }
-
-  // Jika masih tidak ada item, coba metode lain
-  if (items.length === 0) {
-    for (const line of lines) {
-      if (line.length < 3) continue;
-      if (/^(subtotal|total|grand|jumlah|pb1|pajak|tax|qr|bt|items)/i.test(line)) continue;
-      if (/^\d+\s*items?$/i.test(line)) continue;
-
-      const priceMatch = line.match(/([\d.,]+)\s*$/);
-      if (!priceMatch) continue;
-
-      const price = parseInt(priceMatch[1].replace(/\./g, '').replace(/,/g, ''));
-      if (isNaN(price) || price < 100 || price > 999999999) continue;
-
-      const namePart = line.replace(/\s*[\d.,]+\s*$/, '').trim();
-      if (namePart.length < 2) continue;
-      if (/^\d+$/.test(namePart)) continue;
-
-      let quantity = 1;
-      let productName = namePart;
-      const qtyMatch = namePart.match(/^(\d+)\s+(.+)$/);
-      if (qtyMatch) {
-        quantity = parseInt(qtyMatch[1]);
-        productName = qtyMatch[2].trim();
-      }
-
+    if (namePart.length > 0) {
       items.push({
-        name: productName,
+        name: namePart,
         price: price,
         quantity: quantity,
         total: price * quantity
@@ -386,7 +342,6 @@ function formatReceiptResponse(parsed, userId) {
 
   const categoryLabel = categoryMap[parsed.category] || 'Lainnya';
 
-  // Format tanggal
   let dateDisplay = parsed.date || new Date().toISOString().slice(0, 10);
   const dateObj = new Date(dateDisplay + 'T00:00:00');
   const formattedDate = dateObj.toLocaleDateString('id-ID', {
@@ -395,14 +350,11 @@ function formatReceiptResponse(parsed, userId) {
     year: 'numeric'
   });
 
-  // Format waktu
   let timeDisplay = parsed.time || '';
 
-  // Build response
   let response = `📤 *Transaksi berhasil dicatat dari struk!*\n\n`;
   response += `💰 *${parsed.amount ? 'Rp ' + parsed.amount.toLocaleString('id-ID') : 'Tidak terdeteksi'}*\n\n`;
 
-  // Rincian Item
   if (parsed.items && parsed.items.length > 0) {
     response += `📋 *Rincian Struk:*\n`;
     const merchantName = parsed.merchant || 'Struk';
@@ -414,29 +366,22 @@ function formatReceiptResponse(parsed, userId) {
       response += `  - ${qtyDisplay}${item.name} - ${priceDisplay}\n`;
     }
 
-    // Grand Total
     if (parsed.grandTotal) {
       response += `\n  🏷️ *Grand Total:* Rp ${parsed.grandTotal.toLocaleString('id-ID')}\n`;
     }
-
-    // Total items
     response += `  📦 *Total Item:* ${parsed.items.length}\n`;
-
     response += `\n📂 *Kategori:* ${categoryLabel}\n`;
-
     if (timeDisplay) {
       response += `🕐 *Waktu:* ${formattedDate}, ${timeDisplay}\n`;
     } else {
       response += `📅 *Tanggal:* ${formattedDate}\n`;
     }
   } else {
-    // Fallback jika tidak ada item
     response += `📋 *Rincian:* ${parsed.note || 'Struk'}\n`;
     response += `📂 *Kategori:* ${categoryLabel}\n`;
     response += `📅 *Tanggal:* ${formattedDate}\n`;
   }
 
-  // Informasi transaksi dan tautan ke Mini App
   response += `\n📌 *Dicatat di:* ${formattedDate}`;
   response += `\n📊 *Data otomatis muncul di Mini App* — buka CatatanKu untuk melihat.`;
 
@@ -463,6 +408,7 @@ async function addTransaction(userId, tx) {
     const txs = await getTransactions(userId);
     txs.push(tx);
     await kv.set(key, txs);
+    console.log(`✅ Transaksi berhasil disimpan untuk user ${userId}`);
     return tx;
   } catch (e) {
     console.error('❌ Gagal simpan ke Redis:', e.message);
@@ -744,7 +690,7 @@ bot.on('text', async (ctx) => {
 });
 
 // ============================================================
-// HANDLER: FOTO — DIPERBAIKI
+// HANDLER: FOTO — DIPERBAIKI DENGAN ERROR HANDLING
 // ============================================================
 bot.on('photo', async (ctx) => {
   const processingMsg = await ctx.reply(
@@ -772,7 +718,7 @@ bot.on('photo', async (ctx) => {
       return;
     }
 
-    // Dapatkan file foto (resolusi tertinggi)
+    // Dapatkan file foto
     const photo = ctx.message.photo[ctx.message.photo.length - 1];
     const fileLink = await ctx.telegram.getFileLink(photo.file_id);
     console.log('📸 File link:', fileLink);
@@ -835,7 +781,6 @@ bot.on('photo', async (ctx) => {
       gift: 'Hadiah', other: 'Lainnya'
     };
 
-    // Gunakan grandTotal jika ada, atau amount dari items
     const finalAmount = parsed.grandTotal || parsed.amount;
 
     const tx = {
@@ -850,7 +795,10 @@ bot.on('photo', async (ctx) => {
       user_id: userId
     };
 
+    // Simpan ke database
+    console.log('💾 Menyimpan transaksi OCR:', tx);
     await addTransaction(userId, tx);
+    console.log('✅ Transaksi OCR berhasil disimpan');
 
     // Format response
     const formattedResponse = formatReceiptResponse(parsed, userId);
@@ -870,11 +818,12 @@ bot.on('photo', async (ctx) => {
 
   } catch (e) {
     console.error('❌ Error di handler photo:', e.message);
+    console.error('❌ Stack:', e.stack);
     await ctx.telegram.editMessageText(
       processingMsg.chat.id,
       processingMsg.message_id,
       null,
-      '❌ Gagal memproses foto. Coba lagi nanti.'
+      `❌ Gagal memproses foto: ${e.message || 'Coba lagi nanti.'}`
     );
   }
 });
