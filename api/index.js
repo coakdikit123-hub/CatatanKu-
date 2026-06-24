@@ -3,7 +3,7 @@ const cors = require('cors');
 const { Telegraf } = require('telegraf');
 const { kv } = require('@vercel/kv');
 const axios = require('axios');
-const FormData = require('form-data');
+const Tesseract = require('tesseract.js');
 
 const app = express();
 app.use(cors());
@@ -11,10 +11,8 @@ app.use(express.json());
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'admin123';
-const OCR_API_KEY = process.env.OCR_API_KEY;
 
 console.log('🔍 BOT_TOKEN exists?', !!BOT_TOKEN);
-console.log('🔍 OCR_API_KEY exists?', !!OCR_API_KEY);
 
 if (!BOT_TOKEN) {
   console.error('❌ BOT_TOKEN tidak ditemukan!');
@@ -137,6 +135,7 @@ function parseOcrText(text) {
     }
   }
 
+  // Jika tidak ketemu, cari angka terbesar
   if (!amount) {
     const allNums = fullText.match(/\d{1,3}(?:\.\d{3})*/g);
     if (allNums) {
@@ -195,7 +194,7 @@ function parseOcrText(text) {
     date = new Date().toISOString().slice(0, 10);
   }
 
-  // 3. Cari Merchant
+  // 3. Cari Merchant (nama toko)
   const lines = fullText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
   let merchant = null;
   const firstLines = lines.slice(0, 5);
@@ -330,45 +329,6 @@ async function clearAllTransactions(userId) {
 }
 
 // ============================================================
-// OCR via OCR.space API (lebih cepat & ringan)
-// ============================================================
-async function ocrImageViaApi(imageBuffer) {
-  if (!OCR_API_KEY) {
-    throw new Error('OCR_API_KEY tidak diset');
-  }
-
-  const formData = new FormData();
-  formData.append('apikey', OCR_API_KEY);
-  formData.append('file', imageBuffer, {
-    filename: 'receipt.jpg',
-    contentType: 'image/jpeg'
-  });
-  formData.append('language', 'ind');
-  formData.append('isOverlayRequired', 'false');
-
-  const response = await axios.post('https://api.ocr.space/parse/image', formData, {
-    headers: {
-      ...formData.getHeaders()
-    },
-    timeout: 15000, // 15 detik
-    maxContentLength: Infinity,
-    maxBodyLength: Infinity
-  });
-
-  const data = response.data;
-  if (data.IsErroredOnProcessing) {
-    throw new Error(data.ErrorMessage || 'OCR gagal');
-  }
-
-  const parsedResults = data.ParsedResults;
-  if (!parsedResults || parsedResults.length === 0) {
-    throw new Error('Tidak ada hasil OCR');
-  }
-
-  return parsedResults[0].ParsedText || '';
-}
-
-// ============================================================
 // BOT TELEGRAM HANDLER
 // ============================================================
 const bot = new Telegraf(BOT_TOKEN || 'dummy', { handlerTimeout: 90000 });
@@ -451,7 +411,7 @@ bot.start(async (ctx) => {
 });
 
 // ============================================================
-// HANDLER: pesan teks
+// HANDLER: pesan teks (input transaksi)
 // ============================================================
 bot.on('text', async (ctx) => {
   try {
@@ -521,10 +481,10 @@ bot.on('text', async (ctx) => {
 });
 
 // ============================================================
-// HANDLER: FOTO — OCR dengan OCR.space API
+// HANDLER: FOTO (OCR OTOMATIS) — PERBAIKAN
 // ============================================================
 bot.on('photo', async (ctx) => {
-  // Kirim pesan "sedang memproses" SEKALI
+  // Kirim pesan "sedang memproses" SEKALI saja
   const processingMsg = await ctx.reply(
     '🤖 *AI sedang menganalisis foto struk...* Mohon tunggu beberapa saat.',
     { parse_mode: 'Markdown' }
@@ -550,7 +510,7 @@ bot.on('photo', async (ctx) => {
       return;
     }
 
-    // Dapatkan file foto
+    // Dapatkan file foto dengan resolusi terbaik
     const photo = ctx.message.photo[ctx.message.photo.length - 1];
     const fileLink = await ctx.telegram.getFileLink(photo.file_id);
 
@@ -558,17 +518,25 @@ bot.on('photo', async (ctx) => {
     const response = await axios.get(fileLink, { responseType: 'arraybuffer' });
     const imageBuffer = Buffer.from(response.data, 'binary');
 
-    // OCR via API (OCR.space)
+    // Lakukan OCR menggunakan Tesseract.js
     let ocrText = '';
     try {
-      ocrText = await ocrImageViaApi(imageBuffer);
+      const result = await Tesseract.recognize(imageBuffer, 'ind', {
+        logger: (m) => {
+          // Hanya log untuk debugging, tidak dikirim ke user
+          if (m.status === 'recognizing text') {
+            console.log(`📊 OCR progress: ${Math.round(m.progress * 100)}%`);
+          }
+        }
+      });
+      ocrText = result.data.text;
     } catch (ocrError) {
-      console.error('❌ OCR API error:', ocrError.message);
+      console.error('❌ OCR error:', ocrError);
       await ctx.telegram.editMessageText(
         processingMsg.chat.id,
         processingMsg.message_id,
         null,
-        `❌ Gagal membaca gambar. Pastikan foto struk jelas.\n\nError: ${ocrError.message || 'Coba lagi'}`
+        '❌ Gagal membaca gambar. Pastikan foto struk jelas dan coba lagi.'
       );
       return;
     }
@@ -587,6 +555,7 @@ bot.on('photo', async (ctx) => {
     const parsed = parseOcrText(ocrText);
 
     if (!parsed || !parsed.amount) {
+      // Tampilkan teks hasil OCR agar user bisa melihat
       const preview = ocrText.length > 400 ? ocrText.substring(0, 400) + '…' : ocrText;
       await ctx.telegram.editMessageText(
         processingMsg.chat.id,
@@ -602,7 +571,7 @@ bot.on('photo', async (ctx) => {
       return;
     }
 
-    // Simpan transaksi
+    // Buat transaksi dari hasil OCR
     const categoryMap = {
       dining: 'Makan', shopping: 'Belanja', transport: 'Transportasi',
       bills: 'Tagihan', fun: 'Hiburan', health: 'Kesehatan',
@@ -625,6 +594,7 @@ bot.on('photo', async (ctx) => {
 
     const categoryLabel = categoryMap[tx.category] || tx.category;
 
+    // Tampilkan hasil sukses
     const successMsg =
       `📤 *Transaksi berhasil dicatat dari struk!*\n\n` +
       `💳 *Pengeluaran:* Rp ${tx.amount.toLocaleString('id-ID')}\n` +
@@ -805,7 +775,6 @@ app.get('/api/test', (req, res) => {
     app_url: appUrl,
     env_vars: {
       BOT_TOKEN: BOT_TOKEN ? '✅' : '❌',
-      OCR_API_KEY: OCR_API_KEY ? '✅' : '❌',
       KV_REST_API_URL: process.env.KV_REST_API_URL ? '✅' : '❌',
       KV_REST_API_TOKEN: process.env.KV_REST_API_TOKEN ? '✅' : '❌'
     }
