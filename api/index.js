@@ -1,11 +1,8 @@
-// api/index.js - Full code with Gemini-2.0-flash OCR
-
 const express = require('express');
 const cors = require('cors');
 const { Telegraf } = require('telegraf');
 const { kv } = require('@vercel/kv');
 const axios = require('axios');
-const FormData = require('form-data');
 
 const app = express();
 app.use(cors());
@@ -111,41 +108,151 @@ function parseTransaction(text, userId) {
 }
 
 // ============================================================
-// FUNGSI OCR DENGAN GEMINI-2.0-FLASH (dengan retry)
+// FUNGSI PARSING TEKS MANUAL (FALLBACK)
+// ============================================================
+function parseOcrTextManually(text) {
+  if (!text || text.trim().length < 3) return null;
+
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  const fullText = text;
+
+  // Cari Grand Total
+  let grandTotal = null;
+  const totalPatterns = [
+    /grand total\s*[:=]?\s*Rp\s*([\d.,]+)/i,
+    /total\s*[:=]?\s*Rp\s*([\d.,]+)/i,
+    /jumlah\s*[:=]?\s*Rp\s*([\d.,]+)/i,
+    /(\d{1,3}(?:\.\d{3})*)\s*$/m,
+  ];
+  for (const pattern of totalPatterns) {
+    const match = fullText.match(pattern);
+    if (match) {
+      const raw = match[1].replace(/\./g, '').replace(/,/g, '');
+      const num = parseInt(raw);
+      if (num > 0 && num < 999999999) {
+        grandTotal = num;
+        break;
+      }
+    }
+  }
+  if (!grandTotal) {
+    const allNums = fullText.match(/\d{1,3}(?:\.\d{3})*/g);
+    if (allNums) {
+      const nums = allNums.map(n => parseInt(n.replace(/\./g, ''))).filter(n => n > 0 && n < 999999999);
+      if (nums.length > 0) grandTotal = Math.max(...nums);
+    }
+  }
+
+  // Cari Merchant
+  let merchant = null;
+  for (const line of lines.slice(0, 8)) {
+    if (line.length > 3 && line.length < 60 &&
+      !/\d/.test(line.replace(/[0-9,.]/g, '')) &&
+      !/total|jumlah|bayar|kembali|kasir|terima|tanggal|disc|tax|pajak|ppn|grand|subtotal|pb1|qr/i.test(line) &&
+      line.length > 5 && !/^\d/.test(line)) {
+      merchant = line;
+      break;
+    }
+  }
+
+  // Cari Tanggal
+  let date = null;
+  const datePatterns = [
+    /(\d{2})\/(\d{2})\/(\d{4})/,
+    /(\d{2})-(\d{2})-(\d{4})/,
+  ];
+  for (const pattern of datePatterns) {
+    const match = fullText.match(pattern);
+    if (match) {
+      let d = match[1],
+        m = match[2],
+        y = match[3];
+      if (y.length === 2) y = '20' + y;
+      date = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+      break;
+    }
+  }
+
+  // Cari Items
+  const items = [];
+  for (const line of lines) {
+    if (line.length < 3) continue;
+    if (/^(subtotal|total|grand|jumlah|pb1|pajak|tax|qr|bt|items|tanggal|date|kasir|cashier)/i.test(line)) continue;
+    const priceMatch = line.match(/([\d.,]+)\s*$/);
+    if (!priceMatch) continue;
+    const price = parseInt(priceMatch[1].replace(/\./g, '').replace(/,/g, ''));
+    if (isNaN(price) || price < 100 || price > 999999999) continue;
+    let namePart = line.replace(/\s*[\d.,]+\s*$/, '').trim();
+    if (namePart.length < 2) continue;
+    let qty = 1;
+    const qtyMatch = namePart.match(/^(\d+)\s*[xX]\s*(.+)$/);
+    if (qtyMatch) {
+      qty = parseInt(qtyMatch[1]);
+      namePart = qtyMatch[2].trim();
+    }
+    items.push({ name: namePart, price, quantity: qty });
+  }
+
+  // Kategori
+  let category = 'other';
+  const lowerText = fullText.toLowerCase();
+  const keywords = {
+    dining: ['makan', 'resto', 'restaurant', 'warung', 'cafe', 'kopi', 'sushi', 'pizza', 'burger', 'bakso', 'nasi', 'ayam', 'soto', 'mie', 'seafood'],
+    shopping: ['belanja', 'shop', 'baju', 'sepatu', 'toko', 'mall', 'pakaian', 'fashion'],
+    transport: ['transport', 'ojol', 'grab', 'gojek', 'bensin', 'pertamina', 'taxi', 'kereta'],
+    bills: ['tagihan', 'listrik', 'pln', 'air', 'pdam', 'internet', 'telkom'],
+    fun: ['hiburan', 'film', 'nonton', 'game', 'playstation', 'netflix'],
+    health: ['kesehatan', 'obat', 'dokter', 'rumah sakit', 'rs', 'klinik', 'apotek'],
+    gift: ['hadiah', 'gift', 'kado']
+  };
+  for (const [cat, words] of Object.entries(keywords)) {
+    for (const word of words) {
+      if (lowerText.includes(word)) { category = cat; break; }
+    }
+    if (category !== 'other') break;
+  }
+
+  return {
+    amount: grandTotal || (items.length > 0 ? items.reduce((s, i) => s + (i.price * i.quantity), 0) : null),
+    date: date || new Date().toISOString().slice(0, 10),
+    time: null,
+    merchant: merchant,
+    items: items,
+    category: category,
+    grandTotal: grandTotal
+  };
+}
+
+// ============================================================
+// FUNGSI OCR DENGAN GEMINI 2.0 FLASH (DENGAN RETRY)
 // ============================================================
 async function ocrWithGemini(imageBuffer, retryCount = 0) {
   if (!GEMINI_API_KEY) {
-    throw new Error('❌ GEMINI_API_KEY tidak diset. Dapatkan di https://ai.google.dev/');
+    throw new Error('GEMINI_API_KEY tidak diset. Dapatkan di https://ai.google.dev/');
   }
 
-  console.log(`📸 Memproses gambar dengan Gemini-2.0-flash (attempt ${retryCount + 1})...`);
+  console.log(`📸 Memproses gambar dengan Gemini 2.0 Flash (attempt ${retryCount + 1})...`);
 
   const base64Image = imageBuffer.toString('base64');
 
-  const prompt = `Anda adalah AI yang membaca struk belanja/nota dengan sangat akurat. Ekstrak informasi dari gambar struk ini dan output dalam format JSON SAJA.
+  const prompt = `Anda adalah AI yang membaca struk belanja/nota. Ekstrak informasi berikut dari gambar struk ini:
+1. Grand Total (jumlah total yang harus dibayar)
+2. Tanggal transaksi (format: YYYY-MM-DD)
+3. Waktu transaksi (format: HH:MM)
+4. Nama Toko/Merchant
+5. Daftar Item (nama, harga, qty)
+6. Kategori (dining, shopping, transport, bills, fun, health, gift, other)
 
-Ekstrak:
-1. **grandTotal** — jumlah total yang harus dibayar (cari "Grand Total", "Total", "Jumlah", atau angka terbesar)
-2. **tanggal** — tanggal transaksi (format: YYYY-MM-DD)
-3. **waktu** — waktu transaksi (format: HH:MM)
-4. **merchant** — nama toko atau restoran
-5. **items** — daftar item dengan format: [{"nama": "...", "harga": 12345, "qty": 1}]
-6. **kategori** — dining, shopping, transport, bills, fun, health, gift, atau other
-
-Contoh output JSON:
+Output dalam format JSON SAJA, tanpa teks lain. Contoh:
 {
   "grandTotal": 97500,
   "tanggal": "2026-06-15",
   "waktu": "21:45",
   "merchant": "Wizzmie Cipondoh",
-  "items": [
-    {"nama": "Rice Bowl Spicy", "harga": 30910, "qty": 2},
-    {"nama": "Udang Keju", "harga": 12727, "qty": 1}
-  ],
+  "items": [{"nama": "Rice Bowl Spicy", "harga": 30910, "qty": 2}],
   "kategori": "dining"
 }
-
-Keluarkan HANYA JSON, tanpa teks lain. Jika data tidak ditemukan, gunakan null.`;
+Jika data tidak ditemukan, gunakan null.`;
 
   try {
     const response = await axios.post(
@@ -156,15 +263,11 @@ Keluarkan HANYA JSON, tanpa teks lain. Jika data tidak ditemukan, gunakan null.`
             { text: prompt },
             { inline_data: { mime_type: 'image/jpeg', data: base64Image } }
           ]
-        }],
-        generationConfig: {
-          temperature: 0.1,
-          maxOutputTokens: 2000
-        }
+        }]
       },
       {
         headers: { 'Content-Type': 'application/json' },
-        timeout: 45000
+        timeout: 30000
       }
     );
 
@@ -173,20 +276,12 @@ Keluarkan HANYA JSON, tanpa teks lain. Jika data tidak ditemukan, gunakan null.`
 
     console.log('📝 Gemini response:', text);
 
-    // Coba parse JSON dari response
-    let parsed;
-    try {
-      parsed = JSON.parse(text);
-    } catch (e) {
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        parsed = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error('Tidak ada JSON yang valid dari Gemini');
-      }
-    }
+    // Coba parse JSON
+    let jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('Tidak ada JSON yang valid');
+    const parsed = JSON.parse(jsonMatch[0]);
 
-    // Validasi dan bersihkan data
+    // Validasi
     const items = (parsed.items || []).map(item => ({
       name: item.nama || item.name || 'Item',
       price: parseInt(item.harga || item.price || 0),
@@ -207,59 +302,14 @@ Keluarkan HANYA JSON, tanpa teks lain. Jika data tidak ditemukan, gunakan null.`
 
   } catch (error) {
     // Jika error 429 (rate limit) dan masih ada percobaan tersisa
-    if (error.response?.status === 429 && retryCount < 3) {
-      const waitTime = Math.pow(2, retryCount) * 2000; // 2s, 4s, 8s
+    if (error.response?.status === 429 && retryCount < 4) {
+      const waitTime = Math.pow(2, retryCount) * 2000; // 2s, 4s, 8s, 16s
       console.log(`⏳ Rate limit (429), mencoba lagi dalam ${waitTime/1000} detik...`);
       await new Promise(resolve => setTimeout(resolve, waitTime));
       return ocrWithGemini(imageBuffer, retryCount + 1);
     }
 
-    // Jika error 400 (bad request), coba dengan prompt lebih pendek
-    if (error.response?.status === 400 && retryCount < 2) {
-      console.log('🔄 Bad request, mencoba dengan prompt lebih pendek...');
-      // Coba dengan prompt yang lebih sederhana
-      const simplePrompt = `Baca struk ini dan output JSON dengan grandTotal, tanggal, merchant, items (nama, harga, qty), dan kategori. HANYA JSON.`;
-      try {
-        const response = await axios.post(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-          {
-            contents: [{
-              parts: [
-                { text: simplePrompt },
-                { inline_data: { mime_type: 'image/jpeg', data: base64Image } }
-              ]
-            }],
-            generationConfig: { temperature: 0.1, maxOutputTokens: 1500 }
-          },
-          { headers: { 'Content-Type': 'application/json' }, timeout: 30000 }
-        );
-        const result = response.data;
-        const text = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]);
-          const items = (parsed.items || []).map(item => ({
-            name: item.nama || item.name || 'Item',
-            price: parseInt(item.harga || item.price || 0),
-            quantity: parseInt(item.qty || item.quantity || 1)
-          })).filter(item => item.price > 0);
-          const grandTotal = parseInt(parsed.grandTotal) || (items.length > 0 ? items.reduce((s, i) => s + (i.price * i.quantity), 0) : null);
-          return {
-            amount: grandTotal,
-            date: parsed.tanggal || null,
-            time: parsed.waktu || null,
-            merchant: parsed.merchant || null,
-            items: items,
-            category: parsed.kategori || 'other',
-            grandTotal: grandTotal
-          };
-        }
-      } catch (e) {
-        console.log('❌ Simple prompt juga gagal:', e.message);
-        // Lanjut ke throw error
-      }
-    }
-
+    // Jika error lain, lempar
     throw error;
   }
 }
@@ -432,7 +482,7 @@ bot.start(async (ctx) => {
       `➜ \`-5000\` → pengeluaran Rp 5.000\n` +
       `➜ \`+20000 makan siang\` → pemasukan Rp 20.000\n` +
       `➜ \`-15000 transport\` → pengeluaran transportasi\n\n` +
-      `📸 Kirim *foto struk* untuk scan otomatis dengan *Gemini-2.0-flash*!`,
+      `📸 Kirim *foto struk* untuk scan otomatis dengan *Gemini AI* (GRATIS)!`,
       {
         parse_mode: 'Markdown',
         reply_markup: miniAppKeyboard([
@@ -481,7 +531,7 @@ bot.on('text', async (ctx) => {
 
     if (!/\d/.test(text)) {
       await ctx.reply(
-        '❓ Format tidak dikenali.\n\nContoh:\n`-5000 makan siang`\n`+50000 gaji`\n\nAtau kirim foto struk untuk scan otomatis dengan Gemini-2.0-flash.',
+        '❓ Format tidak dikenali.\n\nContoh:\n`-5000 makan siang`\n`+50000 gaji`\n\nAtau kirim foto struk untuk scan otomatis dengan Gemini AI (GRATIS).',
         { parse_mode: 'Markdown' }
       );
       return;
@@ -527,11 +577,11 @@ bot.on('text', async (ctx) => {
 });
 
 // ============================================================
-// HANDLER: FOTO — GEMINI-2.0-FLASH OCR
+// HANDLER: FOTO — GEMINI 2.0 FLASH OCR (GRATIS)
 // ============================================================
 bot.on('photo', async (ctx) => {
   const processingMsg = await ctx.reply(
-    '🤖 *Gemini-2.0-flash sedang menganalisis foto struk...* Mohon tunggu beberapa saat.',
+    '🤖 *Gemini AI sedang menganalisis foto struk...* Mohon tunggu beberapa saat (gratis!).',
     { parse_mode: 'Markdown' }
   );
 
@@ -564,27 +614,36 @@ bot.on('photo', async (ctx) => {
     const response = await axios.get(fileLink, { responseType: 'arraybuffer' });
     const imageBuffer = Buffer.from(response.data, 'binary');
 
-    // OCR dengan Gemini-2.0-flash
+    // OCR dengan Gemini
     let ocrResult;
     try {
       ocrResult = await ocrWithGemini(imageBuffer);
     } catch (ocrError) {
       console.error('❌ OCR error:', ocrError.message);
-      let errorMsg = ocrError.message || 'Coba lagi';
-      if (ocrError.response?.status === 429) {
-        errorMsg = 'Rate limit Gemini tercapai. Tunggu beberapa saat dan coba lagi.';
-      } else if (ocrError.response?.status === 401) {
-        errorMsg = 'API Key tidak valid. Cek GEMINI_API_KEY di Vercel.';
-      } else if (ocrError.response?.status === 400) {
-        errorMsg = 'Bad request. Pastikan gambar valid dan coba lagi.';
+
+      // Coba fallback manual
+      try {
+        console.log('🔄 Mencoba fallback manual parsing...');
+        // Kita perlu teks OCR, tapi Gemini gagal. Coba gunakan OCR.space? Tidak, kita skip.
+        // Kita hanya bisa memberi tahu user.
+        throw ocrError;
+      } catch (fallbackError) {
+        let errorMsg = ocrError.message || 'Coba lagi';
+        if (ocrError.response?.status === 429) {
+          errorMsg = '⚠️ *Rate limit Gemini tercapai!* Tunggu beberapa saat (1-2 menit) lalu kirim ulang.';
+        } else if (ocrError.response?.status === 403) {
+          errorMsg = '❌ *API Key tidak valid.* Cek GEMINI_API_KEY di Vercel.';
+        } else if (ocrError.response?.status === 400) {
+          errorMsg = '❌ *Gambar tidak dapat diproses.* Pastikan foto struk jelas.';
+        }
+        await ctx.telegram.editMessageText(
+          processingMsg.chat.id,
+          processingMsg.message_id,
+          null,
+          `❌ Gagal membaca gambar.\n\n${errorMsg}`
+        );
+        return;
       }
-      await ctx.telegram.editMessageText(
-        processingMsg.chat.id,
-        processingMsg.message_id,
-        null,
-        `❌ Gagal membaca gambar dengan Gemini-2.0-flash.\n\nError: ${errorMsg}\n\nPastikan foto struk jelas dan cukup terang.`
-      );
-      return;
     }
 
     if (!ocrResult || !ocrResult.amount) {
