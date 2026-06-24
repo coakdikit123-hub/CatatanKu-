@@ -20,10 +20,6 @@ if (!BOT_TOKEN) {
   console.error('❌ BOT_TOKEN tidak ditemukan!');
 }
 
-if (!OCR_API_KEY) {
-  console.warn('⚠️ OCR_API_KEY tidak diset! OCR tidak akan berfungsi.');
-}
-
 // ============================================================
 // USER MANAGEMENT
 // ============================================================
@@ -109,24 +105,39 @@ function parseTransaction(text, userId) {
 }
 
 // ============================================================
-// FUNGSI PARSING OCR (Hasil Scan Struk) — DIPERBAIKI
+// FUNGSI PARSING OCR — DIPERBAIKI untuk ekstrak item
 // ============================================================
 function parseOcrText(text) {
   if (!text || text.trim().length < 3) return null;
 
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
   const fullText = text;
-  const lines = fullText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
-  // 1. Cari Amount (Total) — lebih agresif
-  let amount = null;
-  
-  // Pola untuk mencari total dengan berbagai format
+  // === 1. Cari Merchant ===
+  let merchant = null;
+  const firstLines = lines.slice(0, 5);
+  for (const line of firstLines) {
+    if (line.length > 3 && line.length < 60 &&
+      !/\d/.test(line.replace(/[0-9,.]/g, '')) &&
+      !/total|jumlah|bayar|kembali|kasir|terima|tanggal|disc|tax|pajak|ppn|grand/i.test(line) &&
+      line.length > 5) {
+      merchant = line;
+      break;
+    }
+  }
+  if (!merchant && lines.length > 0) {
+    merchant = lines[0];
+  }
+
+  // === 2. Cari Grand Total ===
+  let grandTotal = null;
   const totalPatterns = [
-    /(?:grand\s+)?total\s*[:=]?\s*Rp?\s*([\d.,]+)/i,
-    /subtotal\s*[:=]?\s*Rp?\s*([\d.,]+)/i,
-    /jumlah\s*[:=]?\s*Rp?\s*([\d.,]+)/i,
-    /Rp?\s*([\d.,]+)\s*(?:total|jumlah|grand\s+total)/i,
-    /(?:total|jumlah|grand\s+total)\s*[:=]?\s*([\d.,]+)/i,
+    /grand total\s*[:=]?\s*Rp\s*([\d.,]+)/i,
+    /grand total\s*[:=]?\s*([\d.,]+)/i,
+    /total\s*[:=]?\s*Rp\s*([\d.,]+)/i,
+    /total\s*[:=]?\s*([\d.,]+)/i,
+    /jumlah\s*[:=]?\s*Rp\s*([\d.,]+)/i,
+    /jumlah\s*[:=]?\s*([\d.,]+)/i,
   ];
 
   for (const pattern of totalPatterns) {
@@ -135,47 +146,154 @@ function parseOcrText(text) {
       const raw = match[1].replace(/\./g, '').replace(/,/g, '');
       const num = parseInt(raw);
       if (num > 0 && num < 999999999) {
-        amount = num;
+        grandTotal = num;
         break;
       }
     }
   }
 
-  // Jika tidak ditemukan via pola, cari semua angka dan ambil yang terbesar
-  if (!amount) {
-    const allNums = fullText.match(/\d{1,3}(?:\.\d{3})*/g);
-    if (allNums) {
-      const nums = allNums.map(n => parseInt(n.replace(/\./g, '').replace(/,/g, '')))
-                         .filter(n => n > 0 && n < 999999999);
-      if (nums.length > 0) {
-        // Ambil angka terbesar (biasanya total)
-        amount = Math.max(...nums);
-        console.log('📊 Angka ditemukan:', nums, '-> dipilih:', amount);
+  // === 3. Cari Subtotal ===
+  let subtotal = null;
+  const subPatterns = [
+    /subtotal\s*[:=]?\s*Rp\s*([\d.,]+)/i,
+    /subtotal\s*[:=]?\s*([\d.,]+)/i,
+  ];
+  for (const pattern of subPatterns) {
+    const match = fullText.match(pattern);
+    if (match) {
+      const raw = match[1].replace(/\./g, '').replace(/,/g, '');
+      const num = parseInt(raw);
+      if (num > 0 && num < 999999999) {
+        subtotal = num;
+        break;
       }
     }
   }
 
-  // Validasi: jika amount terlalu kecil (< 1000) tapi ada angka lebih besar di teks, ambil yang lebih besar
-  if (amount && amount < 1000) {
-    const allNums = fullText.match(/\d{1,3}(?:\.\d{3})*/g);
-    if (allNums) {
-      const nums = allNums.map(n => parseInt(n.replace(/\./g, '').replace(/,/g, '')))
-                         .filter(n => n > 0 && n < 999999999);
-      if (nums.length > 0) {
-        const maxNum = Math.max(...nums);
-        if (maxNum > amount) {
-          console.log(`📊 Mengganti amount ${amount} dengan ${maxNum} (angka terbesar)`);
-          amount = maxNum;
-        }
-      }
+  // === 4. EKSTRAK ITEMS dengan quantity dan harga ===
+  const items = [];
+  const itemLines = [];
+
+  // Cari baris yang mengandung produk (di antara header dan subtotal)
+  let startIndex = 0;
+  let endIndex = lines.length;
+
+  // Cari posisi "Subtotal" atau "Total" untuk menentukan akhir daftar item
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].toLowerCase();
+    if (line.includes('subtotal') || line.includes('total') || line.includes('jumlah')) {
+      endIndex = i;
+      break;
+    }
+    // Cari posisi "items" untuk menentukan jumlah item
+    if (line.includes('items') && i > 3) {
+      endIndex = i;
     }
   }
 
-  // 2. Cari Date
+  // Cari posisi mulai (setelah merchant/header)
+  for (let i = 0; i < Math.min(5, lines.length); i++) {
+    const line = lines[i];
+    // Jika line mengandung angka dengan titik (harga) dan bukan header, mulai dari sini
+    if (/\d{1,3}\.\d{3}/.test(line) && !line.toLowerCase().includes('subtotal')) {
+      startIndex = i;
+      break;
+    }
+    // Jika line panjang dan tidak mengandung kata kunci header
+    if (line.length > 10 && !/tanggal|date|kasir|cashier|meja|table|purpose|info/i.test(line) &&
+      !/^\d/.test(line) && !line.toLowerCase().includes('items')) {
+      startIndex = i;
+      break;
+    }
+  }
+
+  // Ambil baris item (dari startIndex sampai endIndex)
+  for (let i = startIndex; i < endIndex && i < lines.length; i++) {
+    const line = lines[i];
+    // Skip baris yang terlalu pendek atau hanya angka
+    if (line.length < 3) continue;
+    if (/^\d+\s*items?$/i.test(line)) continue;
+    if (/^\d+\s*$/.test(line)) continue;
+
+    // Skip baris yang hanya berisi kata kunci
+    if (/^(tanggal|date|kasir|cashier|meja|table|purpose|info)$/i.test(line)) continue;
+
+    // Coba parse: [quantity] [name] [price]
+    // Format: "2 RICE BOWL SPICY 30.910" atau "RICE BOWL SPICY 30.910"
+    const priceMatch = line.match(/([\d.,]+)\s*$/);
+    if (!priceMatch) continue;
+
+    const priceRaw = priceMatch[1].replace(/\./g, '').replace(/,/g, '');
+    const price = parseInt(priceRaw);
+    if (isNaN(price) || price < 100 || price > 999999999) continue;
+
+    // Ambil nama produk (semua sebelum harga)
+    const namePart = line.replace(/\s*[\d.,]+\s*$/, '').trim();
+
+    // Cek quantity di awal
+    let quantity = 1;
+    let productName = namePart;
+    const qtyMatch = namePart.match(/^(\d+)\s+(.+)$/);
+    if (qtyMatch) {
+      quantity = parseInt(qtyMatch[1]);
+      productName = qtyMatch[2].trim();
+    }
+
+    // Skip jika produk terlalu pendek atau hanya angka
+    if (productName.length < 2) continue;
+    if (/^\d+$/.test(productName)) continue;
+
+    items.push({
+      name: productName,
+      price: price,
+      quantity: quantity,
+      total: price * quantity
+    });
+  }
+
+  // Jika tidak ada item yang ditemukan, coba cara lain: cari semua baris dengan angka di akhir
+  if (items.length === 0) {
+    for (const line of lines) {
+      if (line.length < 3) continue;
+      if (/^(subtotal|total|jumlah|grand|pb1|pajak|tax)/i.test(line)) continue;
+      if (/^\d+\s*items?$/i.test(line)) continue;
+
+      const priceMatch = line.match(/([\d.,]+)\s*$/);
+      if (!priceMatch) continue;
+
+      const priceRaw = priceMatch[1].replace(/\./g, '').replace(/,/g, '');
+      const price = parseInt(priceRaw);
+      if (isNaN(price) || price < 100 || price > 999999999) continue;
+
+      const namePart = line.replace(/\s*[\d.,]+\s*$/, '').trim();
+      if (namePart.length < 2) continue;
+      if (/^\d+$/.test(namePart)) continue;
+
+      let quantity = 1;
+      let productName = namePart;
+      const qtyMatch = namePart.match(/^(\d+)\s+(.+)$/);
+      if (qtyMatch) {
+        quantity = parseInt(qtyMatch[1]);
+        productName = qtyMatch[2].trim();
+      }
+
+      items.push({
+        name: productName,
+        price: price,
+        quantity: quantity,
+        total: price * quantity
+      });
+    }
+  }
+
+  // === 5. Cari Tanggal ===
   let date = null;
+  let time = null;
   const datePatterns = [
+    /(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/,
+    /(\d{2})-(\d{2})-(\d{4})\s+(\d{2}):(\d{2})/,
     /(\d{2})\/(\d{2})\/(\d{4})/,
-    /(\d{2})\/(\d{2})\/(\d{2})/,
+    /(\d{2})-(\d{2})-(\d{4})/,
     /(\d{4})-(\d{2})-(\d{2})/,
     /(\d{2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{4})/i,
     /(\d{2})\s+(Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember)\s+(\d{4})/i,
@@ -191,6 +309,9 @@ function parseOcrText(text) {
         const month = months[match[2]] || '01';
         const year = match[3];
         date = `${year}-${month}-${day}`;
+        if (match[4] && match[5]) {
+          time = `${match[4]}:${match[5]}`;
+        }
       } else if (pattern.toString().includes('Januari')) {
         const months = { Januari: '01', Februari: '02', Maret: '03', April: '04', Mei: '05', Juni: '06',
           Juli: '07', Agustus: '08', September: '09', Oktober: '10', November: '11', Desember: '12' };
@@ -198,6 +319,9 @@ function parseOcrText(text) {
         const month = months[match[2]] || '01';
         const year = match[3];
         date = `${year}-${month}-${day}`;
+        if (match[4] && match[5]) {
+          time = `${match[4]}:${match[5]}`;
+        }
       } else {
         let d = match[1],
           m = match[2],
@@ -210,6 +334,9 @@ function parseOcrText(text) {
         } else {
           date = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
         }
+        if (match[4] && match[5]) {
+          time = `${match[4]}:${match[5]}`;
+        }
       }
       break;
     }
@@ -219,44 +346,22 @@ function parseOcrText(text) {
     date = new Date().toISOString().slice(0, 10);
   }
 
-  // 3. Cari Merchant / Nama Toko
-  let merchant = null;
-  const firstLines = lines.slice(0, 5);
-  for (const line of firstLines) {
-    if (line.length > 3 && line.length < 60 &&
-      !/\d/.test(line.replace(/[0-9,.]/g, '')) &&
-      !/total|jumlah|bayar|kembali|kasir|terima|tanggal|disc|tax|pajak|ppn|no|date|info|purpose|cashier|item/i.test(line) &&
-      line.length > 5) {
-      merchant = line;
-      break;
-    }
-  }
-  if (!merchant && lines.length > 0) {
-    merchant = lines[0];
-  }
-
-  // 4. Tentukan kategori
+  // === 6. Tentukan Kategori ===
   let category = 'other';
   const lowerText = fullText.toLowerCase();
   const keywords = {
     dining: ['makan', 'resto', 'restaurant', 'warung', 'cafe', 'kopi', 'sushi', 'pizza', 'burger', 'bakso',
-      'nasi', 'ayam', 'soto', 'mie', 'seafood', 'steak', 'pasta', 'rice', 'chicken', 'katsu'
+      'nasi', 'ayam', 'soto', 'mie', 'seafood', 'steak', 'pasta', 'rice', 'chicken', 'udang'
     ],
     shopping: ['belanja', 'shop', 'baju', 'sepatu', 'toko', 'mall', 'pakaian', 'fashion', 'grosir', 'retail',
       'supermarket', 'indomaret', 'alfamart'
     ],
-    transport: ['transport', 'ojol', 'grab', 'gojek', 'go-car', 'go-ride', 'bensin', 'pertamina', 'taxi',
-      'kereta', 'bus', 'pesawat', 'bioskop'
-    ],
+    transport: ['transport', 'ojol', 'grab', 'gojek', 'bensin', 'pertamina', 'taxi', 'kereta', 'bus', 'pesawat'],
     bills: ['tagihan', 'listrik', 'pln', 'air', 'pdam', 'internet', 'telkom', 'indihome', 'bca', 'mandiri',
       'kartu', 'kredit', 'bpjs'
     ],
-    fun: ['hiburan', 'film', 'nonton', 'game', 'playstation', 'netflix', 'spotify', 'youtube', 'konser',
-      'tiket', 'game'
-    ],
-    health: ['kesehatan', 'obat', 'dokter', 'rumah sakit', 'rs', 'klinik', 'apotek', 'vitamin', 'farma',
-      'kimia'
-    ],
+    fun: ['hiburan', 'film', 'nonton', 'game', 'playstation', 'netflix', 'spotify', 'youtube', 'konser', 'tiket'],
+    health: ['kesehatan', 'obat', 'dokter', 'rumah sakit', 'rs', 'klinik', 'apotek', 'vitamin', 'farma'],
     gift: ['hadiah', 'gift', 'kado', 'ulang tahun', 'anniversary', 'pernikahan'],
   };
 
@@ -270,50 +375,103 @@ function parseOcrText(text) {
     if (category !== 'other') break;
   }
 
-  if (merchant && category === 'other') {
-    const mLower = merchant.toLowerCase();
-    for (const [cat, words] of Object.entries(keywords)) {
-      for (const word of words) {
-        if (mLower.includes(word)) {
-          category = cat;
-          break;
-        }
-      }
-      if (category !== 'other') break;
-    }
-  }
-
   const categoryMap = {
     dining: 'Makan', shopping: 'Belanja', transport: 'Transportasi',
     bills: 'Tagihan', fun: 'Hiburan', health: 'Kesehatan',
     gift: 'Hadiah', other: 'Lainnya'
   };
 
-  // Catatan: gabungkan merchant + nama barang yang dibeli
-  let note = merchant || '';
-  // Ambil nama barang dari baris yang mengandung angka (harga) dan bukan total
-  const itemLines = lines.filter(l => /\d{1,3}(?:\.\d{3})*/.test(l) && !/total|jumlah|grand|subtotal|bayar|kembali/i.test(l));
-  if (itemLines.length > 0) {
-    // Ambil maksimal 3 item
-    const items = itemLines.slice(0, 3).map(l => l.replace(/\d{1,3}(?:\.\d{3})*/g, '').trim()).filter(l => l.length > 0);
-    if (items.length > 0) {
-      note += (note ? ' - ' : '') + items.join(', ');
-    }
-  }
+  // Gunakan grandTotal sebagai amount utama
+  const amount = grandTotal || (items.length > 0 ? items.reduce((sum, i) => sum + i.total, 0) : null);
 
-  if (!note) {
-    note = category !== 'other' ? categoryMap[category] : 'Struk';
+  // Jika grandTotal tidak ditemukan tapi ada items, gunakan total items
+  if (!amount && items.length > 0) {
+    // Gunakan total dari items
   }
 
   return {
-    amount,
-    date,
-    note,
-    category,
+    amount: amount,
+    date: date,
+    time: time,
+    note: merchant || (items.length > 0 ? items[0].name : 'Struk'),
+    category: category,
     categoryLabel: categoryMap[category] || 'Lainnya',
-    merchant,
+    merchant: merchant,
+    items: items,
+    subtotal: subtotal,
+    grandTotal: grandTotal,
     rawText: fullText
   };
+}
+
+// ============================================================
+// FUNGSI FORMAT RESPONSE STRUK
+// ============================================================
+function formatReceiptResponse(parsed, userId) {
+  const categoryMap = {
+    dining: 'Makan', shopping: 'Belanja', transport: 'Transportasi',
+    bills: 'Tagihan', fun: 'Hiburan', health: 'Kesehatan',
+    gift: 'Hadiah', other: 'Lainnya'
+  };
+
+  const categoryLabel = categoryMap[parsed.category] || 'Lainnya';
+
+  // Format tanggal
+  let dateDisplay = parsed.date || new Date().toISOString().slice(0, 10);
+  const dateObj = new Date(dateDisplay + 'T00:00:00');
+  const formattedDate = dateObj.toLocaleDateString('id-ID', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  });
+
+  // Format waktu
+  let timeDisplay = parsed.time || '';
+
+  // Build response
+  let response = `📤 *Transaksi berhasil dicatat dari struk!*\n\n`;
+  response += `💰 *${parsed.amount ? 'Rp ' + parsed.amount.toLocaleString('id-ID') : 'Tidak terdeteksi'}*\n\n`;
+
+  // Rincian Item
+  if (parsed.items && parsed.items.length > 0) {
+    response += `📋 *Rincian Struk:*\n`;
+    const merchantName = parsed.merchant || 'Struk';
+    response += `*${merchantName}*\n`;
+
+    for (const item of parsed.items) {
+      const qtyDisplay = item.quantity > 1 ? `${item.quantity}x ` : '';
+      const priceDisplay = item.price.toLocaleString('id-ID');
+      response += `  - ${qtyDisplay}${item.name} - ${priceDisplay}\n`;
+    }
+
+    // Subtotal jika ada
+    if (parsed.subtotal) {
+      response += `  \n📊 *Subtotal:* Rp ${parsed.subtotal.toLocaleString('id-ID')}\n`;
+    }
+
+    // Grand Total
+    if (parsed.grandTotal) {
+      response += `  🏷️ *Grand Total:* Rp ${parsed.grandTotal.toLocaleString('id-ID')}\n`;
+    }
+
+    response += `\n📂 *Kategori:* ${categoryLabel}\n`;
+
+    if (timeDisplay) {
+      response += `🕐 *Waktu:* ${formattedDate}, ${timeDisplay}\n`;
+    } else {
+      response += `📅 *Tanggal:* ${formattedDate}\n`;
+    }
+  } else {
+    // Fallback jika tidak ada item
+    response += `📋 *Rincian:* ${parsed.note || 'Struk'}\n`;
+    response += `📂 *Kategori:* ${categoryLabel}\n`;
+    response += `📅 *Tanggal:* ${formattedDate}\n`;
+  }
+
+  // Informasi transaksi
+  response += `\n📌 *Dicatat di:* ${formattedDate}`;
+
+  return response;
 }
 
 // ============================================================
@@ -367,7 +525,7 @@ async function clearAllTransactions(userId) {
 }
 
 // ============================================================
-// OCR via OCR.space API — PERBAIKAN
+// OCR via OCR.space API
 // ============================================================
 async function ocrImageViaApi(imageBuffer, retryCount = 0) {
   if (!OCR_API_KEY) {
@@ -616,7 +774,7 @@ bot.on('text', async (ctx) => {
 });
 
 // ============================================================
-// HANDLER: FOTO — OCR dengan OCR.space API
+// HANDLER: FOTO — dengan format respons rapi
 // ============================================================
 bot.on('photo', async (ctx) => {
   const processingMsg = await ctx.reply(
@@ -644,7 +802,7 @@ bot.on('photo', async (ctx) => {
       return;
     }
 
-    // Dapatkan file foto (resolusi tertinggi)
+    // Dapatkan file foto
     const photo = ctx.message.photo[ctx.message.photo.length - 1];
     const fileLink = await ctx.telegram.getFileLink(photo.file_id);
 
@@ -658,12 +816,11 @@ bot.on('photo', async (ctx) => {
       ocrText = await ocrImageViaApi(imageBuffer);
     } catch (ocrError) {
       console.error('❌ OCR error:', ocrError.message);
-      let errorMsg = ocrError.message || 'Coba lagi';
       await ctx.telegram.editMessageText(
         processingMsg.chat.id,
         processingMsg.message_id,
         null,
-        `❌ Gagal membaca gambar. Error: ${errorMsg}\n\nPastikan foto struk jelas dan cukup terang.`
+        `❌ Gagal membaca gambar. Error: ${ocrError.message || 'Coba lagi'}\n\nPastikan foto struk jelas dan cukup terang.`
       );
       return;
     }
@@ -678,7 +835,7 @@ bot.on('photo', async (ctx) => {
       return;
     }
 
-    // Parse hasil OCR
+    // Parse hasil OCR dengan parsing item yang lebih baik
     const parsed = parseOcrText(ocrText);
 
     if (!parsed || !parsed.amount) {
@@ -711,28 +868,21 @@ bot.on('photo', async (ctx) => {
       category: parsed.category || 'other',
       date: parsed.date || new Date().toISOString().slice(0, 10),
       account: 'Bot OCR',
-      note: parsed.note || 'Struk',
+      note: parsed.merchant || parsed.note || 'Struk',
       created_at: new Date().toISOString(),
       user_id: userId
     };
 
     await addTransaction(userId, tx);
 
-    const categoryLabel = categoryMap[tx.category] || tx.category;
-
-    const successMsg =
-      `📤 *Transaksi berhasil dicatat dari struk!*\n\n` +
-      `💳 *Pengeluaran:* Rp ${tx.amount.toLocaleString('id-ID')}\n` +
-      `📂 *Kategori:* ${categoryLabel}\n` +
-      `📝 *Catatan:* ${tx.note}\n` +
-      `📅 *Tanggal:* ${tx.date}\n\n` +
-      `📷 *Hasil OCR (cuplikan):*\n\`${ocrText.slice(0, 200)}${ocrText.length > 200 ? '…' : ''}\``;
+    // Format response dengan detail item
+    const formattedResponse = formatReceiptResponse(parsed, userId);
 
     await ctx.telegram.editMessageText(
       processingMsg.chat.id,
       processingMsg.message_id,
       null,
-      successMsg,
+      formattedResponse,
       {
         parse_mode: 'Markdown',
         reply_markup: miniAppKeyboard([
@@ -898,13 +1048,7 @@ app.get('/api/test', (req, res) => {
     bot_token_set: !!BOT_TOKEN,
     ocr_api_key_set: !!OCR_API_KEY,
     vercel_url: process.env.VERCEL_URL,
-    app_url: appUrl,
-    env_vars: {
-      BOT_TOKEN: BOT_TOKEN ? '✅' : '❌',
-      OCR_API_KEY: OCR_API_KEY ? '✅' : '❌',
-      KV_REST_API_URL: process.env.KV_REST_API_URL ? '✅' : '❌',
-      KV_REST_API_TOKEN: process.env.KV_REST_API_TOKEN ? '✅' : '❌'
-    }
+    app_url: appUrl
   });
 });
 
