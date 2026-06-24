@@ -9,9 +9,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ============================================================
-// ENVIRONMENT VARIABLES
-// ============================================================
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'admin123';
 const OCR_API_KEY = process.env.OCR_API_KEY;
@@ -21,9 +18,6 @@ console.log('🔍 OCR_API_KEY exists?', !!OCR_API_KEY);
 
 if (!BOT_TOKEN) {
   console.error('❌ BOT_TOKEN tidak ditemukan!');
-}
-if (!OCR_API_KEY) {
-  console.error('❌ OCR_API_KEY tidak ditemukan!');
 }
 
 // ============================================================
@@ -125,10 +119,12 @@ function parseOcrText(text) {
     /total\s*[:=]?\s*([\d.,]+)/i,
     /jumlah\s*[:=]?\s*Rp\s*([\d.,]+)/i,
     /jumlah\s*[:=]?\s*([\d.,]+)/i,
+    /Grand\s*Total\s*[:=]?\s*Rp\s*([\d.,]+)/i,
+    /Grand\s*Total\s*[:=]?\s*([\d.,]+)/i,
     /Rp\s*([\d.,]+)\s*$/m,
     /Rp\s*([\d.,]+)/i,
     /(\d{1,3}(?:\.\d{3})*)\s*$/m,
-    /(\d{1,3}(?:\.\d{3})*)\s*(?:total|jumlah)/i,
+    /(\d{1,3}(?:\.\d{3})*)\s*(?:total|jumlah|grand total)/i,
   ];
 
   for (const pattern of amountPatterns) {
@@ -208,7 +204,7 @@ function parseOcrText(text) {
   for (const line of firstLines) {
     if (line.length > 3 && line.length < 60 &&
       !/\d/.test(line.replace(/[0-9,.]/g, '')) &&
-      !/total|jumlah|bayar|kembali|kasir|terima|tanggal|disc|tax|pajak|ppn/i.test(line) &&
+      !/total|jumlah|bayar|kembali|kasir|terima|tanggal|disc|tax|pajak|ppn|subtotal|grand|item|items/i.test(line) &&
       line.length > 5) {
       merchant = line;
       break;
@@ -223,19 +219,19 @@ function parseOcrText(text) {
   const lowerText = fullText.toLowerCase();
   const keywords = {
     dining: ['makan', 'resto', 'restaurant', 'warung', 'cafe', 'kopi', 'sushi', 'pizza', 'burger', 'bakso',
-      'nasi', 'ayam', 'soto', 'mie', 'seafood', 'steak', 'pasta'
+      'nasi', 'ayam', 'soto', 'mie', 'seafood', 'steak', 'pasta', 'chicken', 'rice', 'matcha', 'chocolate'
     ],
     shopping: ['belanja', 'shop', 'baju', 'sepatu', 'toko', 'mall', 'pakaian', 'fashion', 'grosir', 'retail',
       'supermarket', 'indomaret', 'alfamart'
     ],
     transport: ['transport', 'ojol', 'grab', 'gojek', 'go-car', 'go-ride', 'bensin', 'pertamina', 'taxi',
-      'kereta', 'bus', 'pesawat', 'bioskop'
+      'kereta', 'bus', 'pesawat'
     ],
     bills: ['tagihan', 'listrik', 'pln', 'air', 'pdam', 'internet', 'telkom', 'indihome', 'bca', 'mandiri',
       'kartu', 'kredit', 'bpjs'
     ],
     fun: ['hiburan', 'film', 'nonton', 'game', 'playstation', 'netflix', 'spotify', 'youtube', 'konser',
-      'tiket', 'game'
+      'tiket'
     ],
     health: ['kesehatan', 'obat', 'dokter', 'rumah sakit', 'rs', 'klinik', 'apotek', 'vitamin', 'farma',
       'kimia'
@@ -336,67 +332,76 @@ async function clearAllTransactions(userId) {
 }
 
 // ============================================================
-// OCR via OCR.space API
+// OCR via OCR.space API — PERBAIKAN
 // ============================================================
 async function ocrImageViaApi(imageBuffer) {
   if (!OCR_API_KEY) {
-    throw new Error('OCR_API_KEY tidak diset. Dapatkan dari https://ocr.space/OCRAPI');
+    throw new Error('OCR_API_KEY tidak diset. Dapatkan di https://ocr.space/OCRAPI');
   }
 
-  const formData = new FormData();
-  formData.append('apikey', OCR_API_KEY);
-  formData.append('file', imageBuffer, {
-    filename: 'receipt.jpg',
-    contentType: 'image/jpeg'
-  });
-  formData.append('language', 'ind');
-  formData.append('isOverlayRequired', 'false');
-  formData.append('filetype', 'JPG');
+  // Konversi buffer ke base64
+  const base64Image = imageBuffer.toString('base64');
 
-  const response = await axios.post('https://api.ocr.space/parse/image', formData, {
-    headers: {
-      ...formData.getHeaders()
-    },
-    timeout: 20000,
-    maxContentLength: Infinity,
-    maxBodyLength: Infinity
-  });
+  const payload = {
+    apikey: OCR_API_KEY,
+    base64Image: `data:image/jpeg;base64,${base64Image}`,
+    language: 'eng', // Gunakan 'eng' untuk hasil terbaik, 'ind' mungkin tidak didukung semua akun
+    isOverlayRequired: false,
+    detectOrientation: true,
+    scale: true,
+    isTable: false,
+    OCREngine: 2 // 2 = Engine terbaru (lebih akurat)
+  };
 
-  const data = response.data;
-  if (data.IsErroredOnProcessing) {
-    throw new Error(data.ErrorMessage || 'OCR gagal memproses gambar');
+  try {
+    const response = await axios.post('https://api.ocr.space/parse/image', payload, {
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      timeout: 15000 // 15 detik
+    });
+
+    const data = response.data;
+
+    if (data.IsErroredOnProcessing) {
+      const errorMsg = data.ErrorMessage || 'OCR gagal';
+      throw new Error(errorMsg);
+    }
+
+    const parsedResults = data.ParsedResults;
+    if (!parsedResults || parsedResults.length === 0) {
+      throw new Error('Tidak ada hasil OCR');
+    }
+
+    const text = parsedResults[0].ParsedText || '';
+    if (!text || text.trim().length < 3) {
+      throw new Error('Teks hasil OCR terlalu pendek');
+    }
+
+    return text;
+  } catch (error) {
+    if (error.response) {
+      console.error('OCR API Response Error:', error.response.data);
+      throw new Error(`OCR API Error: ${error.response.data.ErrorMessage || error.message}`);
+    }
+    throw error;
   }
-
-  const parsedResults = data.ParsedResults;
-  if (!parsedResults || parsedResults.length === 0) {
-    throw new Error('Tidak ada hasil OCR dari server');
-  }
-
-  const ocrText = parsedResults[0].ParsedText || '';
-  if (!ocrText || ocrText.trim().length < 3) {
-    throw new Error('Tidak ada teks yang terbaca dari gambar');
-  }
-
-  return ocrText;
 }
 
 // ============================================================
 // BOT TELEGRAM HANDLER
 // ============================================================
-const bot = new Telegraf(BOT_TOKEN || 'dummy', { handlerTimeout: 60000 });
+const bot = new Telegraf(BOT_TOKEN || 'dummy', { handlerTimeout: 90000 });
 const appUrl = process.env.VERCEL_URL
-  ? `https://${process.env.VERCEL_URL}`
+  ? `https://catatan-ku-silk.vercel.app`
   : 'https://catatan-ku-silk.vercel.app';
-
-// Fallback jika VERCEL_URL tidak diset
-const finalAppUrl = appUrl.includes('localhost') ? 'https://catatan-ku-silk.vercel.app' : appUrl;
 
 function miniAppKeyboard(buttons) {
   return {
     inline_keyboard: buttons.map(row =>
       row.map(btn => ({
         text: btn.text,
-        web_app: { url: `${finalAppUrl}${btn.path || '/'}` }
+        web_app: { url: `${appUrl}${btn.path || '/'}` }
       }))
     )
   };
@@ -442,7 +447,7 @@ bot.start(async (ctx) => {
       `➜ \`-5000\` → pengeluaran Rp 5.000\n` +
       `➜ \`+20000 makan siang\` → pemasukan Rp 20.000\n` +
       `➜ \`-15000 transport\` → pengeluaran transportasi\n\n` +
-      `📸 Kirim *foto struk* untuk scan otomatis dengan AI (OCR.space)!`,
+      `📸 Kirim *foto struk* untuk scan otomatis dengan AI!`,
       {
         parse_mode: 'Markdown',
         reply_markup: miniAppKeyboard([
@@ -536,10 +541,10 @@ bot.on('text', async (ctx) => {
 });
 
 // ============================================================
-// HANDLER: FOTO — OCR dengan OCR.space API
+// HANDLER: FOTO — OCR dengan OCR.space
 // ============================================================
 bot.on('photo', async (ctx) => {
-  // Kirim pesan "sedang memproses" SEKALI
+  // Kirim pesan "sedang memproses"
   const processingMsg = await ctx.reply(
     '🤖 *AI sedang menganalisis foto struk...* Mohon tunggu beberapa saat.',
     { parse_mode: 'Markdown' }
@@ -565,19 +570,7 @@ bot.on('photo', async (ctx) => {
       return;
     }
 
-    // Cek OCR API Key
-    if (!OCR_API_KEY) {
-      await ctx.telegram.editMessageText(
-        processingMsg.chat.id,
-        processingMsg.message_id,
-        null,
-        `❌ *OCR API Key tidak ditemukan!*\n\nSilakan tambahkan OCR_API_KEY di environment variables Vercel.\n\nDapatkan API Key gratis di https://ocr.space/OCRAPI`,
-        { parse_mode: 'Markdown' }
-      );
-      return;
-    }
-
-    // Dapatkan file foto dengan resolusi terbaik
+    // Dapatkan file foto
     const photo = ctx.message.photo[ctx.message.photo.length - 1];
     const fileLink = await ctx.telegram.getFileLink(photo.file_id);
 
@@ -585,7 +578,7 @@ bot.on('photo', async (ctx) => {
     const response = await axios.get(fileLink, { responseType: 'arraybuffer' });
     const imageBuffer = Buffer.from(response.data, 'binary');
 
-    // OCR via API (OCR.space)
+    // OCR via API
     let ocrText = '';
     try {
       ocrText = await ocrImageViaApi(imageBuffer);
@@ -595,7 +588,8 @@ bot.on('photo', async (ctx) => {
         processingMsg.chat.id,
         processingMsg.message_id,
         null,
-        `❌ *Gagal membaca gambar.*\n\nError: ${ocrError.message || 'Coba lagi'}\n\nPastikan foto struk jelas dan cukup terang.`
+        `❌ *Gagal membaca gambar.*\n\n${ocrError.message || 'Pastikan foto struk jelas dan cukup terang.'}`,
+        { parse_mode: 'Markdown' }
       );
       return;
     }
@@ -821,12 +815,7 @@ app.get('/api/summary/:userId', async (req, res) => {
 });
 
 app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    bot_token_set: !!BOT_TOKEN,
-    ocr_api_key_set: !!OCR_API_KEY
-  });
+  res.json({ status: 'ok', timestamp: new Date().toISOString(), bot_token_set: !!BOT_TOKEN });
 });
 
 app.get('/api/test', (req, res) => {
@@ -835,7 +824,7 @@ app.get('/api/test', (req, res) => {
     bot_token_set: !!BOT_TOKEN,
     ocr_api_key_set: !!OCR_API_KEY,
     vercel_url: process.env.VERCEL_URL,
-    app_url: finalAppUrl,
+    app_url: appUrl,
     env_vars: {
       BOT_TOKEN: BOT_TOKEN ? '✅' : '❌',
       OCR_API_KEY: OCR_API_KEY ? '✅' : '❌',
