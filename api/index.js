@@ -20,6 +20,10 @@ if (!BOT_TOKEN) {
   console.error('❌ BOT_TOKEN tidak ditemukan!');
 }
 
+if (!OCR_API_KEY) {
+  console.warn('⚠️ OCR_API_KEY tidak diset! OCR tidak akan berfungsi.');
+}
+
 // ============================================================
 // USER MANAGEMENT
 // ============================================================
@@ -330,28 +334,24 @@ async function clearAllTransactions(userId) {
 }
 
 // ============================================================
-// OCR via OCR.space API dengan retry
+// OCR via OCR.space API — PERBAIKAN
 // ============================================================
 async function ocrImageViaApi(imageBuffer, retryCount = 0) {
   if (!OCR_API_KEY) {
-    throw new Error('OCR_API_KEY tidak diset. Daftar di https://ocr.space/OCRAPI');
+    throw new Error('❌ OCR_API_KEY tidak diset. Daftar di https://ocr.space/OCRAPI');
   }
 
-  // Kompresi gambar jika terlalu besar (maks 1MB)
-  let imageData = imageBuffer;
-  if (imageBuffer.length > 1024 * 1024) {
-    console.log('📦 Kompresi gambar...');
-    // OCR.space menerima base64, kita bisa kompres dengan mengurangi kualitas
-    // Tapi karena kita pakai buffer langsung, kita biarkan saja
-  }
+  console.log(`📸 OCR attempt ${retryCount + 1}, image size: ${(imageBuffer.length / 1024).toFixed(0)} KB`);
 
+  // Siapkan FormData
   const formData = new FormData();
   formData.append('apikey', OCR_API_KEY);
-  formData.append('file', imageData, {
+  formData.append('file', imageBuffer, {
     filename: 'receipt.jpg',
     contentType: 'image/jpeg'
   });
-  formData.append('language', 'id'); // Gunakan 'id' bukan 'ind'
+  // Ganti 'id' dengan 'ind' — kode yang benar untuk Indonesian
+  formData.append('language', 'ind');
   formData.append('isOverlayRequired', 'false');
 
   try {
@@ -359,15 +359,18 @@ async function ocrImageViaApi(imageBuffer, retryCount = 0) {
       headers: {
         ...formData.getHeaders()
       },
-      timeout: 20000, // 20 detik
+      timeout: 20000,
       maxContentLength: Infinity,
       maxBodyLength: Infinity
     });
 
     const data = response.data;
+    console.log('📡 OCR response status:', data.IsErroredOnProcessing ? 'ERROR' : 'OK');
 
     if (data.IsErroredOnProcessing) {
-      throw new Error(data.ErrorMessage || 'OCR gagal');
+      const errMsg = data.ErrorMessage || 'Unknown error';
+      console.log('❌ OCR error message:', errMsg);
+      throw new Error(errMsg);
     }
 
     const parsedResults = data.ParsedResults;
@@ -376,44 +379,56 @@ async function ocrImageViaApi(imageBuffer, retryCount = 0) {
     }
 
     const text = parsedResults[0].ParsedText || '';
-    console.log('📝 OCR berhasil, panjang teks:', text.length);
+    console.log(`📝 OCR berhasil, teks: ${text.length} karakter`);
     return text;
 
   } catch (error) {
-    // Retry jika error 502 atau 503 (server sibuk)
-    if ((error.response?.status === 502 || error.response?.status === 503) && retryCount < 2) {
-      console.log(`🔄 Retry OCR... (${retryCount + 1})`);
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      return ocrImageViaApi(imageBuffer, retryCount + 1);
-    }
+    // Cek apakah error karena language atau server error
+    const errMsg = error.message || '';
+    const isLanguageError = errMsg.includes('language') || errMsg.includes('E201');
+    const isServerError = error.response?.status === 502 || error.response?.status === 503 || error.code === 'ECONNABORTED';
 
-    // Jika error karena language, coba tanpa language
-    if (error.response?.data?.ErrorMessage?.includes('language')) {
-      console.log('🔄 Coba OCR tanpa parameter language...');
+    // Jika error language dan masih ada percobaan, coba tanpa language
+    if (isLanguageError && retryCount < 3) {
+      console.log('🔄 Retry OCR tanpa parameter language...');
       const formData2 = new FormData();
       formData2.append('apikey', OCR_API_KEY);
-      formData2.append('file', imageData, {
+      formData2.append('file', imageBuffer, {
         filename: 'receipt.jpg',
         contentType: 'image/jpeg'
       });
       formData2.append('isOverlayRequired', 'false');
 
-      const response2 = await axios.post('https://api.ocr.space/parse/image', formData2, {
-        headers: {
-          ...formData2.getHeaders()
-        },
-        timeout: 20000
-      });
+      try {
+        const response2 = await axios.post('https://api.ocr.space/parse/image', formData2, {
+          headers: {
+            ...formData2.getHeaders()
+          },
+          timeout: 20000,
+          maxContentLength: Infinity,
+          maxBodyLength: Infinity
+        });
 
-      const data2 = response2.data;
-      if (data2.IsErroredOnProcessing) {
-        throw new Error(data2.ErrorMessage || 'OCR gagal');
+        const data2 = response2.data;
+        if (data2.IsErroredOnProcessing) {
+          throw new Error(data2.ErrorMessage || 'OCR gagal tanpa language');
+        }
+        const parsedResults2 = data2.ParsedResults;
+        if (!parsedResults2 || parsedResults2.length === 0) {
+          throw new Error('Tidak ada hasil OCR');
+        }
+        return parsedResults2[0].ParsedText || '';
+      } catch (fallbackError) {
+        console.log('❌ Fallback OCR juga gagal:', fallbackError.message);
+        throw fallbackError;
       }
-      const parsedResults2 = data2.ParsedResults;
-      if (!parsedResults2 || parsedResults2.length === 0) {
-        throw new Error('Tidak ada hasil OCR');
-      }
-      return parsedResults2[0].ParsedText || '';
+    }
+
+    // Jika server error, retry dengan jeda
+    if (isServerError && retryCount < 2) {
+      console.log(`🔄 Server error, retry ${retryCount + 1}...`);
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      return ocrImageViaApi(imageBuffer, retryCount + 1);
     }
 
     throw error;
@@ -601,7 +616,7 @@ bot.on('photo', async (ctx) => {
       return;
     }
 
-    // Dapatkan file foto
+    // Dapatkan file foto (resolusi tertinggi)
     const photo = ctx.message.photo[ctx.message.photo.length - 1];
     const fileLink = await ctx.telegram.getFileLink(photo.file_id);
 
@@ -615,11 +630,18 @@ bot.on('photo', async (ctx) => {
       ocrText = await ocrImageViaApi(imageBuffer);
     } catch (ocrError) {
       console.error('❌ OCR error:', ocrError.message);
+      let errorMsg = ocrError.message || 'Coba lagi';
+      // Sembunyikan detail teknis jika terlalu panjang
+      if (errorMsg.includes('E201') || errorMsg.includes('language')) {
+        errorMsg = 'Parameter bahasa tidak valid, mencoba tanpa bahasa...';
+        // Seharusnya sudah di-handle di dalam fungsi ocrImageViaApi
+        // Tapi jika masih error, beri tahu user.
+      }
       await ctx.telegram.editMessageText(
         processingMsg.chat.id,
         processingMsg.message_id,
         null,
-        `❌ Gagal membaca gambar. Error: ${ocrError.message || 'Coba lagi'}\n\nPastikan foto struk jelas dan cukup terang.`
+        `❌ Gagal membaca gambar. Error: ${errorMsg}\n\nPastikan foto struk jelas dan cukup terang.`
       );
       return;
     }
