@@ -109,27 +109,27 @@ function parseTransaction(text, userId) {
 }
 
 // ============================================================
-// FUNGSI PARSING OCR (Hasil Scan Struk)
+// FUNGSI PARSING OCR (Hasil Scan Struk) — DIPERBAIKI
 // ============================================================
 function parseOcrText(text) {
   if (!text || text.trim().length < 3) return null;
 
   const fullText = text;
+  const lines = fullText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
-  // 1. Cari Amount (Total)
+  // 1. Cari Amount (Total) — lebih agresif
   let amount = null;
-  const amountPatterns = [
-    /total\s*[:=]?\s*Rp\s*([\d.,]+)/i,
-    /total\s*[:=]?\s*([\d.,]+)/i,
-    /jumlah\s*[:=]?\s*Rp\s*([\d.,]+)/i,
-    /jumlah\s*[:=]?\s*([\d.,]+)/i,
-    /Rp\s*([\d.,]+)\s*$/m,
-    /Rp\s*([\d.,]+)/i,
-    /(\d{1,3}(?:\.\d{3})*)\s*$/m,
-    /(\d{1,3}(?:\.\d{3})*)\s*(?:total|jumlah)/i,
+  
+  // Pola untuk mencari total dengan berbagai format
+  const totalPatterns = [
+    /(?:grand\s+)?total\s*[:=]?\s*Rp?\s*([\d.,]+)/i,
+    /subtotal\s*[:=]?\s*Rp?\s*([\d.,]+)/i,
+    /jumlah\s*[:=]?\s*Rp?\s*([\d.,]+)/i,
+    /Rp?\s*([\d.,]+)\s*(?:total|jumlah|grand\s+total)/i,
+    /(?:total|jumlah|grand\s+total)\s*[:=]?\s*([\d.,]+)/i,
   ];
 
-  for (const pattern of amountPatterns) {
+  for (const pattern of totalPatterns) {
     const match = fullText.match(pattern);
     if (match) {
       const raw = match[1].replace(/\./g, '').replace(/,/g, '');
@@ -141,12 +141,32 @@ function parseOcrText(text) {
     }
   }
 
+  // Jika tidak ditemukan via pola, cari semua angka dan ambil yang terbesar
   if (!amount) {
     const allNums = fullText.match(/\d{1,3}(?:\.\d{3})*/g);
     if (allNums) {
-      const nums = allNums.map(n => parseInt(n.replace(/\./g, ''))).filter(n => n > 0 && n < 999999999);
+      const nums = allNums.map(n => parseInt(n.replace(/\./g, '').replace(/,/g, '')))
+                         .filter(n => n > 0 && n < 999999999);
       if (nums.length > 0) {
+        // Ambil angka terbesar (biasanya total)
         amount = Math.max(...nums);
+        console.log('📊 Angka ditemukan:', nums, '-> dipilih:', amount);
+      }
+    }
+  }
+
+  // Validasi: jika amount terlalu kecil (< 1000) tapi ada angka lebih besar di teks, ambil yang lebih besar
+  if (amount && amount < 1000) {
+    const allNums = fullText.match(/\d{1,3}(?:\.\d{3})*/g);
+    if (allNums) {
+      const nums = allNums.map(n => parseInt(n.replace(/\./g, '').replace(/,/g, '')))
+                         .filter(n => n > 0 && n < 999999999);
+      if (nums.length > 0) {
+        const maxNum = Math.max(...nums);
+        if (maxNum > amount) {
+          console.log(`📊 Mengganti amount ${amount} dengan ${maxNum} (angka terbesar)`);
+          amount = maxNum;
+        }
       }
     }
   }
@@ -199,14 +219,13 @@ function parseOcrText(text) {
     date = new Date().toISOString().slice(0, 10);
   }
 
-  // 3. Cari Merchant
-  const lines = fullText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  // 3. Cari Merchant / Nama Toko
   let merchant = null;
   const firstLines = lines.slice(0, 5);
   for (const line of firstLines) {
     if (line.length > 3 && line.length < 60 &&
       !/\d/.test(line.replace(/[0-9,.]/g, '')) &&
-      !/total|jumlah|bayar|kembali|kasir|terima|tanggal|disc|tax|pajak|ppn/i.test(line) &&
+      !/total|jumlah|bayar|kembali|kasir|terima|tanggal|disc|tax|pajak|ppn|no|date|info|purpose|cashier|item/i.test(line) &&
       line.length > 5) {
       merchant = line;
       break;
@@ -221,7 +240,7 @@ function parseOcrText(text) {
   const lowerText = fullText.toLowerCase();
   const keywords = {
     dining: ['makan', 'resto', 'restaurant', 'warung', 'cafe', 'kopi', 'sushi', 'pizza', 'burger', 'bakso',
-      'nasi', 'ayam', 'soto', 'mie', 'seafood', 'steak', 'pasta'
+      'nasi', 'ayam', 'soto', 'mie', 'seafood', 'steak', 'pasta', 'rice', 'chicken', 'katsu'
     ],
     shopping: ['belanja', 'shop', 'baju', 'sepatu', 'toko', 'mall', 'pakaian', 'fashion', 'grosir', 'retail',
       'supermarket', 'indomaret', 'alfamart'
@@ -270,7 +289,21 @@ function parseOcrText(text) {
     gift: 'Hadiah', other: 'Lainnya'
   };
 
-  const note = merchant || (category !== 'other' ? categoryMap[category] : 'Struk');
+  // Catatan: gabungkan merchant + nama barang yang dibeli
+  let note = merchant || '';
+  // Ambil nama barang dari baris yang mengandung angka (harga) dan bukan total
+  const itemLines = lines.filter(l => /\d{1,3}(?:\.\d{3})*/.test(l) && !/total|jumlah|grand|subtotal|bayar|kembali/i.test(l));
+  if (itemLines.length > 0) {
+    // Ambil maksimal 3 item
+    const items = itemLines.slice(0, 3).map(l => l.replace(/\d{1,3}(?:\.\d{3})*/g, '').trim()).filter(l => l.length > 0);
+    if (items.length > 0) {
+      note += (note ? ' - ' : '') + items.join(', ');
+    }
+  }
+
+  if (!note) {
+    note = category !== 'other' ? categoryMap[category] : 'Struk';
+  }
 
   return {
     amount,
@@ -343,14 +376,12 @@ async function ocrImageViaApi(imageBuffer, retryCount = 0) {
 
   console.log(`📸 OCR attempt ${retryCount + 1}, image size: ${(imageBuffer.length / 1024).toFixed(0)} KB`);
 
-  // Siapkan FormData
   const formData = new FormData();
   formData.append('apikey', OCR_API_KEY);
   formData.append('file', imageBuffer, {
     filename: 'receipt.jpg',
     contentType: 'image/jpeg'
   });
-  // Ganti 'id' dengan 'ind' — kode yang benar untuk Indonesian
   formData.append('language', 'ind');
   formData.append('isOverlayRequired', 'false');
 
@@ -383,12 +414,10 @@ async function ocrImageViaApi(imageBuffer, retryCount = 0) {
     return text;
 
   } catch (error) {
-    // Cek apakah error karena language atau server error
     const errMsg = error.message || '';
     const isLanguageError = errMsg.includes('language') || errMsg.includes('E201');
     const isServerError = error.response?.status === 502 || error.response?.status === 503 || error.code === 'ECONNABORTED';
 
-    // Jika error language dan masih ada percobaan, coba tanpa language
     if (isLanguageError && retryCount < 3) {
       console.log('🔄 Retry OCR tanpa parameter language...');
       const formData2 = new FormData();
@@ -424,7 +453,6 @@ async function ocrImageViaApi(imageBuffer, retryCount = 0) {
       }
     }
 
-    // Jika server error, retry dengan jeda
     if (isServerError && retryCount < 2) {
       console.log(`🔄 Server error, retry ${retryCount + 1}...`);
       await new Promise(resolve => setTimeout(resolve, 2000));
@@ -631,12 +659,6 @@ bot.on('photo', async (ctx) => {
     } catch (ocrError) {
       console.error('❌ OCR error:', ocrError.message);
       let errorMsg = ocrError.message || 'Coba lagi';
-      // Sembunyikan detail teknis jika terlalu panjang
-      if (errorMsg.includes('E201') || errorMsg.includes('language')) {
-        errorMsg = 'Parameter bahasa tidak valid, mencoba tanpa bahasa...';
-        // Seharusnya sudah di-handle di dalam fungsi ocrImageViaApi
-        // Tapi jika masih error, beri tahu user.
-      }
       await ctx.telegram.editMessageText(
         processingMsg.chat.id,
         processingMsg.message_id,
@@ -689,7 +711,7 @@ bot.on('photo', async (ctx) => {
       category: parsed.category || 'other',
       date: parsed.date || new Date().toISOString().slice(0, 10),
       account: 'Bot OCR',
-      note: parsed.merchant || parsed.note || 'Struk',
+      note: parsed.note || 'Struk',
       created_at: new Date().toISOString(),
       user_id: userId
     };
