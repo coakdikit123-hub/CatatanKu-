@@ -1,7 +1,7 @@
 {
   "name": "catatan-ku",
   "version": "1.0.0",
-  "description": "Bot Telegram + Mini App CatatanKu dengan Puter.js OCR (Gratis & Unlimited)",
+  "description": "Bot Telegram + Mini App CatatanKu",
   "main": "api/index.js",
   "scripts": {
     "start": "vercel dev",
