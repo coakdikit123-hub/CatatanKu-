@@ -4,8 +4,8 @@ const { Telegraf } = require('telegraf');
 const { kv } = require('@vercel/kv');
 const axios = require('axios');
 
-// Import OCR (sudah diperbaiki)
-const { ocrStrukWithPuter } = require('./puter-ocr');
+// Import OCR.space
+const { ocrWithOcrSpace, parseOcrText } = require('./ocr-space');
 
 const app = express();
 app.use(cors());
@@ -13,11 +13,17 @@ app.use(express.json({ limit: '10mb' }));
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'admin123';
+const OCR_API_KEY = process.env.OCR_API_KEY;
 
 console.log('🔍 BOT_TOKEN exists?', !!BOT_TOKEN);
+console.log('🔍 OCR_API_KEY exists?', !!OCR_API_KEY);
 
 if (!BOT_TOKEN) {
   console.error('❌ BOT_TOKEN tidak ditemukan!');
+}
+
+if (!OCR_API_KEY) {
+  console.warn('⚠️ OCR_API_KEY tidak diset! OCR tidak akan berfungsi.');
 }
 
 // ============================================================
@@ -266,7 +272,7 @@ bot.start(async (ctx) => {
       `➜ \`-5000\` → pengeluaran Rp 5.000\n` +
       `➜ \`+20000 makan siang\` → pemasukan Rp 20.000\n` +
       `➜ \`-15000 transport\` → pengeluaran transportasi\n\n` +
-      `📸 Kirim *foto struk* untuk scan otomatis!`,
+      `📸 Kirim *foto struk* untuk scan otomatis dengan OCR!`,
       {
         parse_mode: 'Markdown',
         reply_markup: miniAppKeyboard([
@@ -361,7 +367,7 @@ bot.on('text', async (ctx) => {
 });
 
 // ============================================================
-// HANDLER: FOTO — OCR
+// HANDLER: FOTO — OCR.space
 // ============================================================
 bot.on('photo', async (ctx) => {
   const processingMsg = await ctx.reply(
@@ -389,6 +395,18 @@ bot.on('photo', async (ctx) => {
       return;
     }
 
+    // Cek API Key
+    if (!OCR_API_KEY) {
+      await ctx.telegram.editMessageText(
+        processingMsg.chat.id,
+        processingMsg.message_id,
+        null,
+        `⚠️ *OCR tidak dikonfigurasi.*\n\nTambahkan OCR_API_KEY di Vercel.\n\nAtau catat manual:\n\`-5000 deskripsi\` untuk pengeluaran\n\`+50000 deskripsi\` untuk pemasukan`,
+        { parse_mode: 'Markdown' }
+      );
+      return;
+    }
+
     // Dapatkan file foto
     const photo = ctx.message.photo[ctx.message.photo.length - 1];
     const fileLink = await ctx.telegram.getFileLink(photo.file_id);
@@ -398,47 +416,57 @@ bot.on('photo', async (ctx) => {
     const response = await axios.get(fileLink, { responseType: 'arraybuffer' });
     const imageBuffer = Buffer.from(response.data, 'binary');
 
-    // OCR dengan Puter.js (sudah diperbaiki)
-    let ocrResult;
+    // OCR dengan OCR.space
+    let ocrText;
     try {
-      ocrResult = await ocrStrukWithPuter(imageBuffer);
+      ocrText = await ocrWithOcrSpace(imageBuffer, OCR_API_KEY);
     } catch (ocrError) {
       console.error('❌ OCR error:', ocrError.message);
       await ctx.telegram.editMessageText(
         processingMsg.chat.id,
         processingMsg.message_id,
         null,
-        `⚠️ *OCR tidak tersedia saat ini.*\n\nSilakan catat transaksi secara manual:\n` +
-        `➜ \`-5000 deskripsi\` untuk pengeluaran\n` +
-        `➜ \`+50000 deskripsi\` untuk pemasukan`
+        `❌ Gagal membaca gambar: ${ocrError.message}\n\nSilakan catat manual:\n\`-5000 deskripsi\` untuk pengeluaran\n\`+50000 deskripsi\` untuk pemasukan`
       );
       return;
     }
 
-    if (!ocrResult || !ocrResult.amount) {
+    if (!ocrText || ocrText.trim().length < 5) {
       await ctx.telegram.editMessageText(
         processingMsg.chat.id,
         processingMsg.message_id,
         null,
-        `⚠️ *Tidak dapat mendeteksi jumlah transaksi secara otomatis.*\n\n` +
-        `Silakan catat secara manual dengan format:\n` +
-        `\`-5000 deskripsi\` untuk pengeluaran\n` +
-        `\`+50000 deskripsi\` untuk pemasukan`
+        `⚠️ *Tidak ada teks yang terbaca.* Pastikan foto struk jelas.\n\nSilakan catat manual:\n\`-5000 deskripsi\` untuk pengeluaran\n\`+50000 deskripsi\` untuk pemasukan`
+      );
+      return;
+    }
+
+    // Parse hasil OCR
+    const parsed = parseOcrText(ocrText);
+
+    if (!parsed || !parsed.amount) {
+      const preview = ocrText.length > 300 ? ocrText.substring(0, 300) + '…' : ocrText;
+      await ctx.telegram.editMessageText(
+        processingMsg.chat.id,
+        processingMsg.message_id,
+        null,
+        `⚠️ *Tidak dapat mendeteksi jumlah transaksi.*\n\nHasil OCR:\n\`${preview}\`\n\nSilakan catat manual:\n\`-5000 deskripsi\` untuk pengeluaran\n\`+50000 deskripsi\` untuk pemasukan`,
+        { parse_mode: 'Markdown' }
       );
       return;
     }
 
     // Simpan transaksi
-    const finalAmount = ocrResult.grandTotal || ocrResult.amount;
+    const finalAmount = parsed.grandTotal || parsed.amount;
 
     const tx = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
       amount: finalAmount,
       type: 'expense',
-      category: ocrResult.category || 'other',
-      date: ocrResult.date || new Date().toISOString().slice(0, 10),
+      category: parsed.category || 'other',
+      date: parsed.date || new Date().toISOString().slice(0, 10),
       account: 'Bot OCR',
-      note: ocrResult.merchant || 'Struk',
+      note: parsed.merchant || 'Struk',
       created_at: new Date().toISOString(),
       user_id: userId
     };
@@ -447,8 +475,7 @@ bot.on('photo', async (ctx) => {
     await addTransaction(userId, tx);
     console.log('✅ Transaksi OCR berhasil disimpan');
 
-    // Format response
-    const formattedResponse = formatReceiptResponse(ocrResult, userId);
+    const formattedResponse = formatReceiptResponse(parsed, userId);
 
     await ctx.telegram.editMessageText(
       processingMsg.chat.id,
@@ -465,6 +492,7 @@ bot.on('photo', async (ctx) => {
 
   } catch (e) {
     console.error('❌ Error di handler photo:', e.message);
+    console.error('❌ Stack:', e.stack);
     await ctx.telegram.editMessageText(
       processingMsg.chat.id,
       processingMsg.message_id,
@@ -618,6 +646,7 @@ app.get('/api/test', (req, res) => {
   res.json({
     message: 'API is working',
     bot_token_set: !!BOT_TOKEN,
+    ocr_api_key_set: !!OCR_API_KEY,
     vercel_url: process.env.VERCEL_URL,
     app_url: appUrl
   });
