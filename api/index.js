@@ -1,11 +1,10 @@
-// api/index.js
 const express = require('express');
 const cors = require('cors');
 const { Telegraf } = require('telegraf');
 const { kv } = require('@vercel/kv');
 const axios = require('axios');
 
-// Import Puter OCR
+// Import OCR (sudah diperbaiki)
 const { ocrStrukWithPuter } = require('./puter-ocr');
 
 const app = express();
@@ -22,7 +21,7 @@ if (!BOT_TOKEN) {
 }
 
 // ============================================================
-// USER MANAGEMENT (sama seperti sebelumnya)
+// USER MANAGEMENT
 // ============================================================
 async function registerUser(userId) {
   const key = `user:${userId}`;
@@ -125,8 +124,6 @@ function formatReceiptResponse(parsed, userId) {
     year: 'numeric'
   });
 
-  let timeDisplay = parsed.time || '';
-
   let response = `📤 *Transaksi berhasil dicatat dari struk!*\n\n`;
   response += `💰 *${parsed.amount ? 'Rp ' + parsed.amount.toLocaleString('id-ID') : 'Tidak terdeteksi'}*\n\n`;
 
@@ -146,11 +143,7 @@ function formatReceiptResponse(parsed, userId) {
     }
     response += `  📦 *Total Item:* ${parsed.items.length}\n`;
     response += `\n📂 *Kategori:* ${categoryLabel}\n`;
-    if (timeDisplay) {
-      response += `🕐 *Waktu:* ${formattedDate}, ${timeDisplay}\n`;
-    } else {
-      response += `📅 *Tanggal:* ${formattedDate}\n`;
-    }
+    response += `📅 *Tanggal:* ${formattedDate}\n`;
   } else {
     response += `📋 *Rincian:* ${parsed.merchant || 'Struk'}\n`;
     response += `📂 *Kategori:* ${categoryLabel}\n`;
@@ -273,7 +266,7 @@ bot.start(async (ctx) => {
       `➜ \`-5000\` → pengeluaran Rp 5.000\n` +
       `➜ \`+20000 makan siang\` → pemasukan Rp 20.000\n` +
       `➜ \`-15000 transport\` → pengeluaran transportasi\n\n` +
-      `📸 Kirim *foto struk* untuk scan otomatis dengan *Puter.js OCR* (GRATIS & UNLIMITED)!`,
+      `📸 Kirim *foto struk* untuk scan otomatis!`,
       {
         parse_mode: 'Markdown',
         reply_markup: miniAppKeyboard([
@@ -322,7 +315,7 @@ bot.on('text', async (ctx) => {
 
     if (!/\d/.test(text)) {
       await ctx.reply(
-        '❓ Format tidak dikenali.\n\nContoh:\n`-5000 makan siang`\n`+50000 gaji`\n\nAtau kirim foto struk untuk scan otomatis dengan Puter.js OCR (GRATIS).',
+        '❓ Format tidak dikenali.\n\nContoh:\n`-5000 makan siang`\n`+50000 gaji`\n\nAtau kirim foto struk untuk scan otomatis.',
         { parse_mode: 'Markdown' }
       );
       return;
@@ -368,11 +361,11 @@ bot.on('text', async (ctx) => {
 });
 
 // ============================================================
-// HANDLER: FOTO — Puter.js OCR (GRATIS & UNLIMITED)
+// HANDLER: FOTO — OCR
 // ============================================================
 bot.on('photo', async (ctx) => {
   const processingMsg = await ctx.reply(
-    '🤖 *Puter.js OCR sedang menganalisis foto struk...* Mohon tunggu beberapa saat (GRATIS & UNLIMITED!).',
+    '🤖 *AI sedang menganalisis foto struk...* Mohon tunggu beberapa saat.',
     { parse_mode: 'Markdown' }
   );
 
@@ -405,18 +398,19 @@ bot.on('photo', async (ctx) => {
     const response = await axios.get(fileLink, { responseType: 'arraybuffer' });
     const imageBuffer = Buffer.from(response.data, 'binary');
 
-    // OCR dengan Puter.js
+    // OCR dengan Puter.js (sudah diperbaiki)
     let ocrResult;
     try {
       ocrResult = await ocrStrukWithPuter(imageBuffer);
     } catch (ocrError) {
       console.error('❌ OCR error:', ocrError.message);
-      let errorMsg = ocrError.message || 'Coba lagi';
       await ctx.telegram.editMessageText(
         processingMsg.chat.id,
         processingMsg.message_id,
         null,
-        `❌ Gagal membaca gambar dengan Puter.js OCR.\n\nError: ${errorMsg}`
+        `⚠️ *OCR tidak tersedia saat ini.*\n\nSilakan catat transaksi secara manual:\n` +
+        `➜ \`-5000 deskripsi\` untuk pengeluaran\n` +
+        `➜ \`+50000 deskripsi\` untuk pemasukan`
       );
       return;
     }
@@ -435,12 +429,6 @@ bot.on('photo', async (ctx) => {
     }
 
     // Simpan transaksi
-    const categoryMap = {
-      dining: 'Makan', shopping: 'Belanja', transport: 'Transportasi',
-      bills: 'Tagihan', fun: 'Hiburan', health: 'Kesehatan',
-      gift: 'Hadiah', other: 'Lainnya'
-    };
-
     const finalAmount = ocrResult.grandTotal || ocrResult.amount;
 
     const tx = {
@@ -449,7 +437,7 @@ bot.on('photo', async (ctx) => {
       type: 'expense',
       category: ocrResult.category || 'other',
       date: ocrResult.date || new Date().toISOString().slice(0, 10),
-      account: 'Bot OCR (Puter.js)',
+      account: 'Bot OCR',
       note: ocrResult.merchant || 'Struk',
       created_at: new Date().toISOString(),
       user_id: userId
@@ -477,7 +465,6 @@ bot.on('photo', async (ctx) => {
 
   } catch (e) {
     console.error('❌ Error di handler photo:', e.message);
-    console.error('❌ Stack:', e.stack);
     await ctx.telegram.editMessageText(
       processingMsg.chat.id,
       processingMsg.message_id,
@@ -488,7 +475,7 @@ bot.on('photo', async (ctx) => {
 });
 
 // ============================================================
-// WEBHOOK & API ENDPOINTS
+// WEBHOOK
 // ============================================================
 app.post('/api/webhook', async (req, res) => {
   console.log('📥 Webhook received');
@@ -505,6 +492,10 @@ app.post('/api/webhook', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// ============================================================
+// API ENDPOINTS
+// ============================================================
 
 app.post('/api/register', async (req, res) => {
   console.log('📥 Register request:', req.body);
@@ -627,7 +618,6 @@ app.get('/api/test', (req, res) => {
   res.json({
     message: 'API is working',
     bot_token_set: !!BOT_TOKEN,
-    puter_js_installed: true,
     vercel_url: process.env.VERCEL_URL,
     app_url: appUrl
   });
