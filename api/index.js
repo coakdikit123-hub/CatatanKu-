@@ -21,6 +21,44 @@ if (!BOT_TOKEN) {
 }
 
 // ============================================================
+// STATE DRAFT UNTUK EDIT OCR
+// ============================================================
+const drafts = {};
+
+function getCategoryLabel(id) {
+  const map = {
+    dining: 'Makan',
+    shopping: 'Belanja',
+    transport: 'Transportasi',
+    bills: 'Tagihan',
+    fun: 'Hiburan',
+    health: 'Kesehatan',
+    gift: 'Hadiah',
+    other: 'Lainnya'
+  };
+  return map[id] || id;
+}
+
+function getCategoryId(label) {
+  const map = {
+    'makan': 'dining',
+    'belanja': 'shopping',
+    'transportasi': 'transport',
+    'tagihan': 'bills',
+    'hiburan': 'fun',
+    'kesehatan': 'health',
+    'hadiah': 'gift',
+    'lainnya': 'other'
+  };
+  const lower = label.toLowerCase();
+  if (map[lower]) return map[lower];
+  // Cek langsung
+  const list = ['dining', 'shopping', 'transport', 'bills', 'fun', 'health', 'gift', 'other'];
+  if (list.includes(lower)) return lower;
+  return 'other';
+}
+
+// ============================================================
 // USER MANAGEMENT
 // ============================================================
 async function registerUser(userId) {
@@ -108,13 +146,7 @@ function parseTransaction(text, userId) {
 // FUNGSI FORMAT RESPONSE STRUK
 // ============================================================
 function formatReceiptResponse(parsed, userId) {
-  const categoryMap = {
-    dining: 'Makan', shopping: 'Belanja', transport: 'Transportasi',
-    bills: 'Tagihan', fun: 'Hiburan', health: 'Kesehatan',
-    gift: 'Hadiah', other: 'Lainnya'
-  };
-
-  const categoryLabel = categoryMap[parsed.category] || 'Lainnya';
+  const categoryLabel = getCategoryLabel(parsed.category);
 
   let dateDisplay = parsed.date || new Date().toISOString().slice(0, 10);
   const dateObj = new Date(dateDisplay + 'T00:00:00');
@@ -290,13 +322,84 @@ bot.start(async (ctx) => {
 });
 
 // ============================================================
-// HANDLER: pesan teks
+// HANDLER: pesan teks (termasuk untuk edit)
 // ============================================================
 bot.on('text', async (ctx) => {
   try {
     const text = ctx.message.text;
     const userId = ctx.from.id.toString();
 
+    // Jika user sedang dalam mode edit
+    const draft = drafts[userId];
+    if (draft && draft.waitingFor) {
+      const field = draft.waitingFor;
+      const input = text.trim();
+
+      if (field === 'jumlah') {
+        const amount = parseInt(input.replace(/[^0-9]/g, ''));
+        if (isNaN(amount) || amount <= 0) {
+          return ctx.reply('❌ Masukkan angka yang valid (contoh: 50000)');
+        }
+        draft.amount = amount;
+      } else if (field === 'kategori') {
+        const catId = getCategoryId(input);
+        draft.category = catId;
+      } else if (field === 'tanggal') {
+        // Coba parse tanggal dalam berbagai format
+        let dateStr = input;
+        // Coba format DD/MM/YYYY atau DD-MM-YYYY
+        let match = input.match(/(\d{2})[\/-](\d{2})[\/-](\d{4})/);
+        if (match) {
+          dateStr = `${match[3]}-${match[2]}-${match[1]}`;
+        } else {
+          // Coba format YYYY-MM-DD
+          match = input.match(/(\d{4})-(\d{2})-(\d{2})/);
+          if (match) {
+            dateStr = input;
+          } else {
+            // Coba buat Date object
+            const d = new Date(input);
+            if (!isNaN(d.getTime())) {
+              dateStr = d.toISOString().slice(0, 10);
+            } else {
+              return ctx.reply('❌ Format tanggal tidak valid. Gunakan YYYY-MM-DD atau DD/MM/YYYY');
+            }
+          }
+        }
+        draft.date = dateStr;
+      } else if (field === 'catatan') {
+        draft.note = input;
+      }
+
+      draft.waitingFor = null;
+
+      // Tampilkan preview terbaru
+      const previewMsg = 
+        `📝 *Preview Transaksi*\n\n` +
+        `💰 *Jumlah:* Rp ${draft.amount.toLocaleString('id-ID')}\n` +
+        `📂 *Kategori:* ${getCategoryLabel(draft.category)}\n` +
+        `📝 *Catatan:* ${draft.note}\n` +
+        `📅 *Tanggal:* ${draft.date}\n\n` +
+        `Klik "✏️ Edit" untuk mengubah lagi, atau "✅ Simpan" untuk menyimpan.`;
+
+      await ctx.reply(previewMsg, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '✏️ Edit', callback_data: `edit_${userId}` },
+              { text: '✅ Simpan', callback_data: `save_${userId}` }
+            ],
+            [
+              { text: '❌ Batal', callback_data: `cancel_${userId}` }
+            ]
+          ]
+        }
+      });
+      return;
+    }
+
+    // Jika bukan edit, proses sebagai transaksi teks biasa
     if (text.startsWith('/')) return;
 
     const registered = await isUserRegistered(userId);
@@ -361,7 +464,182 @@ bot.on('text', async (ctx) => {
 });
 
 // ============================================================
-// HANDLER: FOTO — OCR.space
+// HANDLER: CALLBACK QUERY (Edit / Simpan OCR)
+// ============================================================
+bot.action(/edit_(.+)/, async (ctx) => {
+  const userId = ctx.match[1];
+  if (ctx.from.id.toString() !== userId) {
+    return ctx.answerCbQuery('❌ Ini bukan sesi Anda');
+  }
+
+  const draft = drafts[userId];
+  if (!draft) {
+    return ctx.answerCbQuery('❌ Sesi habis, kirim ulang foto');
+  }
+
+  await ctx.answerCbQuery();
+
+  // Tampilkan pilihan field yang bisa diedit
+  await ctx.reply(
+    `✏️ *Pilih field yang ingin diedit:*\n\n` +
+    `💰 Jumlah: Rp ${draft.amount.toLocaleString('id-ID')}\n` +
+    `📂 Kategori: ${getCategoryLabel(draft.category)}\n` +
+    `📝 Catatan: ${draft.note}\n` +
+    `📅 Tanggal: ${draft.date}`,
+    {
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '💰 Edit Jumlah', callback_data: `editfield_jumlah_${userId}` }],
+          [{ text: '📂 Edit Kategori', callback_data: `editfield_kategori_${userId}` }],
+          [{ text: '📝 Edit Catatan', callback_data: `editfield_catatan_${userId}` }],
+          [{ text: '📅 Edit Tanggal', callback_data: `editfield_tanggal_${userId}` }],
+          [{ text: '🔙 Kembali', callback_data: `back_${userId}` }]
+        ]
+      }
+    }
+  );
+});
+
+bot.action(/editfield_(.+)_(.+)/, async (ctx) => {
+  const field = ctx.match[1];
+  const userId = ctx.match[2];
+  if (ctx.from.id.toString() !== userId) {
+    return ctx.answerCbQuery('❌ Bukan milik Anda');
+  }
+
+  const draft = drafts[userId];
+  if (!draft) {
+    return ctx.answerCbQuery('❌ Sesi habis');
+  }
+
+  await ctx.answerCbQuery();
+
+  const fieldLabels = {
+    jumlah: 'Jumlah (contoh: 50000)',
+    kategori: 'Kategori (Makan, Belanja, Transportasi, Tagihan, Hiburan, Kesehatan, Hadiah, Lainnya)',
+    catatan: 'Catatan (deskripsi transaksi)',
+    tanggal: 'Tanggal (format: YYYY-MM-DD atau DD/MM/YYYY)'
+  };
+
+  draft.waitingFor = field;
+  await ctx.reply(
+    `✏️ *Edit ${field}*\n\nKirim nilai baru untuk *${field}*.\n\n${fieldLabels[field]}`,
+    { parse_mode: 'Markdown' }
+  );
+});
+
+bot.action(/back_(.+)/, async (ctx) => {
+  const userId = ctx.match[1];
+  if (ctx.from.id.toString() !== userId) {
+    return ctx.answerCbQuery('❌ Bukan milik Anda');
+  }
+
+  const draft = drafts[userId];
+  if (!draft) {
+    return ctx.answerCbQuery('❌ Sesi habis');
+  }
+
+  await ctx.answerCbQuery();
+
+  const previewMsg = 
+    `📝 *Preview Transaksi*\n\n` +
+    `💰 *Jumlah:* Rp ${draft.amount.toLocaleString('id-ID')}\n` +
+    `📂 *Kategori:* ${getCategoryLabel(draft.category)}\n` +
+    `📝 *Catatan:* ${draft.note}\n` +
+    `📅 *Tanggal:* ${draft.date}\n\n` +
+    `Klik "✏️ Edit" untuk mengubah lagi, atau "✅ Simpan" untuk menyimpan.`;
+
+  await ctx.reply(previewMsg, {
+    parse_mode: 'Markdown',
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: '✏️ Edit', callback_data: `edit_${userId}` },
+          { text: '✅ Simpan', callback_data: `save_${userId}` }
+        ],
+        [
+          { text: '❌ Batal', callback_data: `cancel_${userId}` }
+        ]
+      ]
+    }
+  });
+});
+
+bot.action(/save_(.+)/, async (ctx) => {
+  const userId = ctx.match[1];
+  if (ctx.from.id.toString() !== userId) {
+    return ctx.answerCbQuery('❌ Bukan milik Anda');
+  }
+
+  const draft = drafts[userId];
+  if (!draft) {
+    return ctx.answerCbQuery('❌ Sesi habis');
+  }
+
+  await ctx.answerCbQuery('✅ Menyimpan transaksi...');
+
+  try {
+    const finalAmount = draft.amount;
+
+    const tx = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      amount: finalAmount,
+      type: 'expense',
+      category: draft.category || 'other',
+      date: draft.date || new Date().toISOString().slice(0, 10),
+      account: 'Bot OCR (Manual Edit)',
+      note: draft.note || 'Struk',
+      created_at: new Date().toISOString(),
+      user_id: userId
+    };
+
+    await addTransaction(userId, tx);
+
+    const categoryLabel = getCategoryLabel(tx.category);
+    const dateObj = new Date(tx.date + 'T00:00:00');
+    const formattedDate = dateObj.toLocaleDateString('id-ID', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    });
+
+    await ctx.reply(
+      `✅ *Transaksi berhasil disimpan!*\n\n` +
+      `💰 *Jumlah:* Rp ${tx.amount.toLocaleString('id-ID')}\n` +
+      `📂 *Kategori:* ${categoryLabel}\n` +
+      `📝 *Catatan:* ${tx.note}\n` +
+      `📅 *Tanggal:* ${formattedDate}\n\n` +
+      `📊 *Data otomatis muncul di Mini App* — buka CatatanKu untuk melihat.`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: miniAppKeyboard([
+          [{ text: '📊 Lihat di CatatanKu', path: '/' }]
+        ])
+      }
+    );
+
+    // Hapus draft setelah disimpan
+    delete drafts[userId];
+  } catch (e) {
+    console.error('❌ Error saving draft:', e.message);
+    await ctx.reply('❌ Gagal menyimpan transaksi. Coba lagi nanti.');
+  }
+});
+
+bot.action(/cancel_(.+)/, async (ctx) => {
+  const userId = ctx.match[1];
+  if (ctx.from.id.toString() !== userId) {
+    return ctx.answerCbQuery('❌ Bukan milik Anda');
+  }
+
+  delete drafts[userId];
+  await ctx.answerCbQuery('❌ Dibatalkan');
+  await ctx.reply('❌ Transaksi dibatalkan.');
+});
+
+// ============================================================
+// HANDLER: FOTO — OCR + EDIT
 // ============================================================
 bot.on('photo', async (ctx) => {
   const processingMsg = await ctx.reply(
@@ -389,12 +667,14 @@ bot.on('photo', async (ctx) => {
       return;
     }
 
-    // Dapatkan file foto (resolusi tertinggi)
+    // Hapus draft lama jika ada
+    delete drafts[userId];
+
+    // Dapatkan file foto
     const photo = ctx.message.photo[ctx.message.photo.length - 1];
     const fileLink = await ctx.telegram.getFileLink(photo.file_id);
     console.log('📸 File link:', fileLink);
 
-    // Download image
     const response = await axios.get(fileLink, { responseType: 'arraybuffer' });
     const imageBuffer = Buffer.from(response.data, 'binary');
 
@@ -425,37 +705,47 @@ bot.on('photo', async (ctx) => {
       return;
     }
 
-    // Simpan transaksi
+    // Simpan ke draft
     const finalAmount = ocrResult.grandTotal || ocrResult.amount;
+    const category = ocrResult.category || 'other';
+    const date = ocrResult.date || new Date().toISOString().slice(0, 10);
+    const note = ocrResult.merchant || 'Struk';
 
-    const tx = {
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    drafts[userId] = {
       amount: finalAmount,
-      type: 'expense',
-      category: ocrResult.category || 'other',
-      date: ocrResult.date || new Date().toISOString().slice(0, 10),
-      account: 'Bot OCR',
-      note: ocrResult.merchant || 'Struk',
-      created_at: new Date().toISOString(),
-      user_id: userId
+      category: category,
+      date: date,
+      note: note,
+      waitingFor: null
     };
 
-    console.log('💾 Menyimpan transaksi OCR:', tx);
-    await addTransaction(userId, tx);
-    console.log('✅ Transaksi OCR berhasil disimpan');
-
-    const formattedResponse = formatReceiptResponse(ocrResult, userId);
+    // Tampilkan preview + tombol edit/simpan
+    const previewMsg = 
+      `📝 *Hasil OCR — Periksa sebelum simpan*\n\n` +
+      `💰 *Jumlah:* Rp ${finalAmount.toLocaleString('id-ID')}\n` +
+      `📂 *Kategori:* ${getCategoryLabel(category)}\n` +
+      `📝 *Catatan:* ${note}\n` +
+      `📅 *Tanggal:* ${date}\n\n` +
+      `Jika ada kesalahan, klik "✏️ Edit" untuk mengubah.`;
 
     await ctx.telegram.editMessageText(
       processingMsg.chat.id,
       processingMsg.message_id,
       null,
-      formattedResponse,
+      previewMsg,
       {
         parse_mode: 'Markdown',
-        reply_markup: miniAppKeyboard([
-          [{ text: '📊 Lihat di CatatanKu', path: '/' }]
-        ])
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '✏️ Edit', callback_data: `edit_${userId}` },
+              { text: '✅ Simpan', callback_data: `save_${userId}` }
+            ],
+            [
+              { text: '❌ Batal', callback_data: `cancel_${userId}` }
+            ]
+          ]
+        }
       }
     );
 
