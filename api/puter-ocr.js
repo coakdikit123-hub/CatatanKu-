@@ -1,81 +1,102 @@
 // api/puter-ocr.js
-// Menggunakan fetch langsung ke Puter API tanpa library ESM yang bermasalah
 
 /**
- * OCR menggunakan Puter.js (gratis & unlimited) — via fetch API
+ * OCR menggunakan Puter.js API (via fetch langsung)
+ * Karena @heyputer/puter.js tidak kompatibel dengan Node.js serverless
+ * 
  * @param {Buffer} imageBuffer - Buffer gambar
- * @returns {Promise<string>} - Hasil teks OCR
+ * @returns {Promise<Object>} - Hasil parse OCR
  */
-async function ocrWithPuter(imageBuffer) {
-  console.log('📸 Memproses gambar dengan Puter.js OCR...');
+async function ocrStrukWithPuter(imageBuffer) {
+  console.log('📸 Memproses gambar dengan Puter.js API...');
 
   try {
-    // Konversi Buffer ke base64
+    // Konversi buffer ke base64
     const base64Image = imageBuffer.toString('base64');
-    const dataUrl = `data:image/jpeg;base64,${base64Image}`;
 
-    // Kirim request ke Puter API endpoint yang sudah disediakan
-    const response = await fetch('https://api.puter.com/v2/ocr', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        image: dataUrl,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    // --- Gunakan endpoint Puter.js yang valid ---
+    // Kita akan menggunakan API Puter yang sebenarnya
+    // Dari dokumentasi: https://developer.puter.com/tutorials/free-unlimited-ocr-api/
+    // Puter menggunakan model "User-Pays" - pengguna membayar melalui akun Puter mereka
+    
+    // Opsi 1: Gunakan puter.ai.img2txt via evaluasi kode (workaround untuk Node.js)
+    // Kita akan gunakan pendekatan HTTP ke API Puter
+    
+    // URL endpoint Puter OCR (dari reverse engineering library)
+    // Sebenarnya Puter menggunakan API internal, kita coba pendekatan alternatif
+    
+    // Pendekatan: Gunakan OCR.space sebagai fallback + manual parsing
+    // Karena Puter.js tidak compatible dengan serverless Node.js
+    
+    console.log('⚠️ Puter.js tidak kompatibel dengan Node.js serverless.');
+    console.log('🔄 Menggunakan fallback OCR.space (jika ada API key) atau parsing manual.');
+    
+    // Coba gunakan OCR.space jika ada API key
+    const OCR_API_KEY = process.env.OCR_API_KEY;
+    if (OCR_API_KEY) {
+      console.log('📡 Mencoba OCR.space sebagai fallback...');
+      const text = await ocrWithOcrSpace(imageBuffer, OCR_API_KEY);
+      if (text && text.trim().length > 10) {
+        const parsed = parseOcrText(text);
+        if (parsed && parsed.amount) {
+          console.log('✅ OCR.space berhasil:', parsed.amount);
+          return parsed;
+        }
+      }
     }
-
-    const result = await response.json();
-    console.log('📝 OCR berhasil, result:', result);
-
-    // Ambil text dari response
-    const text = result.text || result.result || '';
-    return text;
-
+    
+    // Fallback terakhir: beri tahu user untuk input manual
+    throw new Error('OCR otomatis tidak tersedia. Silakan input manual dengan format: -5000 deskripsi');
+    
   } catch (error) {
-    console.error('❌ Puter OCR error:', error.message);
+    console.error('❌ OCR error:', error.message);
     throw error;
   }
 }
 
 /**
- * OCR dengan output JSON terstruktur (untuk struk)
+ * Fallback OCR menggunakan OCR.space
  */
-async function ocrStrukWithPuter(imageBuffer) {
-  // 1. Dapatkan teks mentah dari Puter.js
-  const rawText = await ocrWithPuter(imageBuffer);
+async function ocrWithOcrSpace(imageBuffer, apiKey) {
+  const FormData = require('form-data');
+  const axios = require('axios');
   
-  if (!rawText || rawText.trim().length < 3) {
-    throw new Error('Tidak ada teks yang terbaca dari gambar');
+  const formData = new FormData();
+  formData.append('apikey', apiKey);
+  formData.append('file', imageBuffer, {
+    filename: 'receipt.jpg',
+    contentType: 'image/jpeg'
+  });
+  formData.append('language', 'ind');
+  formData.append('isOverlayRequired', 'false');
+
+  try {
+    const response = await axios.post('https://api.ocr.space/parse/image', formData, {
+      headers: { ...formData.getHeaders() },
+      timeout: 20000
+    });
+
+    const data = response.data;
+    if (data.IsErroredOnProcessing) {
+      throw new Error(data.ErrorMessage || 'OCR.space gagal');
+    }
+    return data.ParsedResults?.[0]?.ParsedText || '';
+  } catch (e) {
+    console.error('❌ OCR.space error:', e.message);
+    return '';
   }
-
-  console.log('📝 Raw OCR text:', rawText.substring(0, 500) + '...');
-
-  // 2. Parse teks mentah menjadi data terstruktur
-  const parsed = parseOcrText(rawText);
-
-  if (!parsed || !parsed.amount) {
-    throw new Error('Tidak dapat mendeteksi jumlah transaksi');
-  }
-
-  return parsed;
 }
 
 /**
- * Parsing teks OCR
+ * Parsing teks OCR (manual)
  */
 function parseOcrText(text) {
-  if (!text || text.trim().length < 3) return null;
+  if (!text || text.trim().length < 3) return { amount: null, items: [], merchant: null };
 
   const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
   const fullText = text;
 
-  // Cari Grand Total
+  // === 1. Cari Grand Total ===
   let grandTotal = null;
   const totalPatterns = [
     /grand total\s*[:=]?\s*Rp\s*([\d.,]+)/i,
@@ -107,7 +128,7 @@ function parseOcrText(text) {
     }
   }
 
-  // Cari Merchant
+  // === 2. Cari Merchant ===
   let merchant = null;
   for (const line of lines.slice(0, 8)) {
     if (line.length > 3 && line.length < 60 &&
@@ -119,7 +140,7 @@ function parseOcrText(text) {
     }
   }
 
-  // Cari Tanggal
+  // === 3. Cari Tanggal ===
   let date = null;
   const datePatterns = [
     /(\d{2})\/(\d{2})\/(\d{4})/,
@@ -137,7 +158,7 @@ function parseOcrText(text) {
     }
   }
 
-  // Cari Items
+  // === 4. Cari Items ===
   const items = [];
   for (const line of lines) {
     if (line.length < 3) continue;
@@ -157,15 +178,15 @@ function parseOcrText(text) {
     items.push({ name: namePart, price, quantity: qty });
   }
 
-  // Kategori
+  // === 5. Kategori ===
   let category = 'other';
   const lowerText = fullText.toLowerCase();
   const keywords = {
     dining: ['makan', 'resto', 'restaurant', 'warung', 'cafe', 'kopi', 'sushi', 'pizza', 'burger', 'bakso', 'nasi', 'ayam', 'soto', 'mie', 'seafood'],
-    shopping: ['belanja', 'shop', 'baju', 'sepatu', 'toko', 'mall', 'pakaian', 'fashion'],
+    shopping: ['belanja', 'shop', 'baju', 'sepatu', 'toko', 'mall', 'pakaian', 'fashion', 'indomaret', 'alfamart'],
     transport: ['transport', 'ojol', 'grab', 'gojek', 'bensin', 'pertamina', 'taxi', 'kereta'],
-    bills: ['tagihan', 'listrik', 'pln', 'air', 'pdam', 'internet', 'telkom'],
-    fun: ['hiburan', 'film', 'nonton', 'game', 'playstation', 'netflix'],
+    bills: ['tagihan', 'listrik', 'pln', 'air', 'pdam', 'internet', 'telkom', 'indihome'],
+    fun: ['hiburan', 'film', 'nonton', 'game', 'playstation', 'netflix', 'spotify'],
     health: ['kesehatan', 'obat', 'dokter', 'rumah sakit', 'rs', 'klinik', 'apotek'],
     gift: ['hadiah', 'gift', 'kado']
   };
@@ -188,6 +209,5 @@ function parseOcrText(text) {
 }
 
 module.exports = {
-  ocrWithPuter,
   ocrStrukWithPuter
 };
