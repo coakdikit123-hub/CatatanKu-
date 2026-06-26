@@ -1,60 +1,77 @@
-// api/ocr-space.js
+// api/puter-ocr.js
 const axios = require('axios');
 const FormData = require('form-data');
 
 /**
  * OCR menggunakan OCR.space API
- * Gratis: 500 request/hari (dengan API key)
- * @param {Buffer} imageBuffer - Buffer gambar
- * @param {string} apiKey - API key OCR.space
- * @returns {Promise<string>} - Hasil teks OCR
+ * Gratis: 500 request/hari
+ * Dokumentasi: https://ocr.space/OCRAPI
  */
-async function ocrWithOcrSpace(imageBuffer, apiKey) {
-  if (!apiKey) {
-    throw new Error('OCR_API_KEY tidak diset. Dapatkan di https://ocr.space/OCRAPI');
+async function ocrStrukWithPuter(imageBuffer) {
+  const OCR_API_KEY = process.env.OCR_API_KEY;
+  
+  if (!OCR_API_KEY) {
+    throw new Error('OCR_API_KEY tidak diset. Tambahkan di Vercel Environment Variables.');
   }
 
   console.log('📸 Memproses gambar dengan OCR.space...');
 
   const formData = new FormData();
-  formData.append('apikey', apiKey);
+  formData.append('apikey', OCR_API_KEY);
   formData.append('file', imageBuffer, {
     filename: 'receipt.jpg',
     contentType: 'image/jpeg'
   });
-  formData.append('language', 'ind');
+  // Hapus parameter language — biarkan auto-detect
+  // formData.append('language', 'ind');
   formData.append('isOverlayRequired', 'false');
-  formData.append('OCREngine', '2'); // 2 = lebih akurat
+  formData.append('OCREngine', '2'); // Engine lebih akurat
 
   try {
     const response = await axios.post('https://api.ocr.space/parse/image', formData, {
-      headers: { ...formData.getHeaders() },
-      timeout: 30000,
-      maxContentLength: Infinity,
-      maxBodyLength: Infinity
+      headers: {
+        ...formData.getHeaders()
+      },
+      timeout: 30000 // 30 detik
     });
 
     const data = response.data;
+    console.log('📡 OCR.space response:', data.IsErroredOnProcessing ? 'ERROR' : 'OK');
+
     if (data.IsErroredOnProcessing) {
-      throw new Error(data.ErrorMessage || 'OCR.space gagal memproses gambar');
+      const errMsg = data.ErrorMessage || 'OCR.space gagal';
+      console.error('❌ OCR.space error:', errMsg);
+      throw new Error(`OCR.space: ${errMsg}`);
     }
 
     const text = data.ParsedResults?.[0]?.ParsedText || '';
+    if (!text || text.trim().length < 3) {
+      throw new Error('Tidak ada teks yang terbaca dari gambar');
+    }
+
     console.log(`📝 OCR.space berhasil, ${text.length} karakter`);
-    return text;
+    console.log('📝 Preview:', text.substring(0, 200) + '...');
+
+    // Parse teks menjadi data terstruktur
+    const parsed = parseOcrText(text);
+    if (!parsed || !parsed.amount) {
+      throw new Error('Tidak dapat mendeteksi jumlah transaksi');
+    }
+
+    return parsed;
 
   } catch (error) {
-    console.error('❌ OCR.space error:', error.message);
+    console.error('❌ OCR error:', error.message);
     if (error.response) {
       console.error('📡 Response status:', error.response.status);
       console.error('📡 Response data:', JSON.stringify(error.response.data, null, 2));
     }
-    throw new Error(`OCR.space: ${error.message}`);
+    throw error;
   }
 }
 
 /**
- * Parsing teks OCR (manual) untuk mengekstrak data struk
+ * Parsing teks OCR (manual)
  */
 function parseOcrText(text) {
   if (!text || text.trim().length < 3) return null;
@@ -175,6 +192,5 @@ function parseOcrText(text) {
 }
 
 module.exports = {
-  ocrWithOcrSpace,
-  parseOcrText
+  ocrStrukWithPuter
 };
