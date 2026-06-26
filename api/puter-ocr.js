@@ -1,8 +1,5 @@
 // api/puter-ocr.js
-const { PuterClient } = require('@heyputer/puter.js');
-
-// Inisialisasi Puter Client
-const puter = new PuterClient();
+// Tidak menggunakan require di awal, semua impor dilakukan secara dinamis
 
 /**
  * OCR menggunakan Puter.js (gratis & unlimited)
@@ -14,14 +11,20 @@ async function ocrWithPuter(imageBuffer, provider = 'aws-textract') {
   console.log(`📸 Memproses gambar dengan Puter.js (${provider})...`);
 
   try {
-    // Konversi buffer ke Blob/File
-    const blob = new Blob([imageBuffer], { type: 'image/jpeg' });
-    
+    // Dynamic import untuk ES Module
+    const { PuterClient } = await import('@heyputer/puter.js');
+    const puter = new PuterClient();
+
+    // Konversi Buffer ke ArrayBuffer (kompatibel dengan Blob)
+    const arrayBuffer = imageBuffer.buffer.slice(
+      imageBuffer.byteOffset,
+      imageBuffer.byteOffset + imageBuffer.byteLength
+    );
+    const blob = new Blob([arrayBuffer], { type: 'image/jpeg' });
+
     // Panggil OCR API
     const text = await puter.ai.img2txt(blob, {
       provider: provider,
-      // Opsi tambahan untuk Mistral
-      // model: 'mistral-ocr-latest', // jika pakai mistral
     });
 
     console.log('📝 OCR berhasil, panjang teks:', text?.length || 0);
@@ -35,7 +38,6 @@ async function ocrWithPuter(imageBuffer, provider = 'aws-textract') {
 
 /**
  * OCR dengan output JSON terstruktur (untuk struk)
- * Menggunakan Puter.js + parsing manual
  */
 async function ocrStrukWithPuter(imageBuffer) {
   // 1. Dapatkan teks mentah dari Puter.js
