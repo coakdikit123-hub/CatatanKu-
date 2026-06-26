@@ -1,34 +1,41 @@
 // api/puter-ocr.js
-// Tidak menggunakan require di awal, semua impor dilakukan secara dinamis
+// Menggunakan fetch langsung ke Puter API tanpa library ESM yang bermasalah
 
 /**
- * OCR menggunakan Puter.js (gratis & unlimited)
+ * OCR menggunakan Puter.js (gratis & unlimited) — via fetch API
  * @param {Buffer} imageBuffer - Buffer gambar
- * @param {string} provider - 'aws-textract' (default) atau 'mistral'
  * @returns {Promise<string>} - Hasil teks OCR
  */
-async function ocrWithPuter(imageBuffer, provider = 'aws-textract') {
-  console.log(`📸 Memproses gambar dengan Puter.js (${provider})...`);
+async function ocrWithPuter(imageBuffer) {
+  console.log('📸 Memproses gambar dengan Puter.js OCR...');
 
   try {
-    // Dynamic import untuk ES Module
-    const { PuterClient } = await import('@heyputer/puter.js');
-    const puter = new PuterClient();
+    // Konversi Buffer ke base64
+    const base64Image = imageBuffer.toString('base64');
+    const dataUrl = `data:image/jpeg;base64,${base64Image}`;
 
-    // Konversi Buffer ke ArrayBuffer (kompatibel dengan Blob)
-    const arrayBuffer = imageBuffer.buffer.slice(
-      imageBuffer.byteOffset,
-      imageBuffer.byteOffset + imageBuffer.byteLength
-    );
-    const blob = new Blob([arrayBuffer], { type: 'image/jpeg' });
-
-    // Panggil OCR API
-    const text = await puter.ai.img2txt(blob, {
-      provider: provider,
+    // Kirim request ke Puter API endpoint yang sudah disediakan
+    const response = await fetch('https://api.puter.com/v2/ocr', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        image: dataUrl,
+      }),
     });
 
-    console.log('📝 OCR berhasil, panjang teks:', text?.length || 0);
-    return text || '';
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    const result = await response.json();
+    console.log('📝 OCR berhasil, result:', result);
+
+    // Ambil text dari response
+    const text = result.text || result.result || '';
+    return text;
 
   } catch (error) {
     console.error('❌ Puter OCR error:', error.message);
@@ -41,7 +48,7 @@ async function ocrWithPuter(imageBuffer, provider = 'aws-textract') {
  */
 async function ocrStrukWithPuter(imageBuffer) {
   // 1. Dapatkan teks mentah dari Puter.js
-  const rawText = await ocrWithPuter(imageBuffer, 'aws-textract');
+  const rawText = await ocrWithPuter(imageBuffer);
   
   if (!rawText || rawText.trim().length < 3) {
     throw new Error('Tidak ada teks yang terbaca dari gambar');
@@ -60,7 +67,7 @@ async function ocrStrukWithPuter(imageBuffer) {
 }
 
 /**
- * Parsing teks OCR (sama seperti sebelumnya)
+ * Parsing teks OCR
  */
 function parseOcrText(text) {
   if (!text || text.trim().length < 3) return null;
