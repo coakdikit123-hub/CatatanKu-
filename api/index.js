@@ -124,8 +124,6 @@ function formatReceiptResponse(parsed, userId) {
     year: 'numeric'
   });
 
-  let timeDisplay = parsed.time || '';
-
   let response = `📤 *Transaksi berhasil dicatat dari struk!*\n\n`;
   response += `💰 *${parsed.amount ? 'Rp ' + parsed.amount.toLocaleString('id-ID') : 'Tidak terdeteksi'}*\n\n`;
 
@@ -145,11 +143,7 @@ function formatReceiptResponse(parsed, userId) {
     }
     response += `  📦 *Total Item:* ${parsed.items.length}\n`;
     response += `\n📂 *Kategori:* ${categoryLabel}\n`;
-    if (timeDisplay) {
-      response += `🕐 *Waktu:* ${formattedDate}, ${timeDisplay}\n`;
-    } else {
-      response += `📅 *Tanggal:* ${formattedDate}\n`;
-    }
+    response += `📅 *Tanggal:* ${formattedDate}\n`;
   } else {
     response += `📋 *Rincian:* ${parsed.merchant || 'Struk'}\n`;
     response += `📂 *Kategori:* ${categoryLabel}\n`;
@@ -395,7 +389,7 @@ bot.on('photo', async (ctx) => {
       return;
     }
 
-    // Dapatkan file foto
+    // Dapatkan file foto (resolusi tertinggi)
     const photo = ctx.message.photo[ctx.message.photo.length - 1];
     const fileLink = await ctx.telegram.getFileLink(photo.file_id);
     console.log('📸 File link:', fileLink);
@@ -404,7 +398,7 @@ bot.on('photo', async (ctx) => {
     const response = await axios.get(fileLink, { responseType: 'arraybuffer' });
     const imageBuffer = Buffer.from(response.data, 'binary');
 
-    // OCR dengan OCR.space
+    // OCR
     let ocrResult;
     try {
       ocrResult = await ocrStrukWithPuter(imageBuffer);
@@ -450,7 +444,6 @@ bot.on('photo', async (ctx) => {
     await addTransaction(userId, tx);
     console.log('✅ Transaksi OCR berhasil disimpan');
 
-    // Format response
     const formattedResponse = formatReceiptResponse(ocrResult, userId);
 
     await ctx.telegram.editMessageText(
@@ -621,6 +614,7 @@ app.get('/api/test', (req, res) => {
   res.json({
     message: 'API is working',
     bot_token_set: !!BOT_TOKEN,
+    ocr_api_key_set: !!process.env.OCR_API_KEY,
     vercel_url: process.env.VERCEL_URL,
     app_url: appUrl
   });
