@@ -1,7 +1,7 @@
 {
   "name": "catatan-ku",
   "version": "1.0.0",
-  "description": "Bot Telegram + Mini App CatatanKu",
+  "description": "Bot Telegram + Mini App CatatanKu dengan OCR.space",
   "main": "api/index.js",
   "scripts": {
     "start": "vercel dev",
