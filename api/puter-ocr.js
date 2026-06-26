@@ -5,7 +5,6 @@ const FormData = require('form-data');
 /**
  * OCR menggunakan OCR.space API
  * Gratis: 500 request/hari
- * Dokumentasi: https://ocr.space/OCRAPI
  */
 async function ocrStrukWithPuter(imageBuffer) {
   const OCR_API_KEY = process.env.OCR_API_KEY;
@@ -22,17 +21,14 @@ async function ocrStrukWithPuter(imageBuffer) {
     filename: 'receipt.jpg',
     contentType: 'image/jpeg'
   });
-  // Hapus parameter language — biarkan auto-detect
-  // formData.append('language', 'ind');
+  // Biarkan auto-detect language (tidak kirim parameter language)
   formData.append('isOverlayRequired', 'false');
   formData.append('OCREngine', '2'); // Engine lebih akurat
 
   try {
     const response = await axios.post('https://api.ocr.space/parse/image', formData, {
-      headers: {
-        ...formData.getHeaders()
-      },
-      timeout: 30000 // 30 detik
+      headers: { ...formData.getHeaders() },
+      timeout: 30000
     });
 
     const data = response.data;
@@ -50,7 +46,6 @@ async function ocrStrukWithPuter(imageBuffer) {
     }
 
     console.log(`📝 OCR.space berhasil, ${text.length} karakter`);
-    console.log('📝 Preview:', text.substring(0, 200) + '...');
 
     // Parse teks menjadi data terstruktur
     const parsed = parseOcrText(text);
@@ -71,7 +66,7 @@ async function ocrStrukWithPuter(imageBuffer) {
 }
 
 /**
- * Parsing teks OCR (manual)
+ * Parsing teks OCR — DIPERBAIKI untuk berbagai format struk
  */
 function parseOcrText(text) {
   if (!text || text.trim().length < 3) return null;
@@ -79,19 +74,23 @@ function parseOcrText(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
   const fullText = text;
 
-  // === Cari Grand Total ===
+  // --- 1. Cari Grand Total dengan berbagai pola ---
   let grandTotal = null;
-  const totalPatterns = [
-    /grand total\s*[:=]?\s*Rp\s*([\d.,]+)/i,
-    /grand total\s*[:=]?\s*([\d.,]+)/i,
-    /total\s*[:=]?\s*Rp\s*([\d.,]+)/i,
-    /total\s*[:=]?\s*([\d.,]+)/i,
-    /jumlah\s*[:=]?\s*Rp\s*([\d.,]+)/i,
-    /jumlah\s*[:=]?\s*([\d.,]+)/i,
-    /(\d{1,3}(?:\.\d{3})*)\s*$/m,
+
+  const patterns = [
+    /grand total\s*[:=]\s*Rp\s*([\d.,]+)/i,
+    /grand total\s*[:=]\s*([\d.,]+)/i,
+    /total\s*[:=]\s*Rp\s*([\d.,]+)/i,
+    /total\s*[:=]\s*([\d.,]+)/i,
+    /jumlah\s*[:=]\s*Rp\s*([\d.,]+)/i,
+    /jumlah\s*[:=]\s*([\d.,]+)/i,
+    /total bayar\s*[:=]\s*Rp\s*([\d.,]+)/i,
+    /total bayar\s*[:=]\s*([\d.,]+)/i,
+    /harus dibayar\s*[:=]\s*Rp\s*([\d.,]+)/i,
+    /harus dibayar\s*[:=]\s*([\d.,]+)/i,
   ];
 
-  for (const pattern of totalPatterns) {
+  for (const pattern of patterns) {
     const match = fullText.match(pattern);
     if (match) {
       const raw = match[1].replace(/\./g, '').replace(/,/g, '');
@@ -103,31 +102,60 @@ function parseOcrText(text) {
     }
   }
 
+  // --- 2. Cari "HARGA JUAL" atau "DPP" (struk Indomaret/Alfamart) ---
   if (!grandTotal) {
-    const allNums = fullText.match(/\d{1,3}(?:\.\d{3})*/g);
-    if (allNums) {
-      const nums = allNums.map(n => parseInt(n.replace(/\./g, ''))).filter(n => n > 0 && n < 999999999);
-      if (nums.length > 0) grandTotal = Math.max(...nums);
+    const hargaJualMatch = fullText.match(/harga jual\s*[:=]\s*([\d.,]+)/i);
+    if (hargaJualMatch) {
+      const raw = hargaJualMatch[1].replace(/\./g, '').replace(/,/g, '');
+      const num = parseInt(raw);
+      if (num > 0 && num < 999999999) {
+        grandTotal = num;
+      }
     }
   }
 
-  // === Cari Merchant ===
+  if (!grandTotal) {
+    const dppMatch = fullText.match(/dpp\s*[:=]\s*([\d.,]+)/i);
+    if (dppMatch) {
+      const raw = dppMatch[1].replace(/\./g, '').replace(/,/g, '');
+      const num = parseInt(raw);
+      if (num > 0 && num < 999999999) {
+        grandTotal = num;
+      }
+    }
+  }
+
+  // --- 3. Fallback: ambil angka terbesar positif ---
+  if (!grandTotal) {
+    const allNums = fullText.match(/\d{1,3}(?:\.\d{3})*/g);
+    if (allNums) {
+      const nums = allNums
+        .map(n => parseInt(n.replace(/\./g, '')))
+        .filter(n => n > 0 && n < 999999999);
+      if (nums.length > 0) {
+        grandTotal = Math.max(...nums);
+      }
+    }
+  }
+
+  // --- 4. Cari Merchant ---
   let merchant = null;
   for (const line of lines.slice(0, 8)) {
-    if (line.length > 3 && line.length < 60 &&
+    if (line.length > 3 && line.length < 80 &&
       !/\d/.test(line.replace(/[0-9,.]/g, '')) &&
-      !/total|jumlah|bayar|kembali|kasir|terima|tanggal|disc|tax|pajak|ppn|grand|subtotal|pb1|qr/i.test(line) &&
+      !/total|jumlah|bayar|kembali|kasir|terima|tanggal|disc|tax|pajak|ppn|grand|subtotal|pb1|qr|dpp|harga jual/i.test(line) &&
       line.length > 5 && !/^\d/.test(line)) {
       merchant = line;
       break;
     }
   }
 
-  // === Cari Tanggal ===
+  // --- 5. Cari Tanggal ---
   let date = null;
   const datePatterns = [
     /(\d{2})\/(\d{2})\/(\d{4})/,
     /(\d{2})-(\d{2})-(\d{4})/,
+    /(\d{4})-(\d{2})-(\d{2})/,
   ];
   for (const pattern of datePatterns) {
     const match = fullText.match(pattern);
@@ -141,11 +169,11 @@ function parseOcrText(text) {
     }
   }
 
-  // === Cari Items ===
+  // --- 6. Cari Items ---
   const items = [];
   for (const line of lines) {
     if (line.length < 3) continue;
-    if (/^(subtotal|total|grand|jumlah|pb1|pajak|tax|qr|bt|items|tanggal|date|kasir|cashier)/i.test(line)) continue;
+    if (/^(subtotal|total|grand|jumlah|pb1|pajak|tax|qr|bt|items|tanggal|date|kasir|cashier|dpp|harga jual)/i.test(line)) continue;
     const priceMatch = line.match(/([\d.,]+)\s*$/);
     if (!priceMatch) continue;
     const price = parseInt(priceMatch[1].replace(/\./g, '').replace(/,/g, ''));
@@ -161,7 +189,7 @@ function parseOcrText(text) {
     items.push({ name: namePart, price, quantity: qty });
   }
 
-  // === Kategori ===
+  // --- 7. Kategori ---
   let category = 'other';
   const lowerText = fullText.toLowerCase();
   const keywords = {
@@ -180,8 +208,16 @@ function parseOcrText(text) {
     if (category !== 'other') break;
   }
 
+  // Jika merchant mengandung "Indomaret" atau "Alfamart", ubah kategori ke shopping
+  if (merchant && /indomaret|alfamart/i.test(merchant)) {
+    category = 'shopping';
+  }
+
+  // --- 8. Hasil ---
+  const amount = grandTotal || (items.length > 0 ? items.reduce((s, i) => s + (i.price * i.quantity), 0) : null);
+
   return {
-    amount: grandTotal || (items.length > 0 ? items.reduce((s, i) => s + (i.price * i.quantity), 0) : null),
+    amount: amount,
     date: date || new Date().toISOString().slice(0, 10),
     time: null,
     merchant: merchant,
