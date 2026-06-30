@@ -6,223 +6,499 @@
     <title>Admin - CatatanKu</title>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries">
     </script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
     <style>
+        /* ============================================================
+               ROOT & BASE
+            ============================================================ */
         * {
             font-family: 'Inter', sans-serif;
             box-sizing: border-box;
         }
+
+        :root {
+            --accent: #B1BCFB;
+            --accent-dim: rgba(177, 188, 251, 0.10);
+            --accent-glow: rgba(177, 188, 251, 0.18);
+            --surface-0: #070b17;
+            --surface-1: #0f1625;
+            --surface-2: #172132;
+            --surface-3: #1e2a40;
+            --surface-4: #26334f;
+            --border: rgba(255, 255, 255, 0.06);
+            --border-hover: rgba(177, 188, 251, 0.25);
+            --text-1: #e8edf8;
+            --text-2: #8fa0bc;
+            --text-3: #4a5d7a;
+            --income: #6ee7b7;
+            --expense: #f87171;
+            --warning: #fbbf24;
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 20px;
+            --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4);
+            --shadow-glow: 0 8px 32px rgba(177, 188, 251, 0.12);
+        }
+
         body {
-            background-color: #0f1420;
-            color: #e8edf5;
+            background-color: var(--surface-0);
+            color: var(--text-1);
             min-height: 100dvh;
             margin: 0;
             padding: 20px;
+            font-weight: 400;
+            line-height: 1.5;
         }
+
+        /* ============================================================
+               SCROLLBAR
+            ============================================================ */
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--surface-4);
+            border-radius: 9999px;
+        }
+
+        /* ============================================================
+               CONTAINER
+            ============================================================ */
         .container {
-            max-width: 800px;
+            max-width: 880px;
             margin: 0 auto;
         }
+
+        /* ============================================================
+               CARDS
+            ============================================================ */
         .card {
-            background: #1a2238;
-            border: 1px solid #B1BCFB;
-            border-radius: 16px;
+            background: var(--surface-1);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
             padding: 24px;
             margin-bottom: 20px;
-            transition: border-color 0.2s, box-shadow 0.2s;
+            transition: border-color 0.25s, box-shadow 0.25s, transform 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .card:hover::before {
+            opacity: 1;
         }
         .card:hover {
-            border-color: rgba(177, 188, 251, 0.4);
+            border-color: var(--border-hover);
+            box-shadow: var(--shadow-glow);
         }
+
+        .card-glow {
+            box-shadow: var(--shadow-glow);
+        }
+
+        /* ============================================================
+               BUTTONS
+            ============================================================ */
         .btn {
             padding: 10px 20px;
-            border-radius: 8px;
+            border-radius: var(--radius-sm);
             border: none;
             cursor: pointer;
             font-weight: 600;
-            transition: 0.15s;
             font-size: 14px;
+            transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
             display: inline-flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
+            text-decoration: none;
+            position: relative;
+            overflow: hidden;
         }
+        .btn:active {
+            transform: scale(0.96);
+        }
+
         .btn-danger {
-            background: #DF172A;
-            color: white;
+            background: var(--expense);
+            color: #0a0e1a;
         }
         .btn-danger:hover {
-            transform: scale(1.02);
-            background: #c01424;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(248, 113, 113, 0.30);
         }
+
         .btn-primary {
-            background: #B1BCFB;
-            color: #0f1420;
+            background: var(--accent);
+            color: #0a0e1a;
         }
         .btn-primary:hover {
-            transform: scale(1.02);
-            box-shadow: 0 4px 16px rgba(177, 188, 251, 0.25);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 24px rgba(177, 188, 251, 0.30);
         }
+
         .btn-secondary {
-            background: #2a3550;
-            color: #e8edf5;
+            background: var(--surface-2);
+            color: var(--text-1);
+            border: 1px solid var(--border);
         }
         .btn-secondary:hover {
-            background: #3a4560;
-            transform: scale(1.02);
+            background: var(--surface-3);
+            border-color: var(--border-hover);
+            transform: translateY(-2px);
         }
+
         .btn-outline {
             background: transparent;
-            color: #e8edf5;
-            border: 1px solid #2a3550;
+            color: var(--text-1);
+            border: 1px solid var(--border);
         }
         .btn-outline:hover {
-            background: #2a3550;
+            background: var(--surface-2);
+            border-color: var(--border-hover);
         }
-        input {
-            background: #0f1420;
-            border: 1px solid #2a3550;
-            color: #e8edf5;
-            padding: 10px 14px;
+
+        .btn-success {
+            background: var(--income);
+            color: #0a0e1a;
+        }
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(110, 231, 183, 0.30);
+        }
+
+        .btn-sm {
+            padding: 6px 14px;
+            font-size: 12px;
             border-radius: 8px;
+        }
+
+        /* ============================================================
+               INPUTS
+            ============================================================ */
+        input[type="text"],
+        input[type="password"],
+        input[type="number"] {
+            background: var(--surface-0);
+            border: 1.5px solid var(--border);
+            color: var(--text-1);
+            padding: 12px 16px;
+            border-radius: var(--radius-sm);
             width: 100%;
             outline: none;
-            transition: border-color 0.2s;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            font-size: 14px;
         }
         input:focus {
-            border-color: #B1BCFB;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-dim);
         }
         input::placeholder {
-            color: #4a5d7a;
+            color: var(--text-3);
         }
-        .user-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 0;
-            border-bottom: 1px solid #2a3550;
-            gap: 12px;
-        }
-        .user-item:last-child {
-            border-bottom: none;
-        }
-        .user-item .user-info {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            flex-wrap: wrap;
-        }
-        .user-item .user-id {
-            font-family: 'Inter', monospace;
-            font-weight: 500;
-            color: #e8edf5;
-            background: #0f1420;
-            padding: 2px 12px;
-            border-radius: 6px;
-            border: 1px solid #2a3550;
-            font-size: 13px;
-        }
-        .user-item .user-stats {
-            font-size: 13px;
-            color: #8fa0bc;
-        }
-        .user-item .user-badge {
-            font-size: 11px;
-            padding: 2px 10px;
-            border-radius: 12px;
-            font-weight: 600;
-        }
-        .user-item .user-badge.active {
-            background: rgba(110, 231, 183, 0.15);
-            color: #6ee7b7;
-            border: 1px solid rgba(110, 231, 183, 0.15);
-        }
-        .user-item .user-badge.inactive {
-            background: rgba(248, 113, 113, 0.12);
-            color: #f87171;
-            border: 1px solid rgba(248, 113, 113, 0.15);
-        }
-        .token-input {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 16px;
-        }
-        .token-input input {
-            flex: 1;
-        }
+
+        /* ============================================================
+               TOAST
+            ============================================================ */
         .toast {
             position: fixed;
             bottom: 30px;
             left: 50%;
             transform: translateX(-50%) translateY(20px);
-            background: #1e2740;
-            color: #e8edf5;
-            padding: 12px 24px;
-            border-radius: 12px;
+            background: var(--surface-2);
+            color: var(--text-1);
+            padding: 14px 28px;
+            border-radius: 40px;
             font-weight: 500;
             font-size: 14px;
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+            border: 1px solid var(--border);
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
             opacity: 0;
-            transition: all 0.35s ease;
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
             z-index: 999;
             pointer-events: none;
             white-space: nowrap;
-            border: 1px solid #2a3550;
+            max-width: 90vw;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .toast.show {
             opacity: 1;
             transform: translateX(-50%) translateY(0);
         }
 
-        /* === Login Section === */
+        /* ============================================================
+               LOGIN SECTION
+            ============================================================ */
         #login-section {
-            transition: opacity 0.4s ease, transform 0.4s ease;
-            max-height: 500px;
+            transition: all 0.5s cubic-bezier(0.34, 1.2, 0.64, 1);
+            max-height: 600px;
             overflow: hidden;
+            opacity: 1;
+            transform: translateY(0);
         }
         #login-section.hidden {
             opacity: 0;
-            transform: translateY(-20px);
+            transform: translateY(-30px);
             max-height: 0;
-            margin: 0;
             padding: 0;
+            margin: 0;
             overflow: hidden;
             pointer-events: none;
         }
 
-        /* === Stats Cards === */
+        .login-icon {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: var(--accent-dim);
+            border: 1px solid rgba(177, 188, 251, 0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+        }
+        .login-icon .material-symbols-outlined {
+            font-size: 32px;
+            color: var(--accent);
+        }
+
+        /* ============================================================
+               USER ITEM
+            ============================================================ */
+        .user-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 0;
+            border-bottom: 1px solid var(--border);
+            gap: 12px;
+            transition: background 0.15s;
+            border-radius: 8px;
+            padding-left: 4px;
+            padding-right: 4px;
+        }
+        .user-item:hover {
+            background: var(--surface-2);
+        }
+        .user-item:last-child {
+            border-bottom: none;
+        }
+
+        .user-item .user-info {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .user-item .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--accent-dim);
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            color: var(--accent);
+            font-weight: 700;
+            font-size: 14px;
+        }
+
+        .user-item .user-id {
+            font-weight: 600;
+            color: var(--text-1);
+            font-size: 14px;
+            font-family: 'Inter', monospace;
+            background: var(--surface-0);
+            padding: 2px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+        }
+
+        .user-item .user-stats {
+            font-size: 13px;
+            color: var(--text-2);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .user-item .user-stats .material-symbols-outlined {
+            font-size: 16px;
+        }
+
+        .user-item .user-badge {
+            font-size: 11px;
+            padding: 3px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+        }
+        .user-item .user-badge.active {
+            background: rgba(110, 231, 183, 0.10);
+            color: var(--income);
+            border: 1px solid rgba(110, 231, 183, 0.12);
+        }
+        .user-item .user-badge.inactive {
+            background: rgba(248, 113, 113, 0.08);
+            color: var(--expense);
+            border: 1px solid rgba(248, 113, 113, 0.12);
+        }
+
+        .user-item .user-date {
+            font-size: 11px;
+            color: var(--text-3);
+            white-space: nowrap;
+        }
+
+        .user-item .user-actions {
+            display: flex;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        /* ============================================================
+               STATS GRID
+            ============================================================ */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            grid-template-columns: repeat(4, 1fr);
             gap: 12px;
             margin-bottom: 20px;
         }
+
         .stat-card {
-            background: #0f1420;
-            border: 1px solid #2a3550;
-            border-radius: 12px;
-            padding: 16px;
+            background: var(--surface-1);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 18px 16px;
             text-align: center;
+            transition: border-color 0.2s, transform 0.2s;
+        }
+        .stat-card:hover {
+            border-color: var(--border-hover);
+            transform: translateY(-2px);
+        }
+
+        .stat-card .stat-icon {
+            font-size: 24px;
+            display: block;
+            margin-bottom: 4px;
+            opacity: 0.6;
         }
         .stat-card .stat-number {
-            font-size: 24px;
-            font-weight: 700;
-            color: #B1BCFB;
+            font-size: 26px;
+            font-weight: 800;
+            color: var(--accent);
+            letter-spacing: -0.02em;
         }
         .stat-card .stat-label {
             font-size: 11px;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.06em;
-            color: #8fa0bc;
+            color: var(--text-3);
             margin-top: 4px;
         }
 
-        /* === Loading Skeleton === */
+        /* ============================================================
+               HEADER
+            ============================================================ */
+        .app-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 28px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .app-header .brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .app-header .brand .logo {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: var(--accent-dim);
+            border: 1px solid rgba(177, 188, 251, 0.12);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .app-header .brand .logo .material-symbols-outlined {
+            font-size: 24px;
+            color: var(--accent);
+        }
+        .app-header .brand h1 {
+            font-size: 22px;
+            font-weight: 800;
+            color: var(--text-1);
+            letter-spacing: -0.3px;
+        }
+        .app-header .brand p {
+            font-size: 13px;
+            color: var(--text-2);
+            margin-top: 2px;
+        }
+
+        .app-header .actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        /* ============================================================
+               EMPTY STATE
+            ============================================================ */
+        .empty-state {
+            text-align: center;
+            padding: 48px 20px 32px;
+            color: var(--text-3);
+        }
+        .empty-state .material-symbols-outlined {
+            font-size: 48px;
+            display: block;
+            margin-bottom: 12px;
+            opacity: 0.4;
+        }
+        .empty-state p {
+            font-size: 14px;
+            margin: 0;
+        }
+        .empty-state .sub {
+            font-size: 12px;
+            color: var(--text-3);
+            margin-top: 4px;
+        }
+
+        /* ============================================================
+               LOADING SKELETON
+            ============================================================ */
         .skeleton {
-            background: linear-gradient(90deg, #1a2238 25%, #2a3550 50%, #1a2238 75%);
+            background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%);
             background-size: 200% 100%;
-            animation: shimmer 1.5s infinite;
+            animation: shimmer 1.6s infinite;
             border-radius: 6px;
             height: 20px;
             width: 100%;
@@ -236,50 +512,12 @@
             }
         }
 
-        /* === Empty State === */
-        .empty-state {
-            text-align: center;
-            padding: 40px 20px;
-            color: #4a5d7a;
-        }
-        .empty-state .material-symbols-outlined {
-            font-size: 48px;
-            display: block;
-            margin-bottom: 12px;
-            opacity: 0.5;
-        }
-        .empty-state p {
-            font-size: 14px;
-            margin: 0;
-        }
-
-        /* === Responsive === */
-        @media (max-width: 480px) {
-            .user-item {
-                flex-direction: column;
-                align-items: stretch;
-                gap: 8px;
-            }
-            .user-item .user-info {
-                flex-wrap: wrap;
-            }
-            .stats-grid {
-                grid-template-columns: 1fr 1fr;
-            }
-            .token-input {
-                flex-direction: column;
-            }
-            .container {
-                padding: 0 4px;
-            }
-            .card {
-                padding: 16px;
-            }
-        }
-
-        /* === Animasi masuk === */
+        /* ============================================================
+               ANIMATIONS
+            ============================================================ */
         .fade-in {
-            animation: fadeIn 0.4s ease;
+            animation: fadeIn 0.4s ease forwards;
+            opacity: 0;
         }
         @keyframes fadeIn {
             from {
@@ -291,73 +529,259 @@
                 transform: translateY(0);
             }
         }
+
+        .fade-in:nth-child(1) {
+            animation-delay: 0.05s;
+        }
+        .fade-in:nth-child(2) {
+            animation-delay: 0.10s;
+        }
+        .fade-in:nth-child(3) {
+            animation-delay: 0.15s;
+        }
+        .fade-in:nth-child(4) {
+            animation-delay: 0.20s;
+        }
+        .fade-in:nth-child(5) {
+            animation-delay: 0.25s;
+        }
+        .fade-in:nth-child(6) {
+            animation-delay: 0.30s;
+        }
+        .fade-in:nth-child(7) {
+            animation-delay: 0.35s;
+        }
+        .fade-in:nth-child(8) {
+            animation-delay: 0.40s;
+        }
+        .fade-in:nth-child(9) {
+            animation-delay: 0.45s;
+        }
+        .fade-in:nth-child(10) {
+            animation-delay: 0.50s;
+        }
+
+        .pulse-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--income);
+            margin-right: 6px;
+            animation: pulse-dot 2s ease-in-out infinite;
+        }
+        @keyframes pulse-dot {
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.4;
+                transform: scale(0.85);
+            }
+        }
+
+        /* ============================================================
+               RESPONSIVE
+            ============================================================ */
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .user-item {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 8px;
+            }
+            .user-item .user-info {
+                flex-wrap: wrap;
+            }
+            .user-item .user-actions {
+                justify-content: flex-end;
+            }
+            .app-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .app-header .actions {
+                width: 100%;
+                justify-content: flex-start;
+            }
+            body {
+                padding: 16px;
+            }
+            .card {
+                padding: 18px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+            }
+            .stat-card {
+                padding: 14px 12px;
+            }
+            .stat-card .stat-number {
+                font-size: 20px;
+            }
+            .token-input {
+                flex-direction: column;
+            }
+            .user-item .user-id {
+                font-size: 12px;
+                padding: 2px 10px;
+            }
+            .container {
+                padding: 0 2px;
+            }
+            .card {
+                padding: 14px;
+                border-radius: var(--radius-md);
+            }
+            .app-header .brand h1 {
+                font-size: 18px;
+            }
+        }
+
+        /* ============================================================
+               TOKEN INPUT
+            ============================================================ */
+        .token-input {
+            display: flex;
+            gap: 10px;
+            margin-top: 4px;
+        }
+        .token-input input {
+            flex: 1;
+        }
+
+        /* ============================================================
+               STATUS TEXT
+            ============================================================ */
+        .status-text {
+            font-size: 13px;
+            color: var(--text-2);
+            min-height: 24px;
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .status-text.success {
+            color: var(--income);
+        }
+        .status-text.error {
+            color: var(--expense);
+        }
+        .status-text.loading {
+            color: var(--warning);
+        }
+
+        /* ============================================================
+               BADGE COUNT
+            ============================================================ */
+        .badge-count {
+            font-size: 12px;
+            background: var(--surface-2);
+            padding: 2px 12px;
+            border-radius: 20px;
+            font-weight: 500;
+            color: var(--text-2);
+            border: 1px solid var(--border);
+        }
     </style>
 </head>
 <body>
 
-    <!-- Toast Notification -->
+    <!-- ===== TOAST ===== -->
     <div id="toast" class="toast"></div>
 
+    <!-- ============================================================
+    CONTAINER
+    ============================================================ -->
     <div class="container">
 
-        <!-- Header -->
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
-            <div style="display:flex;align-items:center;gap:12px;">
-                <div style="width:40px;height:40px;border-radius:10px;background:rgba(177,188,251,0.12);border:1px solid rgba(177,188,251,0.15);display:flex;align-items:center;justify-content:center;">
-                    <span class="material-symbols-outlined" style="color:#B1BCFB;font-size:22px;">admin_panel_settings</span>
+        <!-- ===== HEADER ===== -->
+        <header class="app-header">
+            <div class="brand">
+                <div class="logo">
+                    <span class="material-symbols-outlined">admin_panel_settings</span>
                 </div>
                 <div>
-                    <h1 style="font-size:22px;font-weight:700;color:#e8edf5;letter-spacing:-0.3px;">Admin Panel</h1>
-                    <p style="font-size:13px;color:#8fa0bc;margin-top:2px;">Kelola pengguna & data CatatanKu</p>
+                    <h1>Admin Panel</h1>
+                    <p>Kelola pengguna & data CatatanKu</p>
                 </div>
             </div>
-            <div id="logout-btn" style="display:none;">
-                <button class="btn btn-secondary" onclick="logoutAdmin()">
+            <div class="actions" id="logout-btn" style="display:none;">
+                <button class="btn btn-secondary btn-sm" onclick="logoutAdmin()">
                     <span class="material-symbols-outlined" style="font-size:18px;">logout</span>
                     Keluar
                 </button>
             </div>
-        </div>
+        </header>
 
         <!-- ============================================================
-        LOGIN SECTION — hilang setelah login
+        LOGIN SECTION
         ============================================================ -->
-        <div id="login-section" class="card">
-            <h2 class="text-lg font-semibold mb-2" style="display:flex;align-items:center;gap:8px;">
-                <span class="material-symbols-outlined" style="font-size:22px;color:#B1BCFB;">lock</span>
-                Autentikasi Admin
-            </h2>
-            <p style="color:#8fa0bc;font-size:13px;margin-bottom:16px;">Masukkan token admin untuk mengakses panel.</p>
-            <div class="token-input">
-                <input id="admin-token" type="password" placeholder="Masukkan token admin..." onkeydown="if(event.key==='Enter') loginAdmin()" />
-                <button class="btn btn-primary" onclick="loginAdmin()">
-                    <span class="material-symbols-outlined" style="font-size:18px;">login</span>
-                    Login
-                </button>
+        <div id="login-section">
+            <div class="card" style="max-width:480px;margin:0 auto;">
+                <div class="login-icon">
+                    <span class="material-symbols-outlined">lock</span>
+                </div>
+                <h2 style="font-size:20px;font-weight:700;text-align:center;color:var(--text-1);margin-bottom:4px;">
+                    Autentikasi Admin
+                </h2>
+                <p style="font-size:14px;color:var(--text-2);text-align:center;margin-bottom:20px;">
+                    Masukkan token admin untuk mengakses panel
+                </p>
+
+                <div class="token-input">
+                    <input id="admin-token" type="password" placeholder="Masukkan token admin..." onkeydown="if(event.key==='Enter') loginAdmin()" />
+                    <button class="btn btn-primary" onclick="loginAdmin()" style="white-space:nowrap;">
+                        <span class="material-symbols-outlined" style="font-size:18px;">login</span>
+                        Login
+                    </button>
+                </div>
+
+                <div id="login-status" class="status-text">
+                    <span class="pulse-dot"></span>
+                    Siap untuk login
+                </div>
+
+                <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:12px;color:var(--text-3);">
+                    <span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">info</span>
+                    Token admin dapat diatur di environment variable <code style="background:var(--surface-2);padding:2px 8px;border-radius:4px;font-size:11px;">ADMIN_TOKEN</code>
+                </div>
             </div>
-            <div id="login-status" style="font-size:13px;color:#8fa0bc;min-height:20px;"></div>
         </div>
 
         <!-- ============================================================
-        ADMIN CONTENT — muncul setelah login
+        ADMIN CONTENT
         ============================================================ -->
         <div id="admin-content" style="display:none;">
 
             <!-- Stats -->
             <div class="stats-grid" id="stats-grid">
-                <div class="stat-card">
+                <div class="stat-card fade-in">
+                    <span class="stat-icon">👤</span>
                     <div class="stat-number" id="stat-users">0</div>
                     <div class="stat-label">Total User</div>
                 </div>
-                <div class="stat-card">
+                <div class="stat-card fade-in">
+                    <span class="stat-icon">📋</span>
                     <div class="stat-number" id="stat-transactions">0</div>
                     <div class="stat-label">Total Transaksi</div>
                 </div>
-                <div class="stat-card">
+                <div class="stat-card fade-in">
+                    <span class="stat-icon">🟢</span>
                     <div class="stat-number" id="stat-active">0</div>
                     <div class="stat-label">User Aktif</div>
                 </div>
-                <div class="stat-card">
+                <div class="stat-card fade-in">
+                    <span class="stat-icon">🔴</span>
                     <div class="stat-number" id="stat-inactive">0</div>
                     <div class="stat-label">User Tidak Aktif</div>
                 </div>
@@ -365,40 +789,44 @@
 
             <!-- User List -->
             <div class="card fade-in">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
-                    <h2 class="text-lg font-semibold" style="display:flex;align-items:center;gap:8px;">
-                        <span class="material-symbols-outlined" style="font-size:22px;color:#B1BCFB;">people</span>
-                        Daftar User
-                        <span id="user-count-badge" style="font-size:12px;background:#2a3550;padding:2px 10px;border-radius:12px;font-weight:500;color:#8fa0bc;">0</span>
-                    </h2>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span class="material-symbols-outlined" style="font-size:22px;color:var(--accent);">people</span>
+                        <h2 style="font-size:17px;font-weight:700;color:var(--text-1);">Daftar User</h2>
+                        <span class="badge-count" id="user-count-badge">0</span>
+                    </div>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                        <button class="btn btn-secondary" onclick="loadUsers()" style="padding:8px 16px;font-size:13px;">
+                        <button class="btn btn-secondary btn-sm" onclick="loadUsers()">
                             <span class="material-symbols-outlined" style="font-size:16px;">refresh</span>
                             Refresh
                         </button>
-                        <button class="btn btn-danger" onclick="clearAllUsers()" style="padding:8px 16px;font-size:13px;">
+                        <button class="btn btn-danger btn-sm" onclick="clearAllUsers()">
                             <span class="material-symbols-outlined" style="font-size:16px;">delete_sweep</span>
                             Hapus Semua
                         </button>
                     </div>
                 </div>
+
                 <div id="user-list">
-                    <div style="padding:20px;text-align:center;color:#4a5d7a;">
+                    <div style="padding:24px;text-align:center;color:var(--text-3);">
                         <span class="material-symbols-outlined" style="font-size:32px;display:block;margin-bottom:8px;">sync</span>
                         Memuat data...
                     </div>
                 </div>
             </div>
 
-            <!-- Footer Info -->
-            <div style="text-align:center;font-size:12px;color:#4a5d7a;margin-top:16px;padding:16px;border-top:1px solid #2a3550;">
+            <!-- Footer -->
+            <div style="text-align:center;font-size:12px;color:var(--text-3);margin-top:12px;padding:16px 0;border-top:1px solid var(--border);">
                 <span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">security</span>
-                Data tersimpan di cloud Vercel KV &bull; Login satu kali
+                Data tersimpan di Vercel KV &bull; Login satu kali
             </div>
         </div>
 
     </div>
 
+    <!-- ============================================================
+    JAVASCRIPT
+    ============================================================ -->
     <script>
         const API_BASE = window.location.origin;
         let adminToken = '';
@@ -415,56 +843,55 @@
         }
 
         // ============================================================
-        // LOGIN — dengan animasi hilang
+        // UPDATE STATUS
+        // ============================================================
+        function setStatus(msg, type = '') {
+            const el = document.getElementById('login-status');
+            el.textContent = msg;
+            el.className = 'status-text ' + type;
+        }
+
+        // ============================================================
+        // LOGIN
         // ============================================================
         function loginAdmin() {
             const input = document.getElementById('admin-token');
             const token = input.value.trim();
             if (!token) {
                 showToast('⚠️ Masukkan token admin');
+                setStatus('⚠️ Masukkan token admin', 'error');
                 return;
             }
 
             adminToken = token;
-            const statusEl = document.getElementById('login-status');
-            statusEl.textContent = '⏳ Memverifikasi token...';
-            statusEl.style.color = '#fbbf24';
+            setStatus('⏳ Memverifikasi token...', 'loading');
 
-            // Coba load users untuk verifikasi token
             fetch(`${API_BASE}/api/admin/users`, {
                     headers: { 'x-admin-token': adminToken }
                 })
                 .then(res => {
                     if (!res.ok) {
-                        if (res.status === 401) {
-                            throw new Error('Token tidak valid');
-                        }
+                        if (res.status === 401) throw new Error('Token tidak valid');
                         throw new Error('Gagal verifikasi');
                     }
                     return res.json();
                 })
                 .then(data => {
-                    // ✅ Login berhasil — sembunyikan login section
-                    statusEl.textContent = '✅ Login berhasil!';
-                    statusEl.style.color = '#6ee7b7';
+                    sessionStorage.setItem('admin_token', adminToken);
+                    setStatus('✅ Login berhasil!', 'success');
 
-                    // Sembunyikan login section dengan animasi
                     const loginSection = document.getElementById('login-section');
                     loginSection.classList.add('hidden');
 
-                    // Tampilkan admin content & logout button
                     document.getElementById('admin-content').style.display = 'block';
                     document.getElementById('logout-btn').style.display = 'block';
 
-                    // Render data
                     renderUsers(data.users);
                     updateStats(data.users);
-
                     showToast('✅ Selamat datang, Admin!');
                 })
                 .catch(err => {
-                    statusEl.textContent = '❌ ' + err.message;
-                    statusEl.style.color = '#f87171';
+                    setStatus('❌ ' + err.message, 'error');
                     adminToken = '';
                     input.focus();
                     input.select();
@@ -473,9 +900,10 @@
         }
 
         // ============================================================
-        // LOGOUT — tampilkan login lagi
+        // LOGOUT
         // ============================================================
         function logoutAdmin() {
+            sessionStorage.removeItem('admin_token');
             adminToken = '';
             document.getElementById('admin-content').style.display = 'none';
             document.getElementById('logout-btn').style.display = 'none';
@@ -483,13 +911,9 @@
             const loginSection = document.getElementById('login-section');
             loginSection.classList.remove('hidden');
 
-            const statusEl = document.getElementById('login-status');
-            statusEl.textContent = '👋 Sesi berakhir, login kembali untuk mengakses.';
-            statusEl.style.color = '#8fa0bc';
-
+            setStatus('👋 Sesi berakhir, login kembali untuk mengakses.', '');
             document.getElementById('admin-token').value = '';
             document.getElementById('admin-token').focus();
-
             showToast('👋 Logout berhasil');
         }
 
@@ -503,8 +927,12 @@
             }
 
             const list = document.getElementById('user-list');
-            list.innerHTML =
-                `<div style="padding:20px;text-align:center;color:#4a5d7a;"><span class="material-symbols-outlined" style="font-size:32px;display:block;margin-bottom:8px;">sync</span>Memuat data...</div>`;
+            list.innerHTML = `
+                    <div style="padding:24px;text-align:center;color:var(--text-3);">
+                        <span class="material-symbols-outlined" style="font-size:32px;display:block;margin-bottom:8px;">sync</span>
+                        Memuat data...
+                    </div>
+                `;
 
             try {
                 const res = await fetch(`${API_BASE}/api/admin/users`, {
@@ -523,8 +951,12 @@
                 updateStats(data.users);
                 showToast('✅ Data diperbarui');
             } catch (e) {
-                list.innerHTML =
-                    `<div style="padding:20px;text-align:center;color:#f87171;"><span class="material-symbols-outlined" style="font-size:32px;display:block;margin-bottom:8px;">error</span>Error: ${e.message}</div>`;
+                list.innerHTML = `
+                        <div style="padding:24px;text-align:center;color:var(--expense);">
+                            <span class="material-symbols-outlined" style="font-size:32px;display:block;margin-bottom:8px;">error</span>
+                            Error: ${e.message}
+                        </div>
+                    `;
                 showToast('❌ ' + e.message);
             }
         }
@@ -537,36 +969,44 @@
 
             if (!users || users.length === 0) {
                 list.innerHTML = `
-                    <div class="empty-state">
-                        <span class="material-symbols-outlined">person_off</span>
-                        <p>Belum ada user terdaftar.</p>
-                        <p style="font-size:12px;color:#4a5d7a;margin-top:4px;">User akan muncul setelah login pertama kali.</p>
-                    </div>
-                `;
+                        <div class="empty-state">
+                            <span class="material-symbols-outlined">person_off</span>
+                            <p>Belum ada user terdaftar</p>
+                            <p class="sub">User akan muncul setelah login pertama kali</p>
+                        </div>
+                    `;
                 document.getElementById('user-count-badge').textContent = '0';
                 return;
             }
 
             document.getElementById('user-count-badge').textContent = users.length;
 
-            list.innerHTML = users.map(u => `
-                    <div class="user-item fade-in" style="animation-delay:${Math.random() * 0.2}s;">
-                        <div class="user-info">
-                            <span class="user-id">${u.userId}</span>
-                            <span class="user-stats">📋 ${u.transactionCount || 0} transaksi</span>
-                            <span class="user-badge ${u.isActive !== false ? 'active' : 'inactive'}">
-                                ${u.isActive !== false ? '● Aktif' : '● Nonaktif'}
-                            </span>
-                            ${u.registeredAt ? `<span class="user-stats" style="font-size:11px;">📅 ${new Date(u.registeredAt).toLocaleDateString('id-ID')}</span>` : ''}
+            list.innerHTML = users.map((u, i) => {
+                const initial = u.userId ? String(u.userId).charAt(0).toUpperCase() : '?';
+                const isActive = u.isActive !== false;
+                return `
+                        <div class="user-item fade-in" style="animation-delay:${(i % 10) * 0.04}s;">
+                            <div class="user-info">
+                                <div class="user-avatar">${initial}</div>
+                                <span class="user-id">${u.userId}</span>
+                                <span class="user-stats">
+                                    <span class="material-symbols-outlined">receipt_long</span>
+                                    ${u.transactionCount || 0}
+                                </span>
+                                <span class="user-badge ${isActive ? 'active' : 'inactive'}">
+                                    ${isActive ? '● Aktif' : '● Nonaktif'}
+                                </span>
+                                ${u.registeredAt ? `<span class="user-date">📅 ${new Date(u.registeredAt).toLocaleDateString('id-ID')}</span>` : ''}
+                            </div>
+                            <div class="user-actions">
+                                <button class="btn btn-danger btn-sm" onclick="deleteUser('${u.userId}')">
+                                    <span class="material-symbols-outlined" style="font-size:14px;">delete</span>
+                                    Hapus
+                                </button>
+                            </div>
                         </div>
-                        <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                            <button class="btn btn-danger" onclick="deleteUser('${u.userId}')" style="padding:6px 14px;font-size:12px;">
-                                <span class="material-symbols-outlined" style="font-size:14px;">delete</span>
-                                Hapus
-                            </button>
-                        </div>
-                    </div>
-                `).join('');
+                    `;
+            }).join('');
         }
 
         // ============================================================
@@ -619,7 +1059,6 @@
             if (!confirm('✅ Konfirmasi kedua: Hapus semua data pengguna?')) return;
 
             try {
-                // Dapatkan semua user ID
                 const res = await fetch(`${API_BASE}/api/admin/users`, {
                     headers: { 'x-admin-token': adminToken }
                 });
@@ -643,14 +1082,12 @@
         }
 
         // ============================================================
-        // CHECK SESSION — jika sudah login sebelumnya (dari localStorage)
+        // CHECK SESSION
         // ============================================================
         (function checkSession() {
-            // Cek apakah ada token tersimpan di session
             const savedToken = sessionStorage.getItem('admin_token');
             if (savedToken) {
                 adminToken = savedToken;
-                // Verifikasi token
                 fetch(`${API_BASE}/api/admin/users`, {
                         headers: { 'x-admin-token': adminToken }
                     })
@@ -659,12 +1096,10 @@
                         return res.json();
                     })
                     .then(data => {
-                        // Auto login
                         document.getElementById('login-section').classList.add('hidden');
                         document.getElementById('admin-content').style.display = 'block';
                         document.getElementById('logout-btn').style.display = 'block';
-                        document.getElementById('login-status').textContent = '✅ Sesi aktif';
-                        document.getElementById('login-status').style.color = '#6ee7b7';
+                        setStatus('✅ Sesi aktif', 'success');
                         renderUsers(data.users);
                         updateStats(data.users);
                         showToast('👋 Selamat datang kembali, Admin!');
@@ -672,81 +1107,12 @@
                     .catch(() => {
                         sessionStorage.removeItem('admin_token');
                         adminToken = '';
+                        setStatus('🔓 Login untuk mengakses', '');
                     });
+            } else {
+                setStatus('🔓 Login untuk mengakses', '');
             }
         })();
-
-        // Simpan token ke sessionStorage setelah login berhasil
-        const originalLogin = loginAdmin;
-        loginAdmin = function() {
-            const input = document.getElementById('admin-token');
-            const token = input.value.trim();
-            if (!token) {
-                showToast('⚠️ Masukkan token admin');
-                return;
-            }
-
-            adminToken = token;
-            const statusEl = document.getElementById('login-status');
-            statusEl.textContent = '⏳ Memverifikasi token...';
-            statusEl.style.color = '#fbbf24';
-
-            fetch(`${API_BASE}/api/admin/users`, {
-                    headers: { 'x-admin-token': adminToken }
-                })
-                .then(res => {
-                    if (!res.ok) {
-                        if (res.status === 401) throw new Error('Token tidak valid');
-                        throw new Error('Gagal verifikasi');
-                    }
-                    return res.json();
-                })
-                .then(data => {
-                    // Simpan token ke sessionStorage
-                    sessionStorage.setItem('admin_token', adminToken);
-
-                    statusEl.textContent = '✅ Login berhasil!';
-                    statusEl.style.color = '#6ee7b7';
-
-                    const loginSection = document.getElementById('login-section');
-                    loginSection.classList.add('hidden');
-
-                    document.getElementById('admin-content').style.display = 'block';
-                    document.getElementById('logout-btn').style.display = 'block';
-
-                    renderUsers(data.users);
-                    updateStats(data.users);
-                    showToast('✅ Selamat datang, Admin!');
-                })
-                .catch(err => {
-                    statusEl.textContent = '❌ ' + err.message;
-                    statusEl.style.color = '#f87171';
-                    adminToken = '';
-                    input.focus();
-                    input.select();
-                    showToast('❌ ' + err.message);
-                });
-        };
-
-        // Perbaiki logout — hapus sessionStorage
-        const originalLogout = logoutAdmin;
-        logoutAdmin = function() {
-            sessionStorage.removeItem('admin_token');
-            adminToken = '';
-            document.getElementById('admin-content').style.display = 'none';
-            document.getElementById('logout-btn').style.display = 'none';
-
-            const loginSection = document.getElementById('login-section');
-            loginSection.classList.remove('hidden');
-
-            const statusEl = document.getElementById('login-status');
-            statusEl.textContent = '👋 Sesi berakhir, login kembali untuk mengakses.';
-            statusEl.style.color = '#8fa0bc';
-
-            document.getElementById('admin-token').value = '';
-            document.getElementById('admin-token').focus();
-            showToast('👋 Logout berhasil');
-        };
     </script>
 
 </body>
