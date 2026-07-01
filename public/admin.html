@@ -3,10 +3,10 @@
 <head>
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport" />
-    <title>Admin - CatatanKu</title>
+    <title>Admin Panel - CatatanKu</title>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries">
     </script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
     <style>
         /* ============================================================
@@ -64,7 +64,7 @@
         }
 
         .container {
-            max-width: 960px;
+            max-width: 1100px;
             margin: 0 auto;
         }
 
@@ -80,6 +80,7 @@
             transition: border-color 0.25s, box-shadow 0.25s, transform 0.2s;
             position: relative;
             overflow: hidden;
+            backdrop-filter: blur(2px);
         }
         .card::before {
             content: '';
@@ -98,6 +99,7 @@
         .card:hover {
             border-color: var(--border-hover);
             box-shadow: var(--shadow-glow);
+            transform: translateY(-1px);
         }
 
         .btn {
@@ -117,6 +119,9 @@
         }
         .btn:active {
             transform: scale(0.96);
+        }
+        .btn .material-symbols-outlined {
+            font-size: 18px;
         }
 
         .btn-danger {
@@ -153,6 +158,9 @@
             font-size: 12px;
             border-radius: 8px;
         }
+        .btn-sm .material-symbols-outlined {
+            font-size: 16px;
+        }
 
         .btn-success {
             background: var(--income);
@@ -161,6 +169,17 @@
         .btn-success:hover {
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(110, 231, 183, 0.30);
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--text-2);
+            border: 1px solid transparent;
+        }
+        .btn-ghost:hover {
+            background: var(--surface-2);
+            border-color: var(--border);
+            color: var(--text-1);
         }
 
         /* ============================================================
@@ -197,6 +216,12 @@
             font-size: 14px;
             cursor: pointer;
             min-width: 120px;
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238fa0bc' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            padding-right: 36px;
         }
         select:focus {
             border-color: var(--accent);
@@ -274,22 +299,21 @@
         }
 
         /* ============================================================
-               USER ITEM
+               USER ITEM - IMPROVED
             ============================================================ */
         .user-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 14px 0;
+            padding: 14px 16px;
             border-bottom: 1px solid var(--border);
             gap: 12px;
-            transition: background 0.15s;
-            border-radius: 8px;
-            padding-left: 4px;
-            padding-right: 4px;
+            transition: background 0.2s, border-radius 0.2s;
+            border-radius: 10px;
         }
         .user-item:hover {
             background: var(--surface-2);
+            border-radius: 10px;
         }
         .user-item:last-child {
             border-bottom: none;
@@ -305,11 +329,11 @@
         }
 
         .user-item .user-avatar {
-            width: 36px;
-            height: 36px;
+            width: 38px;
+            height: 38px;
             border-radius: 50%;
             background: var(--accent-dim);
-            border: 1px solid var(--border);
+            border: 1.5px solid var(--border);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -317,6 +341,11 @@
             color: var(--accent);
             font-weight: 700;
             font-size: 14px;
+            transition: all 0.2s;
+        }
+        .user-item:hover .user-avatar {
+            border-color: var(--accent);
+            background: var(--accent-glow);
         }
 
         .user-item .user-id {
@@ -328,6 +357,10 @@
             padding: 2px 12px;
             border-radius: 6px;
             border: 1px solid var(--border);
+            transition: border-color 0.2s;
+        }
+        .user-item:hover .user-id {
+            border-color: var(--border-hover);
         }
 
         .user-item .user-stats {
@@ -336,6 +369,10 @@
             display: flex;
             align-items: center;
             gap: 4px;
+            background: var(--surface-0);
+            padding: 2px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
         }
         .user-item .user-stats .material-symbols-outlined {
             font-size: 16px;
@@ -343,10 +380,11 @@
 
         .user-item .user-badge {
             font-size: 11px;
-            padding: 3px 12px;
+            padding: 3px 14px;
             border-radius: 20px;
             font-weight: 600;
             letter-spacing: 0.03em;
+            transition: all 0.2s;
         }
         .user-item .user-badge.active {
             background: rgba(110, 231, 183, 0.10);
@@ -363,6 +401,12 @@
             font-size: 11px;
             color: var(--text-3);
             white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .user-item .user-date .material-symbols-outlined {
+            font-size: 14px;
         }
 
         .user-item .user-actions {
@@ -370,14 +414,21 @@
             gap: 6px;
             flex-shrink: 0;
         }
+        .user-item .user-actions .btn {
+            opacity: 0.7;
+            transition: opacity 0.2s, transform 0.2s;
+        }
+        .user-item:hover .user-actions .btn {
+            opacity: 1;
+        }
 
         /* ============================================================
-               STATS GRID
+               STATS GRID - IMPROVED
             ============================================================ */
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 12px;
+            gap: 14px;
             margin-bottom: 20px;
         }
 
@@ -385,26 +436,44 @@
             background: var(--surface-1);
             border: 1px solid var(--border);
             border-radius: var(--radius-md);
-            padding: 18px 16px;
+            padding: 20px 16px;
             text-align: center;
-            transition: border-color 0.2s, transform 0.2s;
+            transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        .stat-card::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .stat-card:hover::after {
+            opacity: 1;
         }
         .stat-card:hover {
             border-color: var(--border-hover);
-            transform: translateY(-2px);
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-glow);
         }
 
         .stat-card .stat-icon {
-            font-size: 24px;
+            font-size: 28px;
             display: block;
-            margin-bottom: 4px;
-            opacity: 0.6;
+            margin-bottom: 6px;
+            opacity: 0.7;
         }
         .stat-card .stat-number {
-            font-size: 26px;
+            font-size: 28px;
             font-weight: 800;
             color: var(--accent);
             letter-spacing: -0.02em;
+            line-height: 1.1;
         }
         .stat-card .stat-label {
             font-size: 11px;
@@ -412,11 +481,28 @@
             text-transform: uppercase;
             letter-spacing: 0.06em;
             color: var(--text-3);
+            margin-top: 6px;
+        }
+
+        .stat-card .stat-trend {
+            font-size: 11px;
+            font-weight: 600;
             margin-top: 4px;
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 12px;
+        }
+        .stat-card .stat-trend.up {
+            color: var(--income);
+            background: rgba(110, 231, 183, 0.10);
+        }
+        .stat-card .stat-trend.down {
+            color: var(--expense);
+            background: rgba(248, 113, 113, 0.08);
         }
 
         /* ============================================================
-               HEADER
+               HEADER - IMPROVED
             ============================================================ */
         .app-header {
             display: flex;
@@ -425,6 +511,11 @@
             margin-bottom: 28px;
             flex-wrap: wrap;
             gap: 12px;
+            padding: 16px 20px;
+            background: var(--surface-1);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            backdrop-filter: blur(10px);
         }
 
         .app-header .brand {
@@ -433,18 +524,24 @@
             gap: 14px;
         }
         .app-header .brand .logo {
-            width: 44px;
-            height: 44px;
-            border-radius: 12px;
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
             background: var(--accent-dim);
             border: 1px solid rgba(177, 188, 251, 0.12);
             display: flex;
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
+            transition: all 0.3s;
+        }
+        .app-header .brand .logo:hover {
+            background: var(--accent-glow);
+            border-color: var(--accent);
+            transform: rotate(-4deg) scale(1.02);
         }
         .app-header .brand .logo .material-symbols-outlined {
-            font-size: 24px;
+            font-size: 26px;
             color: var(--accent);
         }
         .app-header .brand h1 {
@@ -452,6 +549,9 @@
             font-weight: 800;
             color: var(--text-1);
             letter-spacing: -0.3px;
+        }
+        .app-header .brand h1 span {
+            color: var(--accent);
         }
         .app-header .brand p {
             font-size: 13px;
@@ -528,6 +628,21 @@
             }
         }
 
+        .skeleton {
+            background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: 6px;
+        }
+        @keyframes shimmer {
+            0% {
+                background-position: 200% 0;
+            }
+            100% {
+                background-position: -200% 0;
+            }
+        }
+
         /* ============================================================
                TOOLBAR
             ============================================================ */
@@ -558,16 +673,18 @@
             display: flex;
             gap: 8px;
             flex-wrap: wrap;
+            align-items: center;
         }
 
         /* ============================================================
-               MODAL
+               MODAL - IMPROVED
             ============================================================ */
         .modal-overlay {
             position: fixed;
             inset: 0;
             background: rgba(0, 0, 0, 0.75);
-            backdrop-filter: blur(10px);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             z-index: 1000;
             display: none;
             align-items: center;
@@ -581,12 +698,13 @@
             background: var(--surface-1);
             border: 1px solid var(--border);
             border-radius: var(--radius-lg);
-            max-width: 600px;
+            max-width: 640px;
             width: 100%;
-            max-height: 80vh;
+            max-height: 85vh;
             overflow-y: auto;
-            padding: 28px 24px 24px;
+            padding: 0 24px 24px;
             animation: modalUp 0.3s cubic-bezier(0.34, 1.2, 0.64, 1);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
         }
         @keyframes modalUp {
             from {
@@ -602,6 +720,12 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            padding: 20px 0 12px;
+            position: sticky;
+            top: 0;
+            background: var(--surface-1);
+            z-index: 2;
+            border-bottom: 1px solid var(--border);
             margin-bottom: 16px;
         }
         .modal-box .modal-header h2 {
@@ -611,6 +735,9 @@
             display: flex;
             align-items: center;
             gap: 10px;
+        }
+        .modal-box .modal-header h2 .material-symbols-outlined {
+            color: var(--accent);
         }
         .modal-box .modal-header .close-modal {
             width: 32px;
@@ -629,6 +756,7 @@
         .modal-box .modal-header .close-modal:hover {
             background: var(--surface-3);
             color: var(--text-1);
+            border-color: var(--border-hover);
         }
         .modal-box .modal-body {
             color: var(--text-2);
@@ -638,27 +766,41 @@
         .modal-box .modal-body .tx-item {
             display: flex;
             justify-content: space-between;
-            padding: 8px 0;
+            align-items: center;
+            padding: 10px 12px;
             border-bottom: 1px solid var(--border);
             font-size: 13px;
+            border-radius: 8px;
+            transition: background 0.15s;
+        }
+        .modal-box .modal-body .tx-item:hover {
+            background: var(--surface-2);
         }
         .modal-box .modal-body .tx-item:last-child {
             border-bottom: none;
         }
         .modal-box .modal-body .tx-item .tx-amount.income {
             color: var(--income);
+            font-weight: 600;
         }
         .modal-box .modal-body .tx-item .tx-amount.expense {
             color: var(--expense);
+            font-weight: 600;
         }
         .modal-box .modal-body .tx-empty {
             text-align: center;
-            padding: 24px 0;
+            padding: 32px 0;
             color: var(--text-3);
+        }
+        .modal-box .modal-body .tx-empty .material-symbols-outlined {
+            font-size: 40px;
+            display: block;
+            margin-bottom: 8px;
+            opacity: 0.4;
         }
 
         /* ============================================================
-               TOGGLE SWITCH (Auto Refresh)
+               TOGGLE SWITCH
             ============================================================ */
         .toggle-wrap {
             display: flex;
@@ -720,7 +862,7 @@
             min-width: 36px;
             text-align: center;
         }
-        .pagination .page-btn:hover {
+        .pagination .page-btn:hover:not(.disabled) {
             background: var(--surface-3);
             border-color: var(--border-hover);
             color: var(--text-1);
@@ -736,36 +878,53 @@
         }
 
         /* ============================================================
+               BADGE COUNT
+            ============================================================ */
+        .badge-count {
+            font-size: 12px;
+            background: var(--surface-2);
+            padding: 2px 14px;
+            border-radius: 20px;
+            font-weight: 600;
+            color: var(--text-2);
+            border: 1px solid var(--border);
+        }
+
+        /* ============================================================
                RESPONSIVE
             ============================================================ */
         @media (max-width: 768px) {
             .stats-grid {
                 grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
             }
             .user-item {
                 flex-direction: column;
                 align-items: stretch;
-                gap: 8px;
+                gap: 10px;
+                padding: 14px 12px;
             }
             .user-item .user-info {
                 flex-wrap: wrap;
             }
             .user-item .user-actions {
-                justify-content: flex-end;
+                justify-content: flex-start;
             }
             .app-header {
                 flex-direction: column;
                 align-items: flex-start;
+                padding: 16px;
             }
             .app-header .actions {
                 width: 100%;
                 justify-content: flex-start;
+                flex-wrap: wrap;
             }
             body {
-                padding: 16px;
+                padding: 12px;
             }
             .card {
-                padding: 18px;
+                padding: 16px;
             }
             .toolbar {
                 flex-direction: column;
@@ -773,6 +932,11 @@
             }
             .toolbar .filter-group {
                 justify-content: flex-start;
+                flex-wrap: wrap;
+            }
+            .modal-box {
+                padding: 0 16px 16px;
+                margin: 8px;
             }
         }
 
@@ -787,26 +951,18 @@
             .stat-card .stat-number {
                 font-size: 20px;
             }
-            .token-input {
-                flex-direction: column;
-            }
             .user-item .user-id {
                 font-size: 12px;
                 padding: 2px 10px;
             }
-            .container {
-                padding: 0 2px;
-            }
-            .card {
-                padding: 14px;
-                border-radius: var(--radius-md);
-            }
             .app-header .brand h1 {
                 font-size: 18px;
             }
-            .modal-box {
-                padding: 20px 16px;
-                margin: 12px;
+            .modal-box .modal-header h2 {
+                font-size: 16px;
+            }
+            .user-item .user-date {
+                font-size: 10px;
             }
         }
 
@@ -817,9 +973,14 @@
             display: flex;
             gap: 10px;
             margin-top: 4px;
+            flex-wrap: wrap;
         }
         .token-input input {
             flex: 1;
+            min-width: 160px;
+        }
+        .token-input .btn {
+            white-space: nowrap;
         }
 
         /* ============================================================
@@ -845,16 +1006,52 @@
         }
 
         /* ============================================================
-               BADGE COUNT
+               FOOTER
             ============================================================ */
-        .badge-count {
+        .footer {
+            text-align: center;
             font-size: 12px;
-            background: var(--surface-2);
-            padding: 2px 12px;
-            border-radius: 20px;
+            color: var(--text-3);
+            margin-top: 12px;
+            padding: 16px 0;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .footer .material-symbols-outlined {
+            font-size: 14px;
+            vertical-align: middle;
+        }
+        .footer .dot {
+            color: var(--text-3);
+            opacity: 0.3;
+        }
+
+        /* ============================================================
+               TOOLTIP
+            ============================================================ */
+        [data-tooltip] {
+            position: relative;
+        }
+        [data-tooltip]:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--surface-3);
+            color: var(--text-1);
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 11px;
             font-weight: 500;
-            color: var(--text-2);
+            white-space: nowrap;
             border: 1px solid var(--border);
+            pointer-events: none;
+            z-index: 10;
         }
     </style>
 </head>
@@ -870,14 +1067,14 @@
         <div class="modal-box">
             <div class="modal-header">
                 <h2>
-                    <span class="material-symbols-outlined" style="color:var(--accent);">person</span>
+                    <span class="material-symbols-outlined">person</span>
                     <span id="modal-user-title">Detail User</span>
                 </h2>
                 <button class="close-modal" onclick="closeDetailModal()">✕</button>
             </div>
             <div class="modal-body" id="modal-body-content">
-                <div style="text-align:center;padding:20px;color:var(--text-3);">
-                    <span class="material-symbols-outlined" style="font-size:32px;display:block;margin-bottom:8px;">sync</span>
+                <div style="text-align:center;padding:32px 0;color:var(--text-3);">
+                    <span class="material-symbols-outlined" style="font-size:36px;display:block;margin-bottom:12px;">sync</span>
                     Memuat data transaksi...
                 </div>
             </div>
@@ -896,13 +1093,13 @@
                     <span class="material-symbols-outlined">admin_panel_settings</span>
                 </div>
                 <div>
-                    <h1>Admin Panel</h1>
-                    <p>Kelola pengguna & data CatatanKu</p>
+                    <h1>Admin <span>Panel</span></h1>
+                    <p>Kelola pengguna &amp; data CatatanKu</p>
                 </div>
             </div>
             <div class="actions" id="logout-btn" style="display:none;">
-                <button class="btn btn-secondary btn-sm" onclick="logoutAdmin()">
-                    <span class="material-symbols-outlined" style="font-size:18px;">logout</span>
+                <button class="btn btn-secondary btn-sm" onclick="logoutAdmin()" data-tooltip="Keluar dari panel admin">
+                    <span class="material-symbols-outlined">logout</span>
                     Keluar
                 </button>
             </div>
@@ -925,8 +1122,8 @@
 
                 <div class="token-input">
                     <input id="admin-token" type="password" placeholder="Masukkan token admin..." onkeydown="if(event.key==='Enter') loginAdmin()" />
-                    <button class="btn btn-primary" onclick="loginAdmin()" style="white-space:nowrap;">
-                        <span class="material-symbols-outlined" style="font-size:18px;">login</span>
+                    <button class="btn btn-primary" onclick="loginAdmin()">
+                        <span class="material-symbols-outlined">login</span>
                         Login
                     </button>
                 </div>
@@ -938,7 +1135,7 @@
 
                 <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);text-align:center;font-size:12px;color:var(--text-3);">
                     <span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">info</span>
-                    Token admin dapat diatur di environment variable <code style="background:var(--surface-2);padding:2px 8px;border-radius:4px;font-size:11px;">ADMIN_TOKEN</code>
+                    Token admin diatur di environment variable <code style="background:var(--surface-2);padding:2px 8px;border-radius:4px;font-size:11px;color:var(--text-2);">ADMIN_TOKEN</code>
                 </div>
             </div>
         </div>
@@ -954,6 +1151,7 @@
                     <span class="stat-icon">👤</span>
                     <div class="stat-number" id="stat-users">0</div>
                     <div class="stat-label">Total User</div>
+                    <div class="stat-trend up" style="display:none;">↑ Aktif</div>
                 </div>
                 <div class="stat-card fade-in">
                     <span class="stat-icon">📋</span>
@@ -968,7 +1166,7 @@
                 <div class="stat-card fade-in">
                     <span class="stat-icon">📊</span>
                     <div class="stat-number" id="stat-avg">0</div>
-                    <div class="stat-label">Rata-rata Tx</div>
+                    <div class="stat-label">Rata-rata Tx / User</div>
                 </div>
             </div>
 
@@ -981,16 +1179,16 @@
                         <span class="badge-count" id="user-count-badge">0</span>
                     </div>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                        <button class="btn btn-secondary btn-sm" onclick="exportCSV()" title="Export CSV">
-                            <span class="material-symbols-outlined" style="font-size:16px;">download</span>
+                        <button class="btn btn-secondary btn-sm" onclick="exportCSV()" data-tooltip="Download data user dalam format CSV">
+                            <span class="material-symbols-outlined">download</span>
                             Export
                         </button>
-                        <button class="btn btn-secondary btn-sm" onclick="loadUsers()">
-                            <span class="material-symbols-outlined" style="font-size:16px;">refresh</span>
+                        <button class="btn btn-secondary btn-sm" onclick="loadUsers()" data-tooltip="Refresh data dari server">
+                            <span class="material-symbols-outlined">refresh</span>
                             Refresh
                         </button>
-                        <button class="btn btn-danger btn-sm" onclick="clearAllUsers()">
-                            <span class="material-symbols-outlined" style="font-size:16px;">delete_sweep</span>
+                        <button class="btn btn-danger btn-sm" onclick="clearAllUsers()" data-tooltip="Hapus semua data user (tidak bisa dibatalkan)">
+                            <span class="material-symbols-outlined">delete_sweep</span>
                             Hapus Semua
                         </button>
                     </div>
@@ -1033,9 +1231,15 @@
             </div>
 
             <!-- Footer -->
-            <div style="text-align:center;font-size:12px;color:var(--text-3);margin-top:12px;padding:16px 0;border-top:1px solid var(--border);">
-                <span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">security</span>
-                Data tersimpan di Vercel KV &bull; Login satu kali &bull; <span id="last-refresh">Terakhir: —</span>
+            <div class="footer">
+                <span>
+                    <span class="material-symbols-outlined">security</span>
+                    Data tersimpan di Vercel KV
+                </span>
+                <span class="dot">•</span>
+                <span>Login satu kali</span>
+                <span class="dot">•</span>
+                <span id="last-refresh">Terakhir: —</span>
             </div>
         </div>
 
@@ -1054,6 +1258,7 @@
         let autoRefreshInterval = null;
         let isAutoRefresh = true;
         let selectedUserId = null;
+        let searchTimeout = null;
 
         // ============================================================
         // TOAST
@@ -1112,8 +1317,9 @@
                     applyFilters();
                     updateStats(allUsers);
                     showToast('✅ Selamat datang, Admin!');
+                    document.getElementById('last-refresh').textContent = 'Terakhir: ' + new Date().toLocaleTimeString(
+                    'id-ID');
 
-                    // Start auto refresh
                     if (isAutoRefresh) startAutoRefresh();
                 })
                 .catch(err => {
@@ -1175,7 +1381,7 @@
         }
 
         // ============================================================
-        // LOAD USERS (with loading indicator)
+        // LOAD USERS
         // ============================================================
         async function loadUsers() {
             if (!adminToken) {
@@ -1216,7 +1422,8 @@
                 allUsers = data.users || [];
                 applyFilters();
                 updateStats(allUsers);
-                document.getElementById('last-refresh').textContent = 'Terakhir: ' + new Date().toLocaleTimeString('id-ID');
+                document.getElementById('last-refresh').textContent = 'Terakhir: ' + new Date().toLocaleTimeString(
+                'id-ID');
                 if (showLoading) showToast('✅ Data diperbarui');
             } catch (e) {
                 if (showLoading) {
@@ -1247,7 +1454,6 @@
                 return matchSearch && matchStatus;
             });
 
-            // Sort
             filteredUsers.sort((a, b) => {
                 const aTx = a.transactionCount || 0;
                 const bTx = b.transactionCount || 0;
@@ -1346,6 +1552,11 @@
             list.innerHTML = users.map((u, i) => {
                 const initial = u.userId ? String(u.userId).charAt(0).toUpperCase() : '?';
                 const isActive = u.isActive !== false;
+                const dateStr = u.registeredAt ? new Date(u.registeredAt).toLocaleDateString('id-ID', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric'
+                }) : '';
                 return `
                         <div class="user-item fade-in" style="animation-delay:${(i % 10) * 0.04}s;">
                             <div class="user-info">
@@ -1358,14 +1569,14 @@
                                 <span class="user-badge ${isActive ? 'active' : 'inactive'}">
                                     ${isActive ? '● Aktif' : '● Nonaktif'}
                                 </span>
-                                ${u.registeredAt ? `<span class="user-date">📅 ${new Date(u.registeredAt).toLocaleDateString('id-ID')}</span>` : ''}
+                                ${dateStr ? `<span class="user-date"><span class="material-symbols-outlined">calendar_today</span> ${dateStr}</span>` : ''}
                             </div>
                             <div class="user-actions">
-                                <button class="btn btn-secondary btn-sm" onclick="viewUserDetail('${u.userId}')" title="Lihat detail">
-                                    <span class="material-symbols-outlined" style="font-size:14px;">visibility</span>
+                                <button class="btn btn-secondary btn-sm" onclick="viewUserDetail('${u.userId}')" data-tooltip="Lihat detail transaksi">
+                                    <span class="material-symbols-outlined">visibility</span>
                                 </button>
-                                <button class="btn btn-danger btn-sm" onclick="deleteUser('${u.userId}')">
-                                    <span class="material-symbols-outlined" style="font-size:14px;">delete</span>
+                                <button class="btn btn-danger btn-sm" onclick="deleteUser('${u.userId}')" data-tooltip="Hapus semua data user">
+                                    <span class="material-symbols-outlined">delete</span>
                                 </button>
                             </div>
                         </div>
@@ -1385,7 +1596,6 @@
 
             document.getElementById('stat-users').textContent = total;
             document.getElementById('stat-active').textContent = active;
-            document.getElementById('stat-inactive').textContent = total - active;
             document.getElementById('stat-transactions').textContent = totalTx.toLocaleString('id-ID');
             document.getElementById('stat-avg').textContent = avg.toLocaleString('id-ID');
         }
@@ -1401,7 +1611,8 @@
 
             let csv = 'User ID,Registered At,Is Active,Transaction Count\n';
             allUsers.forEach(u => {
-                csv += `${u.userId},${u.registeredAt || ''},${u.isActive !== false ? 'Yes' : 'No'},${u.transactionCount || 0}\n`;
+                const date = u.registeredAt ? new Date(u.registeredAt).toLocaleDateString('id-ID') : '';
+                csv += `${u.userId},${date},${u.isActive !== false ? 'Yes' : 'No'},${u.transactionCount || 0}\n`;
             });
 
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -1424,8 +1635,8 @@
 
             title.textContent = `Detail User: ${userId}`;
             body.innerHTML = `
-                    <div style="text-align:center;padding:20px;color:var(--text-3);">
-                        <span class="material-symbols-outlined" style="font-size:32px;display:block;margin-bottom:8px;">sync</span>
+                    <div style="text-align:center;padding:32px 0;color:var(--text-3);">
+                        <span class="material-symbols-outlined" style="font-size:36px;display:block;margin-bottom:12px;">sync</span>
                         Memuat transaksi...
                     </div>
                 `;
@@ -1444,39 +1655,49 @@
 
                 let html = `
                         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;">
-                            <div style="background:var(--surface-2);padding:12px;border-radius:var(--radius-sm);text-align:center;">
-                                <div style="font-size:11px;color:var(--text-3);">Total Transaksi</div>
-                                <div style="font-size:18px;font-weight:700;color:var(--accent);">${sorted.length}</div>
+                            <div style="background:var(--surface-2);padding:14px;border-radius:var(--radius-sm);text-align:center;border:1px solid var(--border);">
+                                <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.04em;">Total Transaksi</div>
+                                <div style="font-size:20px;font-weight:800;color:var(--accent);margin-top:4px;">${sorted.length}</div>
                             </div>
-                            <div style="background:var(--surface-2);padding:12px;border-radius:var(--radius-sm);text-align:center;">
-                                <div style="font-size:11px;color:var(--text-3);">Pemasukan</div>
-                                <div style="font-size:18px;font-weight:700;color:var(--income);">Rp ${totalIncome.toLocaleString('id-ID')}</div>
+                            <div style="background:var(--surface-2);padding:14px;border-radius:var(--radius-sm);text-align:center;border:1px solid var(--border);">
+                                <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.04em;">Pemasukan</div>
+                                <div style="font-size:20px;font-weight:800;color:var(--income);margin-top:4px;">Rp ${totalIncome.toLocaleString('id-ID')}</div>
                             </div>
-                            <div style="background:var(--surface-2);padding:12px;border-radius:var(--radius-sm);text-align:center;">
-                                <div style="font-size:11px;color:var(--text-3);">Pengeluaran</div>
-                                <div style="font-size:18px;font-weight:700;color:var(--expense);">Rp ${totalExpense.toLocaleString('id-ID')}</div>
+                            <div style="background:var(--surface-2);padding:14px;border-radius:var(--radius-sm);text-align:center;border:1px solid var(--border);">
+                                <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.04em;">Pengeluaran</div>
+                                <div style="font-size:20px;font-weight:800;color:var(--expense);margin-top:4px;">Rp ${totalExpense.toLocaleString('id-ID')}</div>
                             </div>
                         </div>
                     `;
 
                 if (sorted.length === 0) {
-                    html += `<div class="tx-empty">Belum ada transaksi untuk user ini.</div>`;
+                    html += `
+                            <div class="tx-empty">
+                                <span class="material-symbols-outlined">inbox</span>
+                                Belum ada transaksi untuk user ini.
+                            </div>
+                        `;
                 } else {
-                    html += `<div style="max-height:300px;overflow-y:auto;">`;
+                    html += `<div style="max-height:340px;overflow-y:auto;padding-right:4px;">`;
                     sorted.slice(0, 50).forEach(t => {
                         const isIncome = t.type === 'income';
                         const amtClass = isIncome ? 'income' : 'expense';
                         const sign = isIncome ? '+' : '−';
+                        const icon = isIncome ? 'arrow_downward' : 'arrow_upward';
                         html += `
                                 <div class="tx-item">
-                                    <span>${t.date || '-'}</span>
-                                    <span style="flex:1;margin:0 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${t.note || t.category || '-'}</span>
+                                    <span style="font-weight:500;color:var(--text-1);font-size:12px;">${t.date || '-'}</span>
+                                    <span style="flex:1;margin:0 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-2);font-size:13px;">${t.note || t.category || '-'}</span>
                                     <span class="tx-amount ${amtClass}">${sign}Rp ${Number(t.amount).toLocaleString('id-ID')}</span>
                                 </div>
                             `;
                     });
                     if (sorted.length > 50) {
-                        html += `<div style="text-align:center;padding:8px;color:var(--text-3);font-size:12px;">... dan ${sorted.length - 50} transaksi lainnya</div>`;
+                        html += `
+                                <div style="text-align:center;padding:10px;color:var(--text-3);font-size:12px;border-top:1px solid var(--border);margin-top:4px;">
+                                    ... dan ${sorted.length - 50} transaksi lainnya
+                                </div>
+                            `;
                     }
                     html += `</div>`;
                 }
@@ -1484,8 +1705,8 @@
                 body.innerHTML = html;
             } catch (e) {
                 body.innerHTML = `
-                        <div style="text-align:center;padding:20px;color:var(--expense);">
-                            <span class="material-symbols-outlined" style="font-size:32px;display:block;margin-bottom:8px;">error</span>
+                        <div style="text-align:center;padding:32px 0;color:var(--expense);">
+                            <span class="material-symbols-outlined" style="font-size:36px;display:block;margin-bottom:12px;">error</span>
                             Gagal memuat transaksi: ${e.message}
                         </div>
                     `;
@@ -1517,7 +1738,6 @@
                     throw new Error('Gagal hapus');
                 }
                 showToast(`✅ Data user ${userId} berhasil dihapus`);
-                // Refresh data
                 await fetchUsers(true);
             } catch (e) {
                 showToast(`❌ ${e.message}`);
@@ -1578,6 +1798,8 @@
                         applyFilters();
                         updateStats(allUsers);
                         showToast('👋 Selamat datang kembali, Admin!');
+                        document.getElementById('last-refresh').textContent = 'Terakhir: ' + new Date()
+                            .toLocaleTimeString('id-ID');
 
                         if (isAutoRefresh) startAutoRefresh();
                     })
