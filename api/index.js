@@ -3,59 +3,26 @@ const cors = require('cors');
 const { Telegraf } = require('telegraf');
 const { kv } = require('@vercel/kv');
 const axios = require('axios');
-
-// Import OCR
-const { ocrStrukWithPuter } = require('./puter-ocr');
+const FormData = require('form-data');
+const multer = require('multer');
+const path = require('path');
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
+app.use(express.static('public'));
 
+// ============================================================
+// KONFIGURASI
+// ============================================================
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'admin123';
+const OCR_API_KEY = process.env.OCR_API_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 console.log('🔍 BOT_TOKEN exists?', !!BOT_TOKEN);
-
-if (!BOT_TOKEN) {
-  console.error('❌ BOT_TOKEN tidak ditemukan!');
-}
-
-// ============================================================
-// STATE DRAFT UNTUK EDIT OCR
-// ============================================================
-const drafts = {};
-
-function getCategoryLabel(id) {
-  const map = {
-    dining: 'Makan',
-    shopping: 'Belanja',
-    transport: 'Transportasi',
-    bills: 'Tagihan',
-    fun: 'Hiburan',
-    health: 'Kesehatan',
-    gift: 'Hadiah',
-    other: 'Lainnya'
-  };
-  return map[id] || id;
-}
-
-function getCategoryId(label) {
-  const map = {
-    'makan': 'dining',
-    'belanja': 'shopping',
-    'transportasi': 'transport',
-    'tagihan': 'bills',
-    'hiburan': 'fun',
-    'kesehatan': 'health',
-    'hadiah': 'gift',
-    'lainnya': 'other'
-  };
-  const lower = label.toLowerCase();
-  if (map[lower]) return map[lower];
-  const list = ['dining', 'shopping', 'transport', 'bills', 'fun', 'health', 'gift', 'other'];
-  if (list.includes(lower)) return lower;
-  return 'other';
-}
+console.log('🔍 OCR_API_KEY exists?', !!OCR_API_KEY);
+console.log('🔍 GEMINI_API_KEY exists?', !!GEMINI_API_KEY);
 
 // ============================================================
 // USER MANAGEMENT
@@ -96,9 +63,60 @@ async function isUserRegistered(userId) {
 }
 
 // ============================================================
-// FUNGSI PARSING PESAN TEKS
+// FUNGSI DATABASE
 // ============================================================
-function parseTransaction(text, userId) {
+async function getTransactions(userId) {
+  const key = `transactions:${userId}`;
+  try {
+    const data = await kv.get(key);
+    return data || [];
+  } catch (e) {
+    console.error('❌ Gagal baca Redis:', e.message);
+    return [];
+  }
+}
+
+async function addTransaction(userId, tx) {
+  const key = `transactions:${userId}`;
+  try {
+    const txs = await getTransactions(userId);
+    txs.push(tx);
+    await kv.set(key, txs);
+    console.log(`✅ Transaksi berhasil disimpan untuk user ${userId}`);
+    return tx;
+  } catch (e) {
+    console.error('❌ Gagal simpan ke Redis:', e.message);
+    throw e;
+  }
+}
+
+async function deleteTransaction(userId, txId) {
+  const key = `transactions:${userId}`;
+  try {
+    let txs = await getTransactions(userId);
+    txs = txs.filter(t => t.id !== txId);
+    await kv.set(key, txs);
+    return txs;
+  } catch (e) {
+    console.error('❌ Gagal hapus dari Redis:', e.message);
+    throw e;
+  }
+}
+
+async function clearAllTransactions(userId) {
+  const key = `transactions:${userId}`;
+  try {
+    await kv.set(key, []);
+  } catch (e) {
+    console.error('❌ Gagal clear Redis:', e.message);
+    throw e;
+  }
+}
+
+// ============================================================
+// FUNGSI PARSING TEKS
+// ============================================================
+function parseTransactionText(text, userId) {
   const trimmed = text.trim();
   let type = 'expense';
   let amountText = trimmed;
@@ -142,10 +160,288 @@ function parseTransaction(text, userId) {
 }
 
 // ============================================================
-// FUNGSI FORMAT RESPONSE STRUK
+// FUNGSI OCR
 // ============================================================
-function formatReceiptResponse(parsed, userId) {
-  const categoryLabel = getCategoryLabel(parsed.category);
+async function ocrImage(imageBuffer) {
+  // Coba Gunakan Gemini AI terlebih dahulu jika ada
+  if (GEMINI_API_KEY) {
+    try {
+      console.log('🧠 Mencoba Gemini AI OCR...');
+      const result = await ocrWithGemini(imageBuffer);
+      if (result && result.amount) {
+        console.log('✅ Gemini AI berhasil');
+        return result;
+      }
+    } catch (e) {
+      console.log('⚠️ Gemini AI gagal, fallback ke OCR.space:', e.message);
+    }
+  }
+
+  // Fallback: OCR.space
+  if (!OCR_API_KEY) {
+    throw new Error('OCR_API_KEY tidak diset. Dapatkan di https://ocr.space/OCRAPI');
+  }
+
+  console.log('📸 Memproses gambar dengan OCR.space...');
+
+  const formData = new FormData();
+  formData.append('apikey', OCR_API_KEY);
+  formData.append('file', imageBuffer, {
+    filename: 'receipt.jpg',
+    contentType: 'image/jpeg'
+  });
+  formData.append('isOverlayRequired', 'false');
+  formData.append('OCREngine', '2');
+
+  try {
+    const response = await axios.post('https://api.ocr.space/parse/image', formData, {
+      headers: { ...formData.getHeaders() },
+      timeout: 30000
+    });
+
+    const data = response.data;
+    if (data.IsErroredOnProcessing) {
+      throw new Error(data.ErrorMessage || 'OCR.space gagal');
+    }
+
+    const text = data.ParsedResults?.[0]?.ParsedText || '';
+    if (!text || text.trim().length < 3) {
+      throw new Error('Tidak ada teks yang terbaca dari gambar');
+    }
+
+    console.log(`📝 OCR.space berhasil, ${text.length} karakter`);
+    return parseOcrText(text);
+  } catch (error) {
+    console.error('❌ OCR error:', error.message);
+    throw error;
+  }
+}
+
+// ============================================================
+// OCR DENGAN GEMINI AI
+// ============================================================
+async function ocrWithGemini(imageBuffer) {
+  if (!GEMINI_API_KEY) return null;
+
+  const base64Image = imageBuffer.toString('base64');
+
+  const prompt = `Anda adalah AI yang membaca struk belanja/nota. Ekstrak informasi berikut dari gambar struk ini:
+
+1. Grand Total (jumlah total yang harus dibayar)
+2. Tanggal transaksi (format: YYYY-MM-DD)
+3. Nama Toko/Merchant
+4. Daftar Item (nama, harga, qty)
+5. Kategori (dining, shopping, transport, bills, fun, health, gift, other)
+
+Output dalam format JSON SAJA, tanpa teks lain. Contoh:
+{
+  "grandTotal": 97500,
+  "tanggal": "2026-06-15",
+  "merchant": "Wizzmie Cipondoh",
+  "items": [
+    {"nama": "Rice Bowl Spicy", "harga": 30910, "qty": 2}
+  ],
+  "kategori": "dining"
+}
+Jika data tidak ditemukan, gunakan null.`;
+
+  try {
+    const response = await axios.post(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        contents: [{
+          parts: [
+            { text: prompt },
+            { inline_data: { mime_type: 'image/jpeg', data: base64Image } }
+          ]
+        }]
+      },
+      {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 30000
+      }
+    );
+
+    const result = response.data;
+    const text = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    let jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+
+    const parsed = JSON.parse(jsonMatch[0]);
+
+    const items = (parsed.items || []).map(item => ({
+      name: item.nama || item.name || 'Item',
+      price: parseInt(item.harga || item.price || 0),
+      quantity: parseInt(item.qty || item.quantity || 1)
+    })).filter(item => item.price > 0);
+
+    const grandTotal = parseInt(parsed.grandTotal) ||
+      (items.length > 0 ? items.reduce((s, i) => s + (i.price * i.quantity), 0) : null);
+
+    const merchant = parsed.merchant || null;
+    const date = parsed.tanggal || new Date().toISOString().slice(0, 10);
+    const category = parsed.kategori || 'other';
+
+    return {
+      amount: grandTotal,
+      date: date,
+      merchant: merchant,
+      items: items,
+      category: category,
+      grandTotal: grandTotal
+    };
+
+  } catch (error) {
+    console.error('❌ Gemini error:', error.message);
+    return null;
+  }
+}
+
+// ============================================================
+// PARSING OCR TEKS
+// ============================================================
+function parseOcrText(text) {
+  if (!text || text.trim().length < 3) return null;
+
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  const fullText = text;
+
+  // Cari Grand Total
+  let grandTotal = null;
+  const totalPatterns = [
+    /grand total\s*[:=]?\s*Rp\s*([\d.,]+)/i,
+    /grand total\s*[:=]?\s*([\d.,]+)/i,
+    /total\s*[:=]?\s*Rp\s*([\d.,]+)/i,
+    /total\s*[:=]?\s*([\d.,]+)/i,
+    /jumlah\s*[:=]?\s*Rp\s*([\d.,]+)/i,
+    /jumlah\s*[:=]?\s*([\d.,]+)/i,
+    /total bayar\s*[:=]?\s*Rp\s*([\d.,]+)/i,
+    /total bayar\s*[:=]?\s*([\d.,]+)/i,
+    /harus dibayar\s*[:=]?\s*Rp\s*([\d.,]+)/i,
+    /harus dibayar\s*[:=]?\s*([\d.,]+)/i,
+    /harga jual\s*[:=]?\s*([\d.,]+)/i,
+    /dpp\s*[:=]?\s*([\d.,]+)/i,
+  ];
+
+  for (const pattern of totalPatterns) {
+    const match = fullText.match(pattern);
+    if (match) {
+      const raw = match[1].replace(/\./g, '').replace(/,/g, '');
+      const num = parseInt(raw);
+      if (num > 0 && num < 999999999) {
+        grandTotal = num;
+        break;
+      }
+    }
+  }
+
+  if (!grandTotal) {
+    const allNums = fullText.match(/\d{1,3}(?:\.\d{3})*/g);
+    if (allNums) {
+      const nums = allNums
+        .map(n => parseInt(n.replace(/\./g, '')))
+        .filter(n => n > 0 && n < 999999999);
+      if (nums.length > 0) grandTotal = Math.max(...nums);
+    }
+  }
+
+  // Merchant
+  let merchant = null;
+  for (const line of lines.slice(0, 8)) {
+    if (line.length > 3 && line.length < 80 &&
+      !/\d/.test(line.replace(/[0-9,.]/g, '')) &&
+      !/total|jumlah|bayar|kembali|kasir|terima|tanggal|disc|tax|pajak|ppn|grand|subtotal|pb1|qr|dpp|harga jual/i.test(line) &&
+      line.length > 5 && !/^\d/.test(line)) {
+      merchant = line;
+      break;
+    }
+  }
+
+  // Date
+  let date = null;
+  const datePatterns = [
+    /(\d{2})\/(\d{2})\/(\d{4})/,
+    /(\d{2})-(\d{2})-(\d{4})/,
+    /(\d{4})-(\d{2})-(\d{2})/,
+  ];
+  for (const pattern of datePatterns) {
+    const match = fullText.match(pattern);
+    if (match) {
+      let d = match[1],
+        m = match[2],
+        y = match[3];
+      if (y.length === 2) y = '20' + y;
+      date = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+      break;
+    }
+  }
+
+  // Items
+  const items = [];
+  for (const line of lines) {
+    if (line.length < 3) continue;
+    if (/^(subtotal|total|grand|jumlah|pb1|pajak|tax|qr|bt|items|tanggal|date|kasir|cashier|dpp|harga jual)/i.test(line)) continue;
+    const priceMatch = line.match(/([\d.,]+)\s*$/);
+    if (!priceMatch) continue;
+    const price = parseInt(priceMatch[1].replace(/\./g, '').replace(/,/g, ''));
+    if (isNaN(price) || price < 100 || price > 999999999) continue;
+    let namePart = line.replace(/\s*[\d.,]+\s*$/, '').trim();
+    if (namePart.length < 2) continue;
+    let qty = 1;
+    const qtyMatch = namePart.match(/^(\d+)\s*[xX]\s*(.+)$/);
+    if (qtyMatch) {
+      qty = parseInt(qtyMatch[1]);
+      namePart = qtyMatch[2].trim();
+    }
+    items.push({ name: namePart, price, quantity: qty });
+  }
+
+  // Kategori
+  let category = 'other';
+  const lowerText = fullText.toLowerCase();
+  const keywords = {
+    dining: ['makan', 'resto', 'restaurant', 'warung', 'cafe', 'kopi', 'sushi', 'pizza', 'burger', 'bakso', 'nasi', 'ayam', 'soto', 'mie', 'seafood'],
+    shopping: ['belanja', 'shop', 'baju', 'sepatu', 'toko', 'mall', 'pakaian', 'fashion', 'indomaret', 'alfamart'],
+    transport: ['transport', 'ojol', 'grab', 'gojek', 'bensin', 'pertamina', 'taxi', 'kereta'],
+    bills: ['tagihan', 'listrik', 'pln', 'air', 'pdam', 'internet', 'telkom', 'indihome'],
+    fun: ['hiburan', 'film', 'nonton', 'game', 'playstation', 'netflix', 'spotify'],
+    health: ['kesehatan', 'obat', 'dokter', 'rumah sakit', 'rs', 'klinik', 'apotek'],
+    gift: ['hadiah', 'gift', 'kado']
+  };
+  for (const [cat, words] of Object.entries(keywords)) {
+    for (const word of words) {
+      if (lowerText.includes(word)) { category = cat; break; }
+    }
+    if (category !== 'other') break;
+  }
+  if (merchant && /indomaret|alfamart/i.test(merchant)) {
+    category = 'shopping';
+  }
+
+  const amount = grandTotal || (items.length > 0 ? items.reduce((s, i) => s + (i.price * i.quantity), 0) : null);
+
+  return {
+    amount: amount,
+    date: date || new Date().toISOString().slice(0, 10),
+    merchant: merchant,
+    items: items,
+    category: category,
+    grandTotal: grandTotal
+  };
+}
+
+// ============================================================
+// FORMAT RESPONSE
+// ============================================================
+function formatReceiptResponse(parsed) {
+  const categoryMap = {
+    dining: 'Makan', shopping: 'Belanja', transport: 'Transportasi',
+    bills: 'Tagihan', fun: 'Hiburan', health: 'Kesehatan',
+    gift: 'Hadiah', other: 'Lainnya'
+  };
+
+  const categoryLabel = categoryMap[parsed.category] || 'Lainnya';
 
   let dateDisplay = parsed.date || new Date().toISOString().slice(0, 10);
   const dateObj = new Date(dateDisplay + 'T00:00:00');
@@ -188,222 +484,12 @@ function formatReceiptResponse(parsed, userId) {
 }
 
 // ============================================================
-// FUNGSI DATABASE TRANSACTION & REMINDER
-// ============================================================
-async function getTransactions(userId) {
-  const key = `transactions:${userId}`;
-  try {
-    const data = await kv.get(key);
-    return data || [];
-  } catch (e) {
-    console.error('❌ Gagal baca Redis:', e.message);
-    return [];
-  }
-}
-
-async function addTransaction(userId, tx) {
-  const key = `transactions:${userId}`;
-  try {
-    const txs = await getTransactions(userId);
-    txs.push(tx);
-    await kv.set(key, txs);
-    console.log(`✅ Transaksi berhasil disimpan untuk user ${userId}`);
-    
-    // Cek budget alert
-    await checkBudgetAlert(userId);
-    
-    return tx;
-  } catch (e) {
-    console.error('❌ Gagal simpan ke Redis:', e.message);
-    throw e;
-  }
-}
-
-async function deleteTransaction(userId, txId) {
-  const key = `transactions:${userId}`;
-  try {
-    let txs = await getTransactions(userId);
-    txs = txs.filter(t => t.id !== txId);
-    await kv.set(key, txs);
-    return txs;
-  } catch (e) {
-    console.error('❌ Gagal hapus dari Redis:', e.message);
-    throw e;
-  }
-}
-
-async function clearAllTransactions(userId) {
-  const key = `transactions:${userId}`;
-  try {
-    await kv.set(key, []);
-  } catch (e) {
-    console.error('❌ Gagal clear Redis:', e.message);
-    throw e;
-  }
-}
-
-// ============================================================
-// FITUR PENGINGAT (REMINDER)
-// ============================================================
-const REMINDER_KEY = 'catatanku_reminders';
-
-async function getReminders(userId) {
-  const key = `${REMINDER_KEY}:${userId}`;
-  try {
-    const data = await kv.get(key);
-    return data || [];
-  } catch (e) {
-    console.error('❌ Gagal baca reminder:', e.message);
-    return [];
-  }
-}
-
-async function saveReminders(userId, reminders) {
-  const key = `${REMINDER_KEY}:${userId}`;
-  try {
-    await kv.set(key, reminders);
-    return true;
-  } catch (e) {
-    console.error('❌ Gagal simpan reminder:', e.message);
-    return false;
-  }
-}
-
-async function addReminder(userId, reminder) {
-  const reminders = await getReminders(userId);
-  const newReminder = {
-    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-    ...reminder,
-    created_at: new Date().toISOString(),
-    is_active: true
-  };
-  reminders.push(newReminder);
-  await saveReminders(userId, reminders);
-  return newReminder;
-}
-
-async function removeReminder(userId, reminderId) {
-  let reminders = await getReminders(userId);
-  reminders = reminders.filter(r => r.id !== reminderId);
-  await saveReminders(userId, reminders);
-  return reminders;
-}
-
-async function checkPendingReminders(userId, bot) {
-  try {
-    const reminders = await getReminders(userId);
-    const now = new Date();
-    const pending = reminders.filter(r => {
-      if (!r.is_active) return false;
-      const remindAt = new Date(r.remind_at);
-      return remindAt <= now;
-    });
-
-    for (const reminder of pending) {
-      // Kirim notifikasi
-      const msg = 
-        `⏰ *Pengingat!*\n\n` +
-        `📝 *${reminder.title || 'Pengingat'}*\n` +
-        `${reminder.message || ''}\n\n` +
-        `📅 *Waktu:* ${new Date(reminder.remind_at).toLocaleString('id-ID')}`;
-
-      await bot.telegram.sendMessage(userId, msg, { parse_mode: 'Markdown' });
-
-      // Tandai sudah dikirim (nonaktifkan atau hapus)
-      reminder.is_active = false;
-    }
-
-    // Simpan perubahan
-    if (pending.length > 0) {
-      await saveReminders(userId, reminders);
-    }
-  } catch (e) {
-    console.error('❌ Error checking reminders:', e.message);
-  }
-}
-
-// ============================================================
-// FUNGSI BUDGET ALERT
-// ============================================================
-const BUDGET_LIMIT_KEY = 'catatanku_budget_limit';
-
-async function getBudgetLimit(userId) {
-  const key = `${BUDGET_LIMIT_KEY}:${userId}`;
-  try {
-    const data = await kv.get(key);
-    return data || 2000000; // default 2 juta
-  } catch (e) {
-    return 2000000;
-  }
-}
-
-async function setBudgetLimit(userId, limit) {
-  const key = `${BUDGET_LIMIT_KEY}:${userId}`;
-  try {
-    await kv.set(key, limit);
-    return true;
-  } catch (e) {
-    console.error('❌ Gagal set budget limit:', e.message);
-    return false;
-  }
-}
-
-async function checkBudgetAlert(userId) {
-  try {
-    const limit = await getBudgetLimit(userId);
-    const txs = await getTransactions(userId);
-    
-    // Hitung total pengeluaran bulan ini
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
-    
-    const totalExpense = txs
-      .filter(t => t.type === 'expense' && t.date >= monthStart && t.date <= monthEnd)
-      .reduce((s, t) => s + Number(t.amount), 0);
-
-    const pct = (totalExpense / limit) * 100;
-
-    // Cek apakah perlu peringatan
-    const reminders = await getReminders(userId);
-    const alertKey = `budget_alert_${now.getMonth()}_${now.getFullYear()}`;
-    const alreadyAlerted = reminders.some(r => r.id === alertKey && r.is_active === false);
-
-    if (pct >= 80 && !alreadyAlerted) {
-      // Kirim peringatan
-      const msg = 
-        `⚠️ *Peringatan Budget!*\n\n` +
-        `💸 Pengeluaran bulan ini: *Rp ${totalExpense.toLocaleString('id-ID')}*\n` +
-        `📊 Batas budget: *Rp ${limit.toLocaleString('id-ID')}*\n` +
-        `📈 Terpakai: *${Math.round(pct)}%*\n\n` +
-        `${pct >= 100 ? '🚨 Anda telah melewati batas budget!' : '⚠️ Budget hampir habis, perhatikan pengeluaran Anda!'}`;
-
-      await bot.telegram.sendMessage(userId, msg, { parse_mode: 'Markdown' });
-      
-      // Tandai sudah terkirim
-      const alertReminder = {
-        id: alertKey,
-        title: 'Peringatan Budget',
-        message: `Budget ${Math.round(pct)}% terpakai`,
-        remind_at: new Date().toISOString(),
-        is_active: false,
-        created_at: new Date().toISOString()
-      };
-      reminders.push(alertReminder);
-      await saveReminders(userId, reminders);
-    }
-  } catch (e) {
-    console.error('❌ Error checking budget:', e.message);
-  }
-}
-
-// ============================================================
-// BOT TELEGRAM HANDLER
+// BOT TELEGRAM
 // ============================================================
 const bot = new Telegraf(BOT_TOKEN || 'dummy', { handlerTimeout: 90000 });
 const appUrl = process.env.VERCEL_URL
-  ? `https://catatan-ku-silk.vercel.app`
-  : 'https://catatan-ku-silk.vercel.app';
+  ? `https://${process.env.VERCEL_URL}`
+  : 'http://localhost:3000';
 
 function miniAppKeyboard(buttons) {
   return {
@@ -416,21 +502,10 @@ function miniAppKeyboard(buttons) {
   };
 }
 
-// ============================================================
-// MIDDLEWARE: cek login & pending reminders
-// ============================================================
+// Middleware
 bot.use(async (ctx, next) => {
   if (!ctx.from) return next();
   const userId = ctx.from.id.toString();
-
-  // Cek reminder pending setiap kali user berinteraksi (kecuali /start)
-  if (!ctx.message?.text?.startsWith('/start')) {
-    try {
-      await checkPendingReminders(userId, bot);
-    } catch (e) {
-      console.error('❌ Error checking reminders in middleware:', e.message);
-    }
-  }
 
   if (ctx.message?.text?.startsWith('/start')) {
     return next();
@@ -452,31 +527,18 @@ bot.use(async (ctx, next) => {
   return next();
 });
 
-// ============================================================
-// COMMAND: /start
-// ============================================================
+// /start
 bot.start(async (ctx) => {
   const userId = ctx.from.id.toString();
   const registered = await isUserRegistered(userId);
 
-  // Cek reminder pending
-  await checkPendingReminders(userId, bot);
-
   if (registered) {
     await ctx.reply(
-      `👋 *Halo! Selamat datang kembali di CatatanKu!*\n\n` +
-      `📝 *Cara pakai:*\n` +
+      `👋 *Halo! Selamat datang kembali di CatatanKu!*\n\nCatat transaksi langsung dari sini:\n\n` +
       `➜ \`-5000\` → pengeluaran Rp 5.000\n` +
       `➜ \`+20000 makan siang\` → pemasukan Rp 20.000\n` +
       `➜ \`-15000 transport\` → pengeluaran transportasi\n\n` +
-      `📸 Kirim *foto struk* untuk scan otomatis!\n\n` +
-      `⏰ *Fitur Pengingat:*\n` +
-      `➜ /remind 1h "Catat pengeluaran" → pengingat 1 jam\n` +
-      `➜ /remind 30m "Bayar tagihan" → pengingat 30 menit\n` +
-      `➜ /remind "2026-12-31 23:59" "Tahun baru" → pengingat tanggal spesifik\n` +
-      `➜ /reminders → lihat daftar pengingat\n` +
-      `➜ /remindcancel <id> → batalkan pengingat\n\n` +
-      `💰 /budget 3000000 → set budget bulanan Rp 3.000.000`,
+      `📸 Kirim *foto struk* untuk scan otomatis dengan AI OCR!`,
       {
         parse_mode: 'Markdown',
         reply_markup: miniAppKeyboard([
@@ -499,271 +561,14 @@ bot.start(async (ctx) => {
   }
 });
 
-// ============================================================
-// COMMAND: /remind — Atur pengingat
-// ============================================================
-bot.command('remind', async (ctx) => {
-  const userId = ctx.from.id.toString();
-  const text = ctx.message.text;
-
-  // Hapus command
-  const args = text.replace('/remind', '').trim();
-  if (!args) {
-    return ctx.reply(
-      `⏰ *Cara pakai /remind:*\n\n` +
-      `➜ /remind 1h "Catat pengeluaran"\n` +
-      `➜ /remind 30m "Bayar tagihan"\n` +
-      `➜ /remind "2026-12-31 23:59" "Tahun baru"\n\n` +
-      `Satuan waktu: \`s\` (detik), \`m\` (menit), \`h\` (jam), \`d\` (hari)`,
-      { parse_mode: 'Markdown' }
-    );
-  }
-
-  // Parse: /remind 1h "Pesan" atau /remind "2026-12-31 23:59" "Pesan"
-  let remindAt = null;
-  let message = '';
-
-  // Coba parse format waktu relatif (1h, 30m, 2d)
-  const relMatch = args.match(/^(\d+)([smhd])\s+(.+)$/);
-  if (relMatch) {
-    const num = parseInt(relMatch[1]);
-    const unit = relMatch[2];
-    const msg = relMatch[3];
-    
-    const now = new Date();
-    let seconds = 0;
-    if (unit === 's') seconds = num;
-    else if (unit === 'm') seconds = num * 60;
-    else if (unit === 'h') seconds = num * 3600;
-    else if (unit === 'd') seconds = num * 86400;
-    
-    remindAt = new Date(now.getTime() + seconds * 1000);
-    message = msg;
-  } else {
-    // Coba parse format absolut: "2026-12-31 23:59" "Pesan"
-    const absMatch = args.match(/^"([^"]+)"\s+"([^"]+)"$/);
-    if (absMatch) {
-      const dateStr = absMatch[1];
-      const msg = absMatch[2];
-      const d = new Date(dateStr);
-      if (isNaN(d.getTime())) {
-        return ctx.reply('❌ Format tanggal tidak valid. Gunakan: `"YYYY-MM-DD HH:MM"`', { parse_mode: 'Markdown' });
-      }
-      if (d <= new Date()) {
-        return ctx.reply('❌ Tanggal harus di masa depan.');
-      }
-      remindAt = d;
-      message = msg;
-    } else {
-      // Coba tanpa tanda kutip: 1h Pesan
-      const simpleMatch = args.match(/^(\d+)([smhd])\s+(.+)$/);
-      if (simpleMatch) {
-        const num = parseInt(simpleMatch[1]);
-        const unit = simpleMatch[2];
-        const msg = simpleMatch[3];
-        const now = new Date();
-        let seconds = 0;
-        if (unit === 's') seconds = num;
-        else if (unit === 'm') seconds = num * 60;
-        else if (unit === 'h') seconds = num * 3600;
-        else if (unit === 'd') seconds = num * 86400;
-        remindAt = new Date(now.getTime() + seconds * 1000);
-        message = msg;
-      } else {
-        return ctx.reply(
-          `❌ Format tidak dikenali.\n\n` +
-          `Contoh:\n` +
-          `/remind 1h "Catat pengeluaran"\n` +
-          `/remind "2026-12-31 23:59" "Tahun baru"`,
-          { parse_mode: 'Markdown' }
-        );
-      }
-    }
-  }
-
-  if (!remindAt || !message) {
-    return ctx.reply('❌ Gagal memproses pengingat. Coba format yang benar.');
-  }
-
-  // Simpan pengingat
-  const reminder = {
-    title: 'Pengingat',
-    message: message,
-    remind_at: remindAt.toISOString()
-  };
-
-  try {
-    await addReminder(userId, reminder);
-    const formattedDate = remindAt.toLocaleString('id-ID');
-    await ctx.reply(
-      `✅ *Pengingat berhasil dibuat!*\n\n` +
-      `📝 *Pesan:* ${message}\n` +
-      `⏰ *Waktu:* ${formattedDate}\n\n` +
-      `🆔 ID: \`${reminder.id}\``,
-      { parse_mode: 'Markdown' }
-    );
-  } catch (e) {
-    console.error('❌ Error saving reminder:', e.message);
-    await ctx.reply('❌ Gagal menyimpan pengingat. Coba lagi nanti.');
-  }
-});
-
-// ============================================================
-// COMMAND: /reminders — Lihat daftar pengingat
-// ============================================================
-bot.command('reminders', async (ctx) => {
-  const userId = ctx.from.id.toString();
-  try {
-    const reminders = await getReminders(userId);
-    const active = reminders.filter(r => r.is_active !== false);
-
-    if (active.length === 0) {
-      return ctx.reply('📭 *Tidak ada pengingat aktif.*', { parse_mode: 'Markdown' });
-    }
-
-    let msg = `⏰ *Daftar Pengingat Aktif:*\n\n`;
-    for (const r of active) {
-      const date = new Date(r.remind_at).toLocaleString('id-ID');
-      msg += `🆔 \`${r.id}\`\n`;
-      msg += `📝 *${r.title || 'Pengingat'}*: ${r.message}\n`;
-      msg += `⏰ ${date}\n\n`;
-    }
-    msg += `Gunakan /remindcancel <id> untuk membatalkan.`;
-
-    await ctx.reply(msg, { parse_mode: 'Markdown' });
-  } catch (e) {
-    console.error('❌ Error getting reminders:', e.message);
-    await ctx.reply('❌ Gagal mengambil daftar pengingat.');
-  }
-});
-
-// ============================================================
-// COMMAND: /remindcancel — Batalkan pengingat
-// ============================================================
-bot.command('remindcancel', async (ctx) => {
-  const userId = ctx.from.id.toString();
-  const args = ctx.message.text.replace('/remindcancel', '').trim();
-
-  if (!args) {
-    return ctx.reply('❌ Masukkan ID pengingat. Contoh: `/remindcancel abc123`', { parse_mode: 'Markdown' });
-  }
-
-  try {
-    await removeReminder(userId, args);
-    await ctx.reply(`✅ Pengingat dengan ID \`${args}\` berhasil dibatalkan.`, { parse_mode: 'Markdown' });
-  } catch (e) {
-    console.error('❌ Error canceling reminder:', e.message);
-    await ctx.reply('❌ Gagal membatalkan pengingat. Pastikan ID benar.');
-  }
-});
-
-// ============================================================
-// COMMAND: /budget — Set budget bulanan
-// ============================================================
-bot.command('budget', async (ctx) => {
-  const userId = ctx.from.id.toString();
-  const args = ctx.message.text.replace('/budget', '').trim();
-
-  if (!args) {
-    const current = await getBudgetLimit(userId);
-    return ctx.reply(
-      `💰 *Budget Bulanan:* Rp ${current.toLocaleString('id-ID')}\n\n` +
-      `Gunakan /budget <nominal> untuk mengubah.\n` +
-      `Contoh: /budget 3000000`,
-      { parse_mode: 'Markdown' }
-    );
-  }
-
-  const amount = parseInt(args.replace(/[^0-9]/g, ''));
-  if (isNaN(amount) || amount <= 0) {
-    return ctx.reply('❌ Masukkan nominal yang valid. Contoh: `/budget 3000000`', { parse_mode: 'Markdown' });
-  }
-
-  await setBudgetLimit(userId, amount);
-  await ctx.reply(
-    `✅ *Budget berhasil diatur!*\n\n` +
-    `💰 Batas pengeluaran bulanan: *Rp ${amount.toLocaleString('id-ID')}*`,
-    { parse_mode: 'Markdown' }
-  );
-});
-
-// ============================================================
-// HANDLER: pesan teks (transaksi & edit)
-// ============================================================
+// Teks
 bot.on('text', async (ctx) => {
   try {
     const text = ctx.message.text;
     const userId = ctx.from.id.toString();
 
-    // Skip command
     if (text.startsWith('/')) return;
 
-    // Jika user sedang dalam mode edit
-    const draft = drafts[userId];
-    if (draft && draft.waitingFor) {
-      const field = draft.waitingFor;
-      const input = text.trim();
-
-      if (field === 'jumlah') {
-        const amount = parseInt(input.replace(/[^0-9]/g, ''));
-        if (isNaN(amount) || amount <= 0) {
-          return ctx.reply('❌ Masukkan angka yang valid (contoh: 50000)');
-        }
-        draft.amount = amount;
-      } else if (field === 'kategori') {
-        const catId = getCategoryId(input);
-        draft.category = catId;
-      } else if (field === 'tanggal') {
-        let dateStr = input;
-        let match = input.match(/(\d{2})[\/-](\d{2})[\/-](\d{4})/);
-        if (match) {
-          dateStr = `${match[3]}-${match[2]}-${match[1]}`;
-        } else {
-          match = input.match(/(\d{4})-(\d{2})-(\d{2})/);
-          if (match) {
-            dateStr = input;
-          } else {
-            const d = new Date(input);
-            if (!isNaN(d.getTime())) {
-              dateStr = d.toISOString().slice(0, 10);
-            } else {
-              return ctx.reply('❌ Format tanggal tidak valid. Gunakan YYYY-MM-DD atau DD/MM/YYYY');
-            }
-          }
-        }
-        draft.date = dateStr;
-      } else if (field === 'catatan') {
-        draft.note = input;
-      }
-
-      draft.waitingFor = null;
-
-      const previewMsg = 
-        `📝 *Preview Transaksi*\n\n` +
-        `💰 *Jumlah:* Rp ${draft.amount.toLocaleString('id-ID')}\n` +
-        `📂 *Kategori:* ${getCategoryLabel(draft.category)}\n` +
-        `📝 *Catatan:* ${draft.note}\n` +
-        `📅 *Tanggal:* ${draft.date}\n\n` +
-        `Klik "✏️ Edit" untuk mengubah lagi, atau "✅ Simpan" untuk menyimpan.`;
-
-      await ctx.reply(previewMsg, {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: '✏️ Edit', callback_data: `edit_${userId}` },
-              { text: '✅ Simpan', callback_data: `save_${userId}` }
-            ],
-            [
-              { text: '❌ Batal', callback_data: `cancel_${userId}` }
-            ]
-          ]
-        }
-      });
-      return;
-    }
-
-    // Proses transaksi teks
     const registered = await isUserRegistered(userId);
     if (!registered) {
       await ctx.reply(
@@ -780,13 +585,13 @@ bot.on('text', async (ctx) => {
 
     if (!/\d/.test(text)) {
       await ctx.reply(
-        '❓ Format tidak dikenali.\n\nContoh:\n`-5000 makan siang`\n`+50000 gaji`\n\nAtau kirim foto struk untuk scan otomatis.',
+        '❓ Format tidak dikenali.\n\nContoh:\n`-5000 makan siang`\n`+50000 gaji`\n\nAtau kirim foto struk untuk scan otomatis dengan AI OCR.',
         { parse_mode: 'Markdown' }
       );
       return;
     }
 
-    const tx = parseTransaction(text, userId);
+    const tx = parseTransactionText(text, userId);
     if (!tx) {
       await ctx.reply(
         '❌ Format tidak dikenali.\n\nContoh: `-5000` atau `+20000 makan siang`',
@@ -825,185 +630,10 @@ bot.on('text', async (ctx) => {
   }
 });
 
-// ============================================================
-// CALLBACK QUERY (Edit OCR, dll)
-// ============================================================
-bot.action(/edit_(.+)/, async (ctx) => {
-  const userId = ctx.match[1];
-  if (ctx.from.id.toString() !== userId) {
-    return ctx.answerCbQuery('❌ Ini bukan sesi Anda');
-  }
-
-  const draft = drafts[userId];
-  if (!draft) {
-    return ctx.answerCbQuery('❌ Sesi habis, kirim ulang foto');
-  }
-
-  await ctx.answerCbQuery();
-
-  await ctx.reply(
-    `✏️ *Pilih field yang ingin diedit:*\n\n` +
-    `💰 Jumlah: Rp ${draft.amount.toLocaleString('id-ID')}\n` +
-    `📂 Kategori: ${getCategoryLabel(draft.category)}\n` +
-    `📝 Catatan: ${draft.note}\n` +
-    `📅 Tanggal: ${draft.date}`,
-    {
-      parse_mode: 'Markdown',
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '💰 Edit Jumlah', callback_data: `editfield_jumlah_${userId}` }],
-          [{ text: '📂 Edit Kategori', callback_data: `editfield_kategori_${userId}` }],
-          [{ text: '📝 Edit Catatan', callback_data: `editfield_catatan_${userId}` }],
-          [{ text: '📅 Edit Tanggal', callback_data: `editfield_tanggal_${userId}` }],
-          [{ text: '🔙 Kembali', callback_data: `back_${userId}` }]
-        ]
-      }
-    }
-  );
-});
-
-bot.action(/editfield_(.+)_(.+)/, async (ctx) => {
-  const field = ctx.match[1];
-  const userId = ctx.match[2];
-  if (ctx.from.id.toString() !== userId) {
-    return ctx.answerCbQuery('❌ Bukan milik Anda');
-  }
-
-  const draft = drafts[userId];
-  if (!draft) {
-    return ctx.answerCbQuery('❌ Sesi habis');
-  }
-
-  await ctx.answerCbQuery();
-
-  const fieldLabels = {
-    jumlah: 'Jumlah (contoh: 50000)',
-    kategori: 'Kategori (Makan, Belanja, Transportasi, Tagihan, Hiburan, Kesehatan, Hadiah, Lainnya)',
-    catatan: 'Catatan (deskripsi transaksi)',
-    tanggal: 'Tanggal (format: YYYY-MM-DD atau DD/MM/YYYY)'
-  };
-
-  draft.waitingFor = field;
-  await ctx.reply(
-    `✏️ *Edit ${field}*\n\nKirim nilai baru untuk *${field}*.\n\n${fieldLabels[field]}`,
-    { parse_mode: 'Markdown' }
-  );
-});
-
-bot.action(/back_(.+)/, async (ctx) => {
-  const userId = ctx.match[1];
-  if (ctx.from.id.toString() !== userId) {
-    return ctx.answerCbQuery('❌ Bukan milik Anda');
-  }
-
-  const draft = drafts[userId];
-  if (!draft) {
-    return ctx.answerCbQuery('❌ Sesi habis');
-  }
-
-  await ctx.answerCbQuery();
-
-  const previewMsg = 
-    `📝 *Preview Transaksi*\n\n` +
-    `💰 *Jumlah:* Rp ${draft.amount.toLocaleString('id-ID')}\n` +
-    `📂 *Kategori:* ${getCategoryLabel(draft.category)}\n` +
-    `📝 *Catatan:* ${draft.note}\n` +
-    `📅 *Tanggal:* ${draft.date}\n\n` +
-    `Klik "✏️ Edit" untuk mengubah lagi, atau "✅ Simpan" untuk menyimpan.`;
-
-  await ctx.reply(previewMsg, {
-    parse_mode: 'Markdown',
-    reply_markup: {
-      inline_keyboard: [
-        [
-          { text: '✏️ Edit', callback_data: `edit_${userId}` },
-          { text: '✅ Simpan', callback_data: `save_${userId}` }
-        ],
-        [
-          { text: '❌ Batal', callback_data: `cancel_${userId}` }
-        ]
-      ]
-    }
-  });
-});
-
-bot.action(/save_(.+)/, async (ctx) => {
-  const userId = ctx.match[1];
-  if (ctx.from.id.toString() !== userId) {
-    return ctx.answerCbQuery('❌ Bukan milik Anda');
-  }
-
-  const draft = drafts[userId];
-  if (!draft) {
-    return ctx.answerCbQuery('❌ Sesi habis');
-  }
-
-  await ctx.answerCbQuery('✅ Menyimpan transaksi...');
-
-  try {
-    const finalAmount = draft.amount;
-
-    const tx = {
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-      amount: finalAmount,
-      type: 'expense',
-      category: draft.category || 'other',
-      date: draft.date || new Date().toISOString().slice(0, 10),
-      account: 'Bot OCR (Manual Edit)',
-      note: draft.note || 'Struk',
-      created_at: new Date().toISOString(),
-      user_id: userId
-    };
-
-    await addTransaction(userId, tx);
-
-    const categoryLabel = getCategoryLabel(tx.category);
-    const dateObj = new Date(tx.date + 'T00:00:00');
-    const formattedDate = dateObj.toLocaleDateString('id-ID', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric'
-    });
-
-    await ctx.reply(
-      `✅ *Transaksi berhasil disimpan!*\n\n` +
-      `💰 *Jumlah:* Rp ${tx.amount.toLocaleString('id-ID')}\n` +
-      `📂 *Kategori:* ${categoryLabel}\n` +
-      `📝 *Catatan:* ${tx.note}\n` +
-      `📅 *Tanggal:* ${formattedDate}\n\n` +
-      `📊 *Data otomatis muncul di Mini App* — buka CatatanKu untuk melihat.`,
-      {
-        parse_mode: 'Markdown',
-        reply_markup: miniAppKeyboard([
-          [{ text: '📊 Lihat di CatatanKu', path: '/' }]
-        ])
-      }
-    );
-
-    delete drafts[userId];
-  } catch (e) {
-    console.error('❌ Error saving draft:', e.message);
-    await ctx.reply('❌ Gagal menyimpan transaksi. Coba lagi nanti.');
-  }
-});
-
-bot.action(/cancel_(.+)/, async (ctx) => {
-  const userId = ctx.match[1];
-  if (ctx.from.id.toString() !== userId) {
-    return ctx.answerCbQuery('❌ Bukan milik Anda');
-  }
-
-  delete drafts[userId];
-  await ctx.answerCbQuery('❌ Dibatalkan');
-  await ctx.reply('❌ Transaksi dibatalkan.');
-});
-
-// ============================================================
-// HANDLER: FOTO — OCR + EDIT
-// ============================================================
+// Foto — OCR
 bot.on('photo', async (ctx) => {
   const processingMsg = await ctx.reply(
-    '🤖 *AI sedang menganalisis foto struk...* Mohon tunggu beberapa saat.',
+    '🤖 *AI OCR sedang menganalisis foto struk...* Mohon tunggu beberapa saat.',
     { parse_mode: 'Markdown' }
   );
 
@@ -1027,8 +657,6 @@ bot.on('photo', async (ctx) => {
       return;
     }
 
-    delete drafts[userId];
-
     const photo = ctx.message.photo[ctx.message.photo.length - 1];
     const fileLink = await ctx.telegram.getFileLink(photo.file_id);
     console.log('📸 File link:', fileLink);
@@ -1036,9 +664,10 @@ bot.on('photo', async (ctx) => {
     const response = await axios.get(fileLink, { responseType: 'arraybuffer' });
     const imageBuffer = Buffer.from(response.data, 'binary');
 
-    let ocrResult;
+    // OCR
+    let parsed;
     try {
-      ocrResult = await ocrStrukWithPuter(imageBuffer);
+      parsed = await ocrImage(imageBuffer);
     } catch (ocrError) {
       console.error('❌ OCR error:', ocrError.message);
       await ctx.telegram.editMessageText(
@@ -1051,7 +680,7 @@ bot.on('photo', async (ctx) => {
       return;
     }
 
-    if (!ocrResult || !ocrResult.amount) {
+    if (!parsed || !parsed.amount) {
       await ctx.telegram.editMessageText(
         processingMsg.chat.id,
         processingMsg.message_id,
@@ -1062,45 +691,34 @@ bot.on('photo', async (ctx) => {
       return;
     }
 
-    const finalAmount = ocrResult.grandTotal || ocrResult.amount;
-    const category = ocrResult.category || 'other';
-    const date = ocrResult.date || new Date().toISOString().slice(0, 10);
-    const note = ocrResult.merchant || 'Struk';
-
-    drafts[userId] = {
+    // Simpan transaksi
+    const finalAmount = parsed.grandTotal || parsed.amount;
+    const tx = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
       amount: finalAmount,
-      category: category,
-      date: date,
-      note: note,
-      waitingFor: null
+      type: 'expense',
+      category: parsed.category || 'other',
+      date: parsed.date || new Date().toISOString().slice(0, 10),
+      account: 'Bot OCR',
+      note: parsed.merchant || 'Struk',
+      created_at: new Date().toISOString(),
+      user_id: userId
     };
 
-    const previewMsg = 
-      `📝 *Hasil OCR — Periksa sebelum simpan*\n\n` +
-      `💰 *Jumlah:* Rp ${finalAmount.toLocaleString('id-ID')}\n` +
-      `📂 *Kategori:* ${getCategoryLabel(category)}\n` +
-      `📝 *Catatan:* ${note}\n` +
-      `📅 *Tanggal:* ${date}\n\n` +
-      `Jika ada kesalahan, klik "✏️ Edit" untuk mengubah.`;
+    await addTransaction(userId, tx);
+
+    const formattedResponse = formatReceiptResponse(parsed);
 
     await ctx.telegram.editMessageText(
       processingMsg.chat.id,
       processingMsg.message_id,
       null,
-      previewMsg,
+      formattedResponse,
       {
         parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: '✏️ Edit', callback_data: `edit_${userId}` },
-              { text: '✅ Simpan', callback_data: `save_${userId}` }
-            ],
-            [
-              { text: '❌ Batal', callback_data: `cancel_${userId}` }
-            ]
-          ]
-        }
+        reply_markup: miniAppKeyboard([
+          [{ text: '📊 Lihat di CatatanKu', path: '/' }]
+        ])
       }
     );
 
@@ -1116,28 +734,21 @@ bot.on('photo', async (ctx) => {
 });
 
 // ============================================================
-// WEBHOOK
-// ============================================================
-app.post('/api/webhook', async (req, res) => {
-  console.log('📥 Webhook received');
-  try {
-    if (!BOT_TOKEN) {
-      console.error('❌ BOT_TOKEN tidak ada');
-      return res.status(500).json({ error: 'BOT_TOKEN missing' });
-    }
-    await bot.handleUpdate(req.body);
-    console.log('✅ Webhook processed successfully');
-    res.status(200).json({ ok: true });
-  } catch (err) {
-    console.error('❌ Webhook error:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ============================================================
 // API ENDPOINTS
 // ============================================================
 
+// Health
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    bot_token_set: !!BOT_TOKEN,
+    ocr_api_key_set: !!OCR_API_KEY,
+    gemini_api_key_set: !!GEMINI_API_KEY,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Register
 app.post('/api/register', async (req, res) => {
   console.log('📥 Register request:', req.body);
   try {
@@ -1158,6 +769,7 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
+// Check user
 app.get('/api/check-user/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
@@ -1169,6 +781,7 @@ app.get('/api/check-user/:userId', async (req, res) => {
   }
 });
 
+// Get transactions
 app.get('/api/transactions/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
@@ -1183,6 +796,7 @@ app.get('/api/transactions/:userId', async (req, res) => {
   }
 });
 
+// Add transaction
 app.post('/api/transactions', async (req, res) => {
   try {
     const { userId, ...tx } = req.body;
@@ -1207,6 +821,7 @@ app.post('/api/transactions', async (req, res) => {
   }
 });
 
+// Delete transaction
 app.delete('/api/transactions/:userId/:txId', async (req, res) => {
   try {
     const { userId, txId } = req.params;
@@ -1221,6 +836,7 @@ app.delete('/api/transactions/:userId/:txId', async (req, res) => {
   }
 });
 
+// Clear all
 app.delete('/api/transactions/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
@@ -1235,125 +851,73 @@ app.delete('/api/transactions/:userId', async (req, res) => {
   }
 });
 
-app.get('/api/summary/:userId', async (req, res) => {
-  try {
-    const userId = req.params.userId;
-    const registered = await isUserRegistered(userId);
-    if (!registered) {
-      return res.status(401).json({ error: 'User tidak terdaftar' });
+// OCR — Analyze image
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Format file tidak didukung'));
     }
-    const txs = await getTransactions(userId);
-    const total_income = txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-    const total_expense = txs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-    res.json({ total_income, total_expense, balance: total_income - total_expense });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
   }
 });
 
-app.get('/api/reminders/:userId', async (req, res) => {
+app.post('/api/ocr/analyze', upload.single('image'), async (req, res) => {
   try {
-    const userId = req.params.userId;
-    const registered = await isUserRegistered(userId);
-    if (!registered) {
-      return res.status(401).json({ error: 'User tidak terdaftar' });
+    if (!req.file) {
+      return res.status(400).json({ error: 'Image file is required' });
     }
-    const reminders = await getReminders(userId);
-    res.json(reminders);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
+
+    const imageBuffer = req.file.buffer;
+    const parsed = await ocrImage(imageBuffer);
+
+    res.json({
+      success: true,
+      parsed: parsed
+    });
+
+  } catch (error) {
+    console.error('❌ OCR API error:', error.message);
+    res.status(500).json({ error: error.message });
   }
 });
 
-app.post('/api/reminders/:userId', async (req, res) => {
+// ============================================================
+// WEBHOOK
+// ============================================================
+app.post('/api/webhook', async (req, res) => {
+  console.log('📥 Webhook received');
   try {
-    const userId = req.params.userId;
-    const { reminder } = req.body;
-    if (!reminder || !reminder.remind_at) {
-      return res.status(400).json({ error: 'Data reminder tidak lengkap' });
+    if (!BOT_TOKEN) {
+      console.error('❌ BOT_TOKEN tidak ada');
+      return res.status(500).json({ error: 'BOT_TOKEN missing' });
     }
-    const registered = await isUserRegistered(userId);
-    if (!registered) {
-      return res.status(401).json({ error: 'User tidak terdaftar' });
-    }
-    const newReminder = await addReminder(userId, reminder);
-    res.json({ success: true, reminder: newReminder });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-app.delete('/api/reminders/:userId/:reminderId', async (req, res) => {
-  try {
-    const { userId, reminderId } = req.params;
-    const registered = await isUserRegistered(userId);
-    if (!registered) {
-      return res.status(401).json({ error: 'User tidak terdaftar' });
-    }
-    await removeReminder(userId, reminderId);
-    res.json({ success: true });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString(), bot_token_set: !!BOT_TOKEN });
-});
-
-app.get('/api/test', (req, res) => {
-  res.json({
-    message: 'API is working',
-    bot_token_set: !!BOT_TOKEN,
-    ocr_api_key_set: !!process.env.OCR_API_KEY,
-    vercel_url: process.env.VERCEL_URL,
-    app_url: appUrl
-  });
-});
-
-app.get('/api/admin/users', async (req, res) => {
-  const token = req.headers['x-admin-token'];
-  if (token !== ADMIN_TOKEN) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  try {
-    const keys = await kv.keys('user:*');
-    const users = await Promise.all(keys.map(async (key) => {
-      const userId = key.replace('user:', '');
-      const userData = await kv.get(key);
-      const txs = await getTransactions(userId);
-      return {
-        userId,
-        registeredAt: userData?.registeredAt,
-        isActive: userData?.isActive !== false,
-        transactionCount: txs.length
-      };
-    }));
-    res.json({ users });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-app.delete('/api/admin/users/:userId', async (req, res) => {
-  const token = req.headers['x-admin-token'];
-  if (token !== ADMIN_TOKEN) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  try {
-    const userId = req.params.userId;
-    await kv.del(`user:${userId}`);
-    await kv.del(`transactions:${userId}`);
-    await kv.del(`${REMINDER_KEY}:${userId}`);
-    await kv.del(`${BUDGET_LIMIT_KEY}:${userId}`);
-    res.json({ success: true });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
+    await bot.handleUpdate(req.body);
+    console.log('✅ Webhook processed successfully');
+    res.status(200).json({ ok: true });
+  } catch (err) {
+    console.error('❌ Webhook error:', err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 
 app.get('/', (req, res) => {
   res.redirect('/index.html');
+});
+
+// ============================================================
+// START
+// ============================================================
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server berjalan di http://localhost:${PORT}`);
+  console.log(`🤖 BOT_TOKEN: ${BOT_TOKEN ? '✅' : '❌'}`);
+  console.log(`🔑 OCR_API_KEY: ${OCR_API_KEY ? '✅' : '❌'}`);
+  console.log(`🧠 GEMINI_API_KEY: ${GEMINI_API_KEY ? '✅' : '❌'}`);
 });
 
 module.exports = app;
