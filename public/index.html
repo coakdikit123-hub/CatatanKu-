@@ -3,12 +3,15 @@
 <head>
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport" />
-    <title>CatatanKu — OCR AI</title>
+    <title>CatatanKu — Multi-Akun + OCR AI</title>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries">
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
     <style>
+        /* ============================================================
+               ROOT & BASE
+            ============================================================ */
         * {
             font-family: 'Inter', sans-serif;
             box-sizing: border-box;
@@ -28,10 +31,7 @@
             --text-2: #8fa0bc;
             --text-3: #4a5d7a;
             --income: #6ee7b7;
-            --income-dim: rgba(110, 231, 183, 0.12);
             --expense: #f87171;
-            --expense-dim: rgba(248, 113, 113, 0.10);
-            --warning: #fbbf24;
             --radius-sm: 10px;
             --radius-md: 14px;
             --radius-lg: 20px;
@@ -61,7 +61,6 @@
             top: 0;
             z-index: 40;
         }
-
         .app-header .brand {
             display: flex;
             align-items: center;
@@ -86,6 +85,11 @@
             font-weight: 700;
             color: var(--text-1);
         }
+        .app-header .actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
 
         .bottom-nav {
             background: rgba(7, 11, 23, 0.96);
@@ -103,7 +107,6 @@
             z-index: 50;
             border-radius: 24px 24px 0 0;
         }
-
         .bottom-nav a {
             display: flex;
             flex-direction: column;
@@ -117,13 +120,9 @@
             padding: 4px 0;
             border-radius: 12px;
         }
-
         .bottom-nav a .material-symbols-outlined {
             font-size: 24px;
-            transition: all 0.2s;
-            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
         }
-
         .bottom-nav a span:last-child {
             font-size: 10px;
             font-weight: 600;
@@ -131,24 +130,17 @@
             text-transform: uppercase;
             margin-top: 1px;
         }
-
         .bottom-nav a.active {
             color: var(--accent);
         }
-        .bottom-nav a.active .material-symbols-outlined {
-            font-variation-settings: 'FILL' 1;
-        }
-
         .bottom-nav .nav-add {
             position: relative;
             top: -10px;
             flex: 0 0 70px;
         }
-
         .bottom-nav .nav-add .material-symbols-outlined {
             font-size: 40px !important;
             color: var(--accent) !important;
-            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
             filter: drop-shadow(0 4px 16px rgba(177, 188, 251, 0.30));
         }
 
@@ -159,7 +151,6 @@
         .page.active {
             display: block;
         }
-
         @keyframes pageIn {
             from {
                 opacity: 0;
@@ -170,7 +161,6 @@
                 transform: translateY(0);
             }
         }
-
         .page-content {
             max-width: 960px;
             margin: 0 auto;
@@ -195,14 +185,31 @@
             overflow: hidden;
             box-shadow: 0 8px 32px rgba(177, 188, 251, 0.20);
         }
-
+        .hero-card .content {
+            position: relative;
+            z-index: 1;
+        }
+        .hero-card .label {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: rgba(10, 14, 26, 0.50);
+            margin-bottom: 2px;
+        }
         .hero-card .balance {
             font-size: 36px;
             font-weight: 800;
             color: #0a0e1a;
             letter-spacing: -0.03em;
+            line-height: 1.1;
         }
-
+        .hero-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 18px;
+        }
         .hero-stat-box {
             background: rgba(10, 14, 26, 0.15);
             backdrop-filter: blur(6px);
@@ -210,16 +217,58 @@
             border-radius: var(--radius-sm);
             padding: 12px 14px;
         }
+        .hero-stat-box .stat-label {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: rgba(10, 14, 26, 0.50);
+            margin-bottom: 2px;
+        }
+        .hero-stat-box .stat-value {
+            font-size: 17px;
+            font-weight: 700;
+            color: #0a0e1a;
+        }
 
         .mini-card {
             background: var(--surface-1);
             border: 1px solid var(--border);
             border-radius: var(--radius-md);
             padding: 16px 18px;
-            transition: border-color 0.2s;
         }
-        .mini-card:hover {
-            border-color: var(--border-hover);
+        .mini-card .title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-3);
+            margin-bottom: 6px;
+        }
+        .mini-card .value {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--accent);
+        }
+        .mini-card .bar-track {
+            width: 100%;
+            height: 4px;
+            border-radius: 2px;
+            background: var(--surface-3);
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        .mini-card .bar-track .bar-fill {
+            height: 100%;
+            border-radius: 2px;
+            background: var(--accent);
+            width: 0%;
+            transition: width 0.6s ease;
+        }
+        .mini-card .sub {
+            font-size: 11px;
+            color: var(--text-3);
+            margin-top: 6px;
         }
 
         .tx-item {
@@ -230,47 +279,80 @@
             display: flex;
             align-items: center;
             gap: 12px;
-            transition: border-color 0.2s;
         }
-        .tx-item:hover {
-            border-color: var(--border-hover);
-        }
-
-        .btn-primary {
-            background: var(--accent);
-            color: #0a0e1a;
-            font-weight: 700;
-            font-size: 15px;
-            padding: 12px 20px;
-            border-radius: var(--radius-sm);
-            border: none;
-            cursor: pointer;
-            display: inline-flex;
+        .tx-item .icon-wrap {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            display: flex;
             align-items: center;
-            gap: 8px;
-            transition: transform 0.15s;
+            justify-content: center;
+            flex-shrink: 0;
         }
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 28px rgba(177, 188, 251, 0.30);
+        .tx-item .info {
+            flex: 1;
+            min-width: 0;
         }
-
-        .btn-secondary {
-            background: var(--surface-2);
-            color: var(--text-1);
-            border: 1px solid var(--border);
-            padding: 12px 20px;
-            border-radius: var(--radius-sm);
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            transition: all 0.15s;
+        .tx-item .info .title {
+            font-size: 14px;
             font-weight: 600;
+            color: var(--text-1);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
-        .btn-secondary:hover {
+        .tx-item .info .meta {
+            font-size: 11px;
+            color: var(--text-3);
+            margin-top: 1px;
+        }
+        .tx-item .amount {
+            font-size: 14px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        .tx-item .amount.income {
+            color: var(--income);
+        }
+        .tx-item .amount.expense {
+            color: var(--expense);
+        }
+        .tx-item .actions {
+            display: flex;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+        .tx-item .actions button {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--surface-2);
+            cursor: pointer;
+            color: var(--text-2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .tx-item .actions button:hover {
             background: var(--surface-3);
-            border-color: var(--border-hover);
+        }
+        .tx-item .actions button.danger {
+            background: rgba(248, 113, 113, 0.10);
+            border-color: rgba(248, 113, 113, 0.20);
+            color: var(--expense);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 48px 20px 32px;
+            color: var(--text-3);
+        }
+        .empty-state .material-symbols-outlined {
+            font-size: 48px;
+            color: var(--surface-4);
+            display: block;
+            margin-bottom: 12px;
         }
 
         .toast {
@@ -290,12 +372,14 @@
             transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
             z-index: 999;
             pointer-events: none;
+            white-space: nowrap;
         }
         .toast.show {
             opacity: 1;
             transform: translateX(-50%) translateY(0);
         }
 
+        /* OCR Upload */
         .ocr-upload-zone {
             border: 2px dashed var(--border);
             border-radius: var(--radius-md);
@@ -306,10 +390,6 @@
             background: var(--surface-2);
         }
         .ocr-upload-zone:hover {
-            border-color: var(--accent);
-            background: var(--accent-dim);
-        }
-        .ocr-upload-zone.dragover {
             border-color: var(--accent);
             background: var(--accent-dim);
         }
@@ -327,7 +407,6 @@
             color: var(--text-3);
             font-size: 12px;
         }
-
         .ocr-preview {
             max-width: 100%;
             max-height: 300px;
@@ -335,20 +414,36 @@
             margin-top: 12px;
             border: 1px solid var(--border);
         }
-
-        .ocr-result-box {
-            background: var(--surface-2);
+        .btn-primary {
+            background: var(--accent);
+            color: #0a0e1a;
+            font-weight: 700;
+            padding: 10px 20px;
             border-radius: var(--radius-sm);
-            padding: 16px;
-            margin-top: 12px;
-            border: 1px solid var(--border);
-            max-height: 200px;
-            overflow-y: auto;
-            font-size: 13px;
-            color: var(--text-2);
-            white-space: pre-wrap;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: transform 0.15s;
         }
-
+        .btn-primary:hover {
+            transform: translateY(-2px);
+        }
+        .btn-secondary {
+            background: var(--surface-2);
+            color: var(--text-1);
+            padding: 10px 20px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-secondary:hover {
+            background: var(--surface-3);
+        }
         .loading-spinner {
             display: inline-block;
             width: 20px;
@@ -365,68 +460,6 @@
                 transform: rotate(360deg);
             }
         }
-
-        .empty-state {
-            text-align: center;
-            padding: 48px 20px 32px;
-            color: var(--text-3);
-        }
-        .empty-state .material-symbols-outlined {
-            font-size: 48px;
-            color: var(--surface-4);
-            display: block;
-            margin-bottom: 12px;
-        }
-
-        .form-input,
-        .form-select,
-        .form-textarea {
-            width: 100%;
-            padding: 12px 16px;
-            border-radius: var(--radius-sm);
-            border: 1.5px solid var(--border);
-            background: var(--surface-2) !important;
-            color: var(--text-1) !important;
-            font-size: 15px;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-        .form-input:focus,
-        .form-select:focus,
-        .form-textarea:focus {
-            border-color: var(--accent) !important;
-            box-shadow: 0 0 0 3px var(--accent-dim);
-        }
-
-        .form-label {
-            font-size: 11px;
-            font-weight: 600;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            color: var(--text-2);
-            margin-bottom: 6px;
-            display: block;
-        }
-
-        @media (max-width: 480px) {
-            .hero-card .balance {
-                font-size: 28px;
-            }
-            .bottom-nav {
-                height: 66px;
-                padding: 4px 4px 8px;
-            }
-            .bottom-nav .nav-add {
-                flex: 0 0 60px;
-                top: -8px;
-            }
-            .bottom-nav .nav-add .material-symbols-outlined {
-                font-size: 34px !important;
-            }
-            .tx-item {
-                padding: 12px 14px;
-            }
-        }
     </style>
 </head>
 <body>
@@ -440,13 +473,11 @@
     <div id="page-dashboard" class="page active">
         <header class="app-header">
             <div class="brand">
-                <div class="logo">
-                    <span class="material-symbols-outlined">account_balance_wallet</span>
-                </div>
+                <div class="logo"><span class="material-symbols-outlined">account_balance_wallet</span></div>
                 <h1>CatatanKu</h1>
             </div>
-            <div class="actions" style="display:flex;gap:8px;">
-                <span class="status-badge online" id="status-badge" style="font-size:11px;padding:3px 12px;border-radius:20px;background:rgba(110,231,183,0.10);color:var(--income);border:1px solid rgba(110,231,183,0.15);display:inline-flex;align-items:center;gap:4px;">● Online</span>
+            <div class="actions">
+                <span class="status-badge" style="font-size:11px;padding:3px 12px;border-radius:20px;background:rgba(110,231,183,0.10);color:var(--income);border:1px solid rgba(110,231,183,0.15);">● Online</span>
                 <button class="icon-btn" onclick="syncFromBackend()" style="width:36px;height:36px;border-radius:10px;background:var(--surface-2);border:1px solid var(--border);cursor:pointer;color:var(--text-2);display:flex;align-items:center;justify-content:center;">
                     <span class="material-symbols-outlined" style="font-size:18px;">sync</span>
                 </button>
@@ -458,19 +489,44 @@
             <!-- Hero -->
             <section class="hero-card">
                 <div class="content">
-                    <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:rgba(10,14,26,0.50);margin-bottom:2px;">Saldo Total</div>
+                    <div class="label">Saldo Total</div>
                     <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;">
                         <span class="balance" id="dash-total-balance">Rp 0</span>
                         <span class="change" id="dash-change" style="font-size:13px;font-weight:600;color:rgba(10,14,26,0.45);">—</span>
                     </div>
-                    <div class="hero-stats" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px;">
+                    <div class="hero-stats">
                         <div class="hero-stat-box">
-                            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:rgba(10,14,26,0.50);margin-bottom:2px;">Pemasukan</div>
-                            <div style="font-size:17px;font-weight:700;color:#0a0e1a;" id="dash-income">Rp 0</div>
+                            <div class="stat-label">Pemasukan</div>
+                            <div class="stat-value" id="dash-income">Rp 0</div>
                         </div>
                         <div class="hero-stat-box">
-                            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:rgba(10,14,26,0.50);margin-bottom:2px;">Pengeluaran</div>
-                            <div style="font-size:17px;font-weight:700;color:#0a0e1a;" id="dash-expenses">Rp 0</div>
+                            <div class="stat-label">Pengeluaran</div>
+                            <div class="stat-value" id="dash-expenses">Rp 0</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Mini Stats -->
+            <section style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px;">
+                <div class="mini-card">
+                    <div class="title">Pengeluaran Bulan Ini</div>
+                    <div class="value" id="dash-monthly-spending">Rp 0</div>
+                    <div class="bar-track"><div class="bar-fill" id="dash-spending-bar"></div></div>
+                    <div class="sub" id="dash-spending-label">0% dari batas</div>
+                </div>
+                <div class="mini-card" style="cursor:pointer;" onclick="navigateTo('reports')">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                        <div class="title">Kategori Teratas</div>
+                        <span class="material-symbols-outlined" style="font-size:16px;color:var(--text-3);">arrow_forward</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <div style="width:40px;height:40px;border-radius:12px;background:var(--surface-3);display:flex;align-items:center;justify-content:center;flex-shrink:0;" id="dash-top-icon">
+                            <span class="material-symbols-outlined" style="font-size:20px;color:var(--text-2);">restaurant</span>
+                        </div>
+                        <div>
+                            <div style="font-size:15px;font-weight:600;color:var(--accent);" id="dash-top-name">—</div>
+                            <div style="font-size:11px;color:var(--text-3);" id="dash-top-amount">Rp 0 bulan ini</div>
                         </div>
                     </div>
                 </div>
@@ -483,9 +539,7 @@
                         <span class="material-symbols-outlined" style="color:var(--accent);font-size:24px;">scan</span>
                         <h2 style="font-size:16px;font-weight:700;color:var(--text-1);">Scan Struk dengan AI OCR</h2>
                     </div>
-                    <p style="font-size:13px;color:var(--text-2);margin-bottom:12px;">
-                        Upload foto struk/nota, AI akan membaca dan mencatat transaksi secara otomatis.
-                    </p>
+                    <p style="font-size:13px;color:var(--text-2);margin-bottom:12px;">Upload foto struk/nota, AI akan membaca dan mencatat transaksi otomatis.</p>
 
                     <div class="ocr-upload-zone" id="ocr-drop-zone">
                         <span class="material-symbols-outlined icon">image</span>
@@ -518,7 +572,7 @@
                                     <div style="font-size:13px;font-weight:600;color:var(--text-1);margin-bottom:6px;">💰 Data Transaksi</div>
                                     <div id="ocr-parsed-detail" style="font-size:13px;color:var(--text-2);"></div>
                                 </div>
-                                <button class="btn-primary" onclick="saveOCRTransaction()" style="margin-top:12px;padding:10px 20px;border-radius:10px;border:none;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#0a0e1a;width:100%;justify-content:center;">
+                                <button class="btn-primary" onclick="saveOCRTransaction()" style="margin-top:12px;width:100%;justify-content:center;">
                                     <span class="material-symbols-outlined" style="font-size:18px;">check_circle</span>
                                     Simpan Transaksi
                                 </button>
@@ -532,9 +586,7 @@
             <section style="margin-top:16px;">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
                     <h2 style="font-size:16px;font-weight:700;color:var(--text-1);">Transaksi Terbaru</h2>
-                    <button onclick="navigateTo('history')" style="font-size:12px;font-weight:600;color:var(--accent);background:none;border:none;cursor:pointer;letter-spacing:0.04em;">
-                        Lihat Semua →
-                    </button>
+                    <button onclick="navigateTo('history')" style="font-size:12px;font-weight:600;color:var(--accent);background:none;border:none;cursor:pointer;">Lihat Semua →</button>
                 </div>
                 <div id="dash-recent-list" style="display:flex;flex-direction:column;gap:8px;">
                     <div class="empty-state">
@@ -551,31 +603,31 @@
     PAGE: ADD
     ============================================================ -->
     <div id="page-add" class="page">
-        <div class="add-page-header" style="background:rgba(7,11,23,0.92);backdrop-filter:blur(18px);border-bottom:1px solid var(--border);padding:0 20px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:40;">
-            <button class="back-btn" onclick="navigateTo('dashboard')" style="width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--surface-2);border:1px solid var(--border);cursor:pointer;color:var(--accent);">
+        <div style="background:rgba(7,11,23,0.92);backdrop-filter:blur(18px);border-bottom:1px solid var(--border);padding:0 20px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:40;">
+            <button onclick="navigateTo('dashboard')" style="width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--surface-2);border:1px solid var(--border);cursor:pointer;color:var(--accent);">
                 <span class="material-symbols-outlined" style="font-size:20px;">arrow_back</span>
             </button>
-            <span class="title" style="font-size:17px;font-weight:600;color:var(--text-1);">Tambah Transaksi</span>
-            <div class="spacer" style="width:38px;"></div>
+            <span style="font-size:17px;font-weight:600;color:var(--text-1);">Tambah Transaksi</span>
+            <div style="width:38px;"></div>
         </div>
 
-        <div class="add-amount-section" style="background:var(--surface-1);border-bottom:1px solid var(--border);padding:24px 20px 20px;text-align:center;">
+        <div style="background:var(--surface-1);border-bottom:1px solid var(--border);padding:24px 20px 20px;text-align:center;">
             <div style="font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-3);">Jumlah</div>
             <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:4px;">
                 <span style="color:var(--accent);font-weight:700;font-size:22px;">Rp</span>
-                <input id="add-amount" class="amount-input" type="number" step="1" placeholder="0" autofocus style="background:transparent!important;border:none!important;color:var(--text-1)!important;font-size:44px;font-weight:700;text-align:center;width:100%;max-width:220px;padding:0;letter-spacing:-0.03em;outline:none;" />
+                <input id="add-amount" type="number" step="1" placeholder="0" style="background:transparent!important;border:none!important;color:var(--text-1)!important;font-size:44px;font-weight:700;text-align:center;width:100%;max-width:220px;padding:0;outline:none;" autofocus />
             </div>
         </div>
 
         <main style="max-width:480px;margin:0 auto;padding:0 20px 100px;">
             <form id="add-form" onsubmit="saveTransaction(event)" style="margin-top:20px;">
                 <div class="mb-3">
-                    <label class="form-label">Jenis Transaksi</label>
+                    <label class="form-label" style="font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-2);display:block;margin-bottom:6px;">Jenis Transaksi</label>
                     <div class="type-toggle" style="display:flex;gap:8px;">
-                        <button type="button" class="tab-btn" data-type="expense" onclick="setTransactionType('expense')" style="flex:1;padding:11px 12px;border-radius:var(--radius-sm);font-weight:600;font-size:14px;cursor:pointer;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px;border:1.5px solid var(--border);background:var(--surface-2);color:var(--text-2);transition:all 0.2s;">
+                        <button type="button" class="tab-btn" data-type="expense" onclick="setTransactionType('expense')" style="flex:1;padding:11px 12px;border-radius:var(--radius-sm);font-weight:600;font-size:14px;cursor:pointer;text-align:center;border:1.5px solid var(--border);background:var(--surface-2);color:var(--text-2);display:flex;align-items:center;justify-content:center;gap:6px;">
                             <span class="material-symbols-outlined" style="font-size:18px;">arrow_upward</span> Pengeluaran
                         </button>
-                        <button type="button" class="tab-btn active" data-type="income" onclick="setTransactionType('income')" style="flex:1;padding:11px 12px;border-radius:var(--radius-sm);font-weight:600;font-size:14px;cursor:pointer;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px;border:1.5px solid var(--border);background:var(--accent);color:#0a0e1a;border-color:var(--accent);box-shadow:0 4px 16px rgba(177,188,251,0.20);">
+                        <button type="button" class="tab-btn active" data-type="income" onclick="setTransactionType('income')" style="flex:1;padding:11px 12px;border-radius:var(--radius-sm);font-weight:600;font-size:14px;cursor:pointer;text-align:center;border:1.5px solid var(--border);background:var(--surface-2);color:var(--text-2);display:flex;align-items:center;justify-content:center;gap:6px;background:var(--accent);color:#0a0e1a;border-color:var(--accent);">
                             <span class="material-symbols-outlined" style="font-size:18px;">arrow_downward</span> Pemasukan
                         </button>
                     </div>
@@ -587,11 +639,11 @@
                 <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
                     <div>
                         <label class="form-label">Tanggal</label>
-                        <input id="add-date" class="form-input" type="date" />
+                        <input id="add-date" type="date" class="form-input" style="width:100%;padding:12px 16px;border-radius:var(--radius-sm);border:1.5px solid var(--border);background:var(--surface-2)!important;color:var(--text-1)!important;font-size:15px;outline:none;" />
                     </div>
                     <div>
                         <label class="form-label">Akun</label>
-                        <select id="add-account" class="form-select">
+                        <select id="add-account" class="form-select" style="width:100%;padding:12px 16px;border-radius:var(--radius-sm);border:1.5px solid var(--border);background:var(--surface-2)!important;color:var(--text-1)!important;font-size:15px;outline:none;">
                             <option value="Bank">Bank</option>
                             <option value="Tunai">Tunai</option>
                             <option value="Tabungan">Tabungan</option>
@@ -601,13 +653,96 @@
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Catatan</label>
-                    <textarea id="add-note" class="form-textarea" rows="2" placeholder="Tambahkan deskripsi…"></textarea>
+                    <textarea id="add-note" class="form-textarea" rows="2" placeholder="Tambahkan deskripsi…" style="width:100%;padding:12px 16px;border-radius:var(--radius-sm);border:1.5px solid var(--border);background:var(--surface-2)!important;color:var(--text-1)!important;font-size:15px;outline:none;resize:vertical;min-height:72px;"></textarea>
                 </div>
-                <button type="submit" class="btn-primary" style="width:100%;">
-                    <span class="material-symbols-outlined">check_circle</span>
+                <button type="submit" class="btn-primary" style="background:var(--accent);color:#0a0e1a;font-weight:700;font-size:15px;padding:15px 20px;border-radius:var(--radius-md);border:none;width:100%;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+                    <span class="material-symbols-outlined" style="font-size:20px;">check_circle</span>
                     Simpan Transaksi
                 </button>
             </form>
+        </main>
+    </div>
+
+    <!-- ============================================================
+    PAGE: HISTORY
+    ============================================================ -->
+    <div id="page-history" class="page">
+        <header class="app-header">
+            <div class="brand">
+                <span class="material-symbols-outlined text-accent" style="font-size:22px;">receipt_long</span>
+                <h1>Riwayat</h1>
+            </div>
+            <div class="actions">
+                <button class="icon-btn" onclick="clearAllData()" style="width:36px;height:36px;border-radius:10px;background:var(--surface-2);border:1px solid var(--border);cursor:pointer;color:var(--text-2);display:flex;align-items:center;justify-content:center;">
+                    <span class="material-symbols-outlined" style="font-size:18px;color:var(--expense);">delete</span>
+                </button>
+                <button class="icon-btn" onclick="closeApp()" style="width:36px;height:36px;border-radius:10px;background:var(--surface-2);border:1px solid var(--border);cursor:pointer;color:var(--text-2);display:flex;align-items:center;justify-content:center;">
+                    <span class="material-symbols-outlined" style="font-size:18px;">close</span>
+                </button>
+            </div>
+        </header>
+
+        <main class="page-content">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+                <div class="search-wrap" style="position:relative;flex:1;">
+                    <span class="material-symbols-outlined" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:18px;color:var(--text-3);">search</span>
+                    <input id="history-search" placeholder="Cari transaksi…" oninput="renderHistory()" style="width:100%;height:44px;padding-left:42px;padding-right:16px;border-radius:var(--radius-sm);font-size:14px;border:1.5px solid var(--border);background:var(--surface-2)!important;color:var(--text-1)!important;outline:none;" />
+                </div>
+                <button class="icon-btn large" onclick="renderHistory()" style="width:44px;height:44px;border-radius:var(--radius-sm);background:var(--surface-2);border:1px solid var(--border);cursor:pointer;color:var(--text-2);display:flex;align-items:center;justify-content:center;">
+                    <span class="material-symbols-outlined">filter_list</span>
+                </button>
+            </div>
+            <div class="hist-summary" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+                <div class="box income-box" style="border-radius:var(--radius-md);padding:14px 16px;border:1px solid var(--border);background:rgba(110,231,183,0.12);border-color:rgba(110,231,183,0.12);">
+                    <div class="label income-label" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--income);margin-bottom:2px;">Total Pemasukan</div>
+                    <div class="value income-value" id="hist-total-income" style="font-size:16px;font-weight:700;color:var(--income);">+Rp 0</div>
+                </div>
+                <div class="box expense-box" style="border-radius:var(--radius-md);padding:14px 16px;border:1px solid var(--border);background:rgba(248,113,113,0.10);border-color:rgba(248,113,113,0.10);">
+                    <div class="label expense-label" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--expense);margin-bottom:2px;">Total Pengeluaran</div>
+                    <div class="value expense-value" id="hist-total-expense" style="font-size:16px;font-weight:700;color:var(--expense);">−Rp 0</div>
+                </div>
+            </div>
+            <div id="history-list" style="display:flex;flex-direction:column;gap:12px;">
+                <div class="empty-state"><span class="material-symbols-outlined">receipt_long</span><p>Tidak ada transaksi ditemukan.</p></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ============================================================
+    PAGE: REPORTS
+    ============================================================ -->
+    <div id="page-reports" class="page">
+        <header class="app-header">
+            <div class="brand">
+                <span class="material-symbols-outlined text-accent" style="font-size:22px;">pie_chart</span>
+                <h1>Laporan</h1>
+            </div>
+            <div class="actions">
+                <button class="icon-btn" onclick="renderReports()" style="width:36px;height:36px;border-radius:10px;background:var(--surface-2);border:1px solid var(--border);cursor:pointer;color:var(--text-2);display:flex;align-items:center;justify-content:center;">
+                    <span class="material-symbols-outlined">refresh</span>
+                </button>
+                <button class="icon-btn" onclick="closeApp()" style="width:36px;height:36px;border-radius:10px;background:var(--surface-2);border:1px solid var(--border);cursor:pointer;color:var(--text-2);display:flex;align-items:center;justify-content:center;">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+        </header>
+
+        <main class="page-content">
+            <div style="display:flex;justify-content:center;margin-bottom:18px;">
+                <div style="display:inline-flex;padding:4px;border-radius:var(--radius-sm);background:var(--surface-2);border:1px solid var(--border);">
+                    <button class="tab-btn" data-period="weekly" onclick="setReportPeriod('weekly')" style="padding:8px 20px;border-radius:8px;font-size:13px;font-weight:500;border:none!important;background:transparent!important;color:var(--text-2)!important;cursor:pointer;">Mingguan</button>
+                    <button class="tab-btn active" data-period="monthly" onclick="setReportPeriod('monthly')" style="padding:8px 20px;border-radius:8px;font-size:13px;font-weight:500;border:none!important;background:transparent!important;color:var(--text-2)!important;cursor:pointer;background:var(--accent)!important;color:#0a0e1a!important;">Bulanan</button>
+                    <button class="tab-btn" data-period="yearly" onclick="setReportPeriod('yearly')" style="padding:8px 20px;border-radius:8px;font-size:13px;font-weight:500;border:none!important;background:transparent!important;color:var(--text-2)!important;cursor:pointer;">Tahunan</button>
+                </div>
+            </div>
+            <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:var(--radius-lg);padding:22px 20px;text-align:center;margin-bottom:18px;">
+                <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-3);margin-bottom:4px;">Total Pengeluaran</div>
+                <div style="font-size:32px;font-weight:800;color:var(--accent);letter-spacing:-0.02em;" id="report-total-spending">Rp 0</div>
+                <div style="font-size:12px;color:var(--text-3);margin-top:4px;" id="report-period-label">Bulan ini</div>
+            </div>
+            <div id="report-content" style="display:flex;flex-direction:column;align-items:center;gap:18px;margin-bottom:18px;">
+                <p style="color:var(--text-3);">Belum ada data untuk laporan.</p>
+            </div>
         </main>
     </div>
 
@@ -638,67 +773,41 @@
     </nav>
 
     <!-- ============================================================
-    JAVASCRIPT — LENGKAP
+    JAVASCRIPT
     ============================================================ -->
     <script>
         // ============================================================
-        // KONFIGURASI
+        // KONFIGURASI & STATE
         // ============================================================
         const API_BASE = '';
         let USER_ID = localStorage.getItem('catatanku_user_id');
         let currentPage = 'dashboard';
         let transactionType = 'income';
         let selectedCategory = 'transport';
+        let reportPeriod = 'monthly';
         let syncInterval = null;
-        let editTxId = null;
-        let editType = 'income';
-        let editCategory = 'transport';
 
         // OCR State
         let ocrFile = null;
         let ocrDataUrl = null;
-        let ocrResult = null;
         let ocrParsed = null;
-
-        // ============================================================
-        // ACCOUNT LIST
-        // ============================================================
-        const ACCOUNTS = ['Bank', 'Tunai', 'Tabungan', 'E-Wallet'];
-
-        // ============================================================
-        // PROFIL
-        // ============================================================
-        function getProfile() {
-            try {
-                const data = localStorage.getItem('catatanku_profile');
-                return data ? JSON.parse(data) : { name: 'Pengguna', photo: '' };
-            } catch { return { name: 'Pengguna', photo: '' }; }
-        }
-
-        function saveProfile(profile) {
-            localStorage.setItem('catatanku_profile', JSON.stringify(profile));
-        }
+        let ocrTextRaw = '';
 
         // ============================================================
         // TELEGRAM
         // ============================================================
-        let tg = null,
-            IS_TELEGRAM = false;
+        let tg = null;
         try {
             tg = window.Telegram?.WebApp;
             if (tg) { tg.ready();
-                tg.expand();
-                IS_TELEGRAM = true; }
+                tg.expand(); }
         } catch (_) {}
 
         // ============================================================
         // TOAST
         // ============================================================
         function showToast(msg) {
-            if (tg) {
-                tg.showPopup({ title: 'CatatanKu', message: msg, buttons: [{ type: 'ok' }] });
-                return;
-            }
+            if (tg) { tg.showPopup({ title: 'CatatanKu', message: msg, buttons: [{ type: 'ok' }] }); return; }
             const el = document.getElementById('toast');
             el.textContent = msg;
             el.classList.add('show');
@@ -707,146 +816,50 @@
         }
 
         // ============================================================
-        // AUTH
-        // ============================================================
-        async function checkUserBeforeAction() {
-            if (!USER_ID || !USER_ID.match(/^\d+$/)) {
-                window.location.href = '/login.html';
-                return false;
-            }
-            try {
-                const res = await fetch(`/api/check-user/${USER_ID}`);
-                if (!res.ok) throw new Error('Gagal cek user');
-                const data = await res.json();
-                if (data.registered !== true) {
-                    showToast('⚠️ Sesi tidak valid, silakan login ulang.');
-                    localStorage.removeItem('catatanku_user_id');
-                    window.location.href = '/login.html';
-                    return false;
-                }
-                return true;
-            } catch (_) {
-                showToast('⚠️ Gagal verifikasi, silakan login ulang.');
-                localStorage.removeItem('catatanku_user_id');
-                window.location.href = '/login.html';
-                return false;
-            }
-        }
-
-        // ============================================================
         // STORAGE
         // ============================================================
-        const STORAGE_KEY = 'catatanku_transactions';
-
-        function getLocalTransactions() {
-            try { const d = localStorage.getItem(STORAGE_KEY); return d ? JSON.parse(d) : []; } catch { return []; }
+        function getTransactions() {
+            try { const d = localStorage.getItem('catatanku_transactions'); return d ? JSON.parse(d) : []; } catch { return []; }
         }
 
-        function saveLocalTransactions(txs) { localStorage.setItem(STORAGE_KEY, JSON.stringify(txs)); }
-
-        function getTransactions() { return getLocalTransactions(); }
-
-        function saveTransactions(txs) { saveLocalTransactions(txs); }
+        function saveTransactions(txs) { localStorage.setItem('catatanku_transactions', JSON.stringify(txs)); }
 
         function generateId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
-
-        // ============================================================
-        // FUNGSI SALDO PER AKUN
-        // ============================================================
-        function getAccountBalance(account) {
-            const txs = getTransactions();
-            const income = txs.filter(t => t.account === account && t.type === 'income').reduce((s, t) => s + Number(t.amount),
-                0);
-            const expense = txs.filter(t => t.account === account && t.type === 'expense').reduce((s, t) => s + Number(t
-                .amount), 0);
-            return income - expense;
-        }
 
         // ============================================================
         // SYNC
         // ============================================================
         async function syncFromBackend() {
             if (!USER_ID) return;
-            const valid = await checkUserBeforeAction();
-            if (!valid) return;
             try {
                 const res = await fetch(`/api/transactions/${USER_ID}`);
                 if (!res.ok) throw new Error('Gagal sync');
                 const data = await res.json();
-                saveLocalTransactions(data);
+                saveTransactions(data);
                 renderDashboard();
                 renderHistory();
+                renderReports();
             } catch (e) { console.error('Sync error:', e.message); }
         }
 
         async function pushToBackend(tx) {
             if (!USER_ID) return false;
-            const valid = await checkUserBeforeAction();
-            if (!valid) return false;
             try {
                 const res = await fetch('/api/transactions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ userId: USER_ID, ...tx })
                 });
-                if (!res.ok) {
-                    if (res.status === 401) {
-                        showToast('⚠️ Sesi berakhir, silakan login ulang.');
-                        localStorage.removeItem('catatanku_user_id');
-                        window.location.href = '/login.html';
-                        return false;
-                    }
-                    throw new Error('Gagal simpan');
-                }
+                if (!res.ok) throw new Error('Gagal simpan');
                 return true;
             } catch (e) { console.error(e); return false; }
         }
 
         async function deleteFromBackend(txId) {
             if (!USER_ID) return false;
-            const valid = await checkUserBeforeAction();
-            if (!valid) return false;
             try {
                 const res = await fetch(`/api/transactions/${USER_ID}/${txId}`, { method: 'DELETE' });
-                if (!res.ok) {
-                    if (res.status === 401) {
-                        showToast('⚠️ Sesi berakhir.');
-                        localStorage.removeItem('catatanku_user_id');
-                        window.location.href = '/login.html';
-                        return false;
-                    }
-                    throw new Error('Gagal hapus');
-                }
-                return true;
-            } catch (e) { console.error(e); return false; }
-        }
-
-        async function updateToBackend(txId, updatedTx) {
-            if (!USER_ID) return false;
-            const valid = await checkUserBeforeAction();
-            if (!valid) return false;
-            try {
-                const del = await deleteFromBackend(txId);
-                if (!del) return false;
-                return await pushToBackend(updatedTx);
-            } catch (e) { console.error(e); return false; }
-        }
-
-        async function clearAllFromBackend() {
-            if (!USER_ID) return false;
-            const valid = await checkUserBeforeAction();
-            if (!valid) return false;
-            try {
-                const res = await fetch(`/api/transactions/${USER_ID}`, { method: 'DELETE' });
-                if (!res.ok) {
-                    if (res.status === 401) {
-                        showToast('⚠️ Sesi berakhir.');
-                        localStorage.removeItem('catatanku_user_id');
-                        window.location.href = '/login.html';
-                        return false;
-                    }
-                    throw new Error('Gagal hapus semua');
-                }
+                if (!res.ok) throw new Error('Gagal hapus');
                 return true;
             } catch (e) { console.error(e); return false; }
         }
@@ -919,6 +932,7 @@
             } else {
                 stopAutoSync();
                 if (page === 'history') renderHistory();
+                if (page === 'reports') renderReports();
             }
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
@@ -941,15 +955,15 @@
             const grid = document.getElementById(gridId);
             if (!grid) return;
             const active = activeId || selectedCategory;
-
             grid.innerHTML = CATEGORIES.map(cat => `
                     <div class="category-chip ${active === cat.id ? 'active' : ''}"
                          data-cat="${cat.id}"
-                         onclick="${gridId === 'add-category-grid' ? `selectCategory('${cat.id}')` : `setEditCategory('${cat.id}')`}">
-                        <div class="icon-wrap">
-                            <span class="material-symbols-outlined">${cat.icon}</span>
+                         onclick="${gridId === 'add-category-grid' ? `selectCategory('${cat.id}')` : `setEditCategory('${cat.id}')`}"
+                         style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 4px;cursor:pointer;border-radius:var(--radius-sm);${active === cat.id ? 'background:var(--surface-2);' : ''}">
+                        <div class="icon-wrap" style="width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:${active === cat.id ? 'var(--accent)' : 'var(--surface-2)'};border:1.5px solid ${active === cat.id ? 'var(--accent)' : 'var(--border)'};${active === cat.id ? 'box-shadow:0 4px 18px rgba(177,188,251,0.30);transform:scale(1.06);' : ''}">
+                            <span class="material-symbols-outlined" style="font-size:24px;color:${active === cat.id ? '#0a0e1a' : 'var(--text-2)'};">${cat.icon}</span>
                         </div>
-                        <span class="label">${cat.label}</span>
+                        <span class="label" style="font-size:11px;color:${active === cat.id ? 'var(--accent)' : 'var(--text-2)'};text-align:center;line-height:1.3;font-weight:${active === cat.id ? '600' : '500'};">${cat.label}</span>
                     </div>
                 `).join('');
         }
@@ -961,6 +975,15 @@
             transactionType = type;
             document.querySelectorAll('#add-form .tab-btn').forEach(btn => {
                 btn.classList.toggle('active', btn.dataset.type === type);
+                if (btn.dataset.type === type) {
+                    btn.style.background = 'var(--accent)';
+                    btn.style.color = '#0a0e1a';
+                    btn.style.borderColor = 'var(--accent)';
+                } else {
+                    btn.style.background = 'var(--surface-2)';
+                    btn.style.color = 'var(--text-2)';
+                    btn.style.borderColor = 'var(--border)';
+                }
             });
         }
 
@@ -969,9 +992,6 @@
         // ============================================================
         async function saveTransaction(e) {
             e.preventDefault();
-            const valid = await checkUserBeforeAction();
-            if (!valid) return;
-
             const amount = parseFloat(document.getElementById('add-amount').value);
             if (!amount || amount <= 0) { showToast('⚠️ Masukkan jumlah yang valid'); return; }
             const date = document.getElementById('add-date').value;
@@ -996,84 +1016,9 @@
         }
 
         // ============================================================
-        // EDIT
-        // ============================================================
-        function editTransaction(id) {
-            checkUserBeforeAction().then(valid => {
-                if (!valid) return;
-                const txs = getTransactions();
-                const tx = txs.find(t => t.id === id);
-                if (!tx) { showToast('❌ Transaksi tidak ditemukan'); return; }
-
-                editTxId = id;
-                document.getElementById('edit-id').value = id;
-                document.getElementById('edit-amount').value = tx.amount;
-                document.getElementById('edit-date').value = tx.date;
-                document.getElementById('edit-account').value = tx.account || 'Bank';
-                document.getElementById('edit-note').value = tx.note || '';
-                editType = tx.type;
-                editCategory = tx.category;
-
-                document.querySelectorAll('#edit-type-toggle .tab-btn').forEach(btn => {
-                    btn.classList.toggle('active', btn.dataset.type === tx.type);
-                });
-
-                renderCategoryChips('edit-category-grid', editCategory);
-                document.getElementById('edit-modal').classList.add('active');
-            });
-        }
-
-        function setEditType(type) {
-            editType = type;
-            document.querySelectorAll('#edit-type-toggle .tab-btn').forEach(btn => {
-                btn.classList.toggle('active', btn.dataset.type === type);
-            });
-        }
-
-        function setEditCategory(id) {
-            editCategory = id;
-            document.querySelectorAll('#edit-category-grid .category-chip').forEach(chip => {
-                chip.classList.toggle('active', chip.dataset.cat === id);
-            });
-        }
-
-        function closeEditModal() { document.getElementById('edit-modal').classList.remove('active');
-            editTxId = null; }
-
-        async function saveEdit(e) {
-            e.preventDefault();
-            const valid = await checkUserBeforeAction();
-            if (!valid) return;
-
-            const id = document.getElementById('edit-id').value;
-            const amount = parseFloat(document.getElementById('edit-amount').value);
-            if (!amount || amount <= 0) { showToast('⚠️ Jumlah harus lebih dari 0'); return; }
-            const date = document.getElementById('edit-date').value;
-            if (!date) { showToast('⚠️ Pilih tanggal'); return; }
-            const account = document.getElementById('edit-account').value;
-            const note = document.getElementById('edit-note').value.trim() || getCategoryLabel(editCategory);
-
-            const updatedTx = { amount, type: editType, category: editCategory, date, account, note };
-
-            let txs = getTransactions();
-            const index = txs.findIndex(t => t.id === id);
-            if (index === -1) { showToast('❌ Transaksi tidak ditemukan'); return; }
-            txs[index] = { ...txs[index], ...updatedTx };
-            saveTransactions(txs);
-
-            const success = await updateToBackend(id, { ...updatedTx, id: generateId() });
-            showToast(success ? '✅ Transaksi diperbarui!' : '⚠️ Tersimpan lokal, gagal sync');
-            closeEditModal();
-            renderDashboard();
-            renderHistory();
-        }
-
-        // ============================================================
         // DELETE
         // ============================================================
         async function deleteTransaction(id) {
-            const valid = await checkUserBeforeAction();
-            if (!valid) return;
             if (!confirm('Hapus transaksi ini?')) return;
             let txs = getTransactions();
             txs = txs.filter(t => t.id !== id);
@@ -1085,14 +1030,147 @@
         }
 
         async function clearAllData() {
-            const valid = await checkUserBeforeAction();
-            if (!valid) return;
             if (!confirm('Hapus semua data keuangan?')) return;
             saveTransactions([]);
-            await clearAllFromBackend();
             showToast('🗑️ Semua data dihapus');
             renderHistory();
             renderDashboard();
+            renderReports();
+        }
+
+        // ============================================================
+        // OCR — ANALYZE IMAGE
+        // ============================================================
+        document.addEventListener('DOMContentLoaded', function() {
+            const dropZone = document.getElementById('ocr-drop-zone');
+            const fileInput = document.getElementById('ocr-file-input');
+
+            dropZone.addEventListener('click', () => fileInput.click());
+
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            });
+            dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+                if (e.dataTransfer.files.length > 0) handleOCRFile(e.dataTransfer.files[0]);
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) handleOCRFile(e.target.files[0]);
+            });
+        });
+
+        function handleOCRFile(file) {
+            if (!file.type.startsWith('image/')) { showToast('⚠️ Mohon pilih file gambar'); return; }
+            if (file.size > 5 * 1024 * 1024) { showToast('⚠️ Ukuran file maksimal 5MB'); return; }
+
+            ocrFile = file;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                ocrDataUrl = e.target.result;
+                document.getElementById('ocr-preview-img').src = ocrDataUrl;
+                document.getElementById('ocr-preview-container').style.display = 'block';
+                document.getElementById('ocr-status').style.display = 'none';
+                document.getElementById('ocr-result').style.display = 'none';
+                showToast('✅ Gambar siap dianalisis');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function clearOCRPreview() {
+            document.getElementById('ocr-preview-container').style.display = 'none';
+            document.getElementById('ocr-preview-img').src = '';
+            document.getElementById('ocr-status').style.display = 'none';
+            document.getElementById('ocr-result').style.display = 'none';
+            ocrFile = null;
+            ocrDataUrl = null;
+            ocrParsed = null;
+            ocrTextRaw = '';
+            document.getElementById('ocr-file-input').value = '';
+        }
+
+        async function analyzeOCR() {
+            if (!ocrFile) { showToast('⚠️ Upload gambar terlebih dahulu'); return; }
+
+            const statusEl = document.getElementById('ocr-status');
+            const resultEl = document.getElementById('ocr-result');
+            statusEl.style.display = 'block';
+            resultEl.style.display = 'none';
+
+            const formData = new FormData();
+            formData.append('image', ocrFile);
+
+            try {
+                const response = await fetch('/api/ocr/analyze', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                statusEl.style.display = 'none';
+
+                if (!response.ok || !data.success) {
+                    showToast('❌ ' + (data.error || 'Gagal menganalisis gambar'));
+                    return;
+                }
+
+                ocrTextRaw = data.text || '';
+                ocrParsed = data.parsed || null;
+
+                document.getElementById('ocr-result-text').textContent = ocrTextRaw || '(Tidak ada teks)';
+
+                if (ocrParsed && ocrParsed.amount) {
+                    const detail = document.getElementById('ocr-parsed-detail');
+                    detail.innerHTML = `
+                            <strong>Jumlah:</strong> ${formatCurrency(ocrParsed.amount)}<br>
+                            <strong>Kategori:</strong> ${getCategoryLabel(ocrParsed.category || 'other')}<br>
+                            <strong>Merchant:</strong> ${ocrParsed.merchant || '-'}<br>
+                            <strong>Tanggal:</strong> ${ocrParsed.date || '-'}<br>
+                            <strong>Item:</strong> ${ocrParsed.items ? ocrParsed.items.length : 0} item
+                        `;
+                    resultEl.style.display = 'block';
+                    showToast('✅ OCR berhasil! Periksa data sebelum menyimpan.');
+                } else {
+                    document.getElementById('ocr-parsed-detail').textContent = '⚠️ Tidak dapat mendeteksi jumlah transaksi. Silakan catat manual.';
+                    resultEl.style.display = 'block';
+                }
+
+            } catch (error) {
+                statusEl.style.display = 'none';
+                showToast('❌ ' + error.message);
+            }
+        }
+
+        async function saveOCRTransaction() {
+            if (!ocrParsed || !ocrParsed.amount) {
+                showToast('⚠️ Tidak ada data transaksi dari OCR');
+                return;
+            }
+
+            const finalAmount = ocrParsed.grandTotal || ocrParsed.amount;
+            const tx = {
+                amount: finalAmount,
+                type: 'expense',
+                category: ocrParsed.category || 'other',
+                date: ocrParsed.date || todayStr(),
+                account: 'Bot OCR',
+                note: ocrParsed.merchant || 'Struk'
+            };
+
+            const txs = getTransactions();
+            const newTx = { ...tx, id: generateId(), created_at: new Date().toISOString(), user_id: USER_ID };
+            txs.push(newTx);
+            saveTransactions(txs);
+
+            const success = await pushToBackend(tx);
+            showToast(success ? '✅ Transaksi OCR tersimpan!' : '⚠️ Tersimpan lokal, gagal sync');
+
+            clearOCRPreview();
+            renderDashboard();
+            navigateTo('dashboard');
         }
 
         // ============================================================
@@ -1112,16 +1190,35 @@
             document.getElementById('dash-total-balance').textContent = formatCurrency(allBalance);
             document.getElementById('dash-income').textContent = formatCurrency(allIncome);
             document.getElementById('dash-expenses').textContent = formatCurrency(allExpense);
+            document.getElementById('dash-monthly-spending').textContent = formatCurrency(totalExpense);
 
-            // Account balances
-            ACCOUNTS.forEach(acc => {
-                const bal = getAccountBalance(acc);
-                const el = document.getElementById('acc-balance-' + acc);
-                if (el) {
-                    el.textContent = formatCurrency(bal);
-                    el.className = 'acc-balance ' + (bal >= 0 ? 'positive' : 'negative');
-                }
+            const limit = 2000000;
+            const pct = Math.min((totalExpense / limit) * 100, 100);
+            document.getElementById('dash-spending-bar').style.width = pct + '%';
+            document.getElementById('dash-spending-label').textContent = Math.round(pct) + '% dari batas Rp 2.000.000';
+
+            const catMap = {};
+            monthTxs.filter(t => t.type === 'expense').forEach(t => {
+                catMap[t.category] = (catMap[t.category] || 0) + Number(t.amount);
             });
+            let topCat = null,
+                topAmt = 0;
+            for (const [cat, amt] of Object.entries(catMap)) {
+                if (amt > topAmt) { topAmt = amt;
+                    topCat = cat; }
+            }
+
+            if (topCat) {
+                document.getElementById('dash-top-name').textContent = getCategoryLabel(topCat);
+                document.getElementById('dash-top-amount').textContent = formatCurrency(topAmt) + ' bulan ini';
+                document.getElementById('dash-top-icon').innerHTML =
+                    `<span class="material-symbols-outlined" style="font-size:20px;color:var(--accent);">${getCategoryIcon(topCat)}</span>`;
+            } else {
+                document.getElementById('dash-top-name').textContent = '—';
+                document.getElementById('dash-top-amount').textContent = 'Rp 0 bulan ini';
+                document.getElementById('dash-top-icon').innerHTML =
+                    `<span class="material-symbols-outlined" style="font-size:20px;color:var(--text-3);">restaurant</span>`;
+            }
 
             const sorted = [...txs].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
             const recent = sorted.slice(0, 5);
@@ -1132,6 +1229,20 @@
                     `<div class="empty-state"><span class="material-symbols-outlined">receipt_long</span><p>Belum ada transaksi. Mulai tambahkan!</p></div>`;
             } else {
                 container.innerHTML = recent.map(t => renderTxItem(t, false)).join('');
+            }
+
+            const now = new Date();
+            const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().slice(0, 10);
+            const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().slice(0, 10);
+            const prevTxs = txs.filter(t => t.date >= prevMonthStart && t.date <= prevMonthEnd);
+            const prevIncome = prevTxs.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
+            const prevExpense = prevTxs.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
+            const prevBalance = prevIncome - prevExpense;
+            if (prevBalance !== 0 && allBalance !== 0) {
+                const change = ((allBalance - prevBalance) / Math.abs(prevBalance) * 100);
+                document.getElementById('dash-change').textContent = (change > 0 ? '+' : '') + change.toFixed(1) + '%';
+            } else {
+                document.getElementById('dash-change').textContent = '—';
             }
         }
 
@@ -1148,24 +1259,49 @@
 
             return `
                     <div class="tx-item">
-                        <div class="icon-wrap" style="width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:${iconBg};">
+                        <div class="icon-wrap" style="background:${iconBg};">
                             <span class="material-symbols-outlined" style="font-size:20px;color:${iconColor};">${getCategoryIcon(t.category)}</span>
                         </div>
-                        <div class="info" style="flex:1;min-width:0;">
-                            <div style="font-size:14px;font-weight:600;color:var(--text-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${t.note || getCategoryLabel(t.category)}</div>
-                            <div style="font-size:11px;color:var(--text-3);margin-top:1px;">${getCategoryLabel(t.category)}${showDate ? ' • ' + formatDate(t.date) : ''} ${accountTag}</div>
+                        <div class="info">
+                            <div class="title">${t.note || getCategoryLabel(t.category)}</div>
+                            <div class="meta">${getCategoryLabel(t.category)}${showDate ? ' • ' + formatDate(t.date) : ''} ${accountTag}</div>
                         </div>
-                        <div class="amount ${amtClass}" style="font-size:14px;font-weight:700;flex-shrink:0;">${sign}${formatCurrency(Math.abs(t.amount))}</div>
-                        <div class="actions" style="display:flex;gap:4px;flex-shrink:0;">
-                            <button onclick="editTransaction('${t.id}')" style="width:28px;height:28px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-2);">
-                                <span class="material-symbols-outlined" style="font-size:14px;">edit</span>
+                        <div class="amount ${amtClass}">${sign}${formatCurrency(Math.abs(t.amount))}</div>
+                        <div class="actions">
+                            <button onclick="editTransaction('${t.id}')" title="Edit">
+                                <span class="material-symbols-outlined">edit</span>
                             </button>
-                            <button onclick="deleteTransaction('${t.id}')" style="width:28px;height:28px;border-radius:8px;border:1px solid rgba(248,113,113,0.20);background:var(--expense-dim);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--expense);">
-                                <span class="material-symbols-outlined" style="font-size:14px;">delete</span>
+                            <button class="danger" onclick="deleteTransaction('${t.id}')" title="Hapus">
+                                <span class="material-symbols-outlined">delete</span>
                             </button>
                         </div>
                     </div>
                 `;
+        }
+
+        // ============================================================
+        // EDIT (sederhana)
+        // ============================================================
+        function editTransaction(id) {
+            const txs = getTransactions();
+            const tx = txs.find(t => t.id === id);
+            if (!tx) { showToast('❌ Transaksi tidak ditemukan'); return; }
+
+            const newAmount = prompt('Edit jumlah:', tx.amount);
+            if (newAmount === null) return;
+            const amount = parseFloat(newAmount);
+            if (isNaN(amount) || amount <= 0) { showToast('⚠️ Jumlah tidak valid'); return; }
+
+            const newNote = prompt('Edit catatan:', tx.note || '');
+            if (newNote === null) return;
+
+            tx.amount = amount;
+            tx.note = newNote || tx.note;
+            saveTransactions(txs);
+            pushToBackend(tx);
+            showToast('✅ Transaksi diperbarui!');
+            renderDashboard();
+            renderHistory();
         }
 
         // ============================================================
@@ -1221,378 +1357,113 @@
         }
 
         // ============================================================
-        // OCR — ANALYZE IMAGE
+        // RENDER: REPORTS
         // ============================================================
-        // Drop zone events
-        const dropZone = document.getElementById('ocr-drop-zone');
-        const fileInput = document.getElementById('ocr-file-input');
-
-        dropZone.addEventListener('click', () => fileInput.click());
-
-        dropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropZone.classList.add('dragover');
-        });
-
-        dropZone.addEventListener('dragleave', () => {
-            dropZone.classList.remove('dragover');
-        });
-
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('dragover');
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                handleOCRFile(files[0]);
-            }
-        });
-
-        fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                handleOCRFile(e.target.files[0]);
-            }
-        });
-
-        function handleOCRFile(file) {
-            if (!file.type.startsWith('image/')) {
-                showToast('⚠️ Mohon pilih file gambar');
-                return;
-            }
-            if (file.size > 5 * 1024 * 1024) {
-                showToast('⚠️ Ukuran file maksimal 5MB');
-                return;
-            }
-
-            ocrFile = file;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                ocrDataUrl = e.target.result;
-                document.getElementById('ocr-preview-img').src = ocrDataUrl;
-                document.getElementById('ocr-preview-container').style.display = 'block';
-                document.getElementById('ocr-status').style.display = 'none';
-                document.getElementById('ocr-result').style.display = 'none';
-                showToast('✅ Gambar siap dianalisis');
-            };
-            reader.readAsDataURL(file);
+        function setReportPeriod(period) {
+            reportPeriod = period;
+            document.querySelectorAll('#page-reports .period-tabs .tab-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.period === period);
+                if (btn.dataset.period === period) {
+                    btn.style.background = 'var(--accent)';
+                    btn.style.color = '#0a0e1a';
+                } else {
+                    btn.style.background = 'transparent';
+                    btn.style.color = 'var(--text-2)';
+                }
+            });
+            renderReports();
         }
 
-        function clearOCRPreview() {
-            document.getElementById('ocr-preview-container').style.display = 'none';
-            document.getElementById('ocr-preview-img').src = '';
-            ocrFile = null;
-            ocrDataUrl = null;
-            ocrResult = null;
-            ocrParsed = null;
-            fileInput.value = '';
-            document.getElementById('ocr-status').style.display = 'none';
-            document.getElementById('ocr-result').style.display = 'none';
-        }
-
-        async function analyzeOCR() {
-            if (!ocrFile) {
-                showToast('⚠️ Upload gambar terlebih dahulu');
-                return;
-            }
-
-            const statusEl = document.getElementById('ocr-status');
-            const resultEl = document.getElementById('ocr-result');
-            const analyzeBtn = document.getElementById('ocr-analyze-btn');
-
-            statusEl.style.display = 'block';
-            resultEl.style.display = 'none';
-            analyzeBtn.disabled = true;
-
-            try {
-                const formData = new FormData();
-                formData.append('image', ocrFile);
-
-                const response = await fetch('/api/ocr/analyze', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(data.error || 'Gagal menganalisis gambar');
-                }
-
-                if (!data.parsed || !data.parsed.amount) {
-                    throw new Error('Tidak dapat mendeteksi jumlah transaksi');
-                }
-
-                ocrParsed = data.parsed;
-
-                // Tampilkan hasil
-                document.getElementById('ocr-result-text').textContent = data.parsed.rawText || 'Teks berhasil diekstrak';
-                
-                const detail = document.getElementById('ocr-parsed-detail');
-                const p = data.parsed;
-                const categoryLabel = getCategoryLabel(p.category || 'other');
-                let detailHtml = `
-                        <strong>Jumlah:</strong> ${formatCurrency(p.amount)}<br>
-                        <strong>Kategori:</strong> ${categoryLabel}<br>
-                        <strong>Merchant:</strong> ${p.merchant || '-'}<br>
-                        <strong>Tanggal:</strong> ${p.date || '-'}<br>
-                    `;
-                if (p.items && p.items.length > 0) {
-                    detailHtml += `<strong>Item:</strong><br>`;
-                    p.items.forEach(item => {
-                        detailHtml +=
-                            `  - ${item.quantity || 1}x ${item.name} = ${formatCurrency(item.price)}<br>`;
-                    });
-                }
-                detail.innerHTML = detailHtml;
-
-                resultEl.style.display = 'block';
-                showToast('✅ Analisis selesai!');
-
-            } catch (error) {
-                console.error('❌ OCR error:', error);
-                showToast('❌ ' + error.message);
-            } finally {
-                statusEl.style.display = 'none';
-                analyzeBtn.disabled = false;
-            }
-        }
-
-        async function saveOCRTransaction() {
-            if (!ocrParsed || !ocrParsed.amount) {
-                showToast('⚠️ Tidak ada data transaksi untuk disimpan');
-                return;
-            }
-
-            const valid = await checkUserBeforeAction();
-            if (!valid) return;
-
-            const p = ocrParsed;
-            const finalAmount = p.grandTotal || p.amount;
-
-            const tx = {
-                id: generateId(),
-                amount: finalAmount,
-                type: 'expense',
-                category: p.category || 'other',
-                date: p.date || todayStr(),
-                account: 'OCR',
-                note: p.merchant || 'Struk OCR',
-                created_at: new Date().toISOString(),
-                user_id: USER_ID
-            };
-
+        function renderReports() {
             const txs = getTransactions();
-            txs.push(tx);
-            saveTransactions(txs);
+            const label = reportPeriod === 'weekly' ? 'Minggu ini' : reportPeriod === 'yearly' ? 'Tahun ini' : 'Bulan ini';
+            const start = reportPeriod === 'weekly' ? getWeekStart() : reportPeriod === 'yearly' ? getYearStart() :
+            getMonthStart();
+            const end = reportPeriod === 'weekly' ? getWeekEnd() : reportPeriod === 'yearly' ? getYearEnd() : getMonthEnd();
 
-            const success = await pushToBackend(tx);
-            showToast(success ? '✅ Transaksi OCR tersimpan!' : '⚠️ Tersimpan lokal, gagal sync');
+            const periodTxs = txs.filter(t => t.date >= start && t.date <= end);
+            const totalSpending = periodTxs.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
 
-            // Reset OCR state
-            clearOCRPreview();
-            renderDashboard();
-            navigateTo('dashboard');
+            document.getElementById('report-total-spending').textContent = formatCurrency(totalSpending);
+            document.getElementById('report-period-label').textContent = label;
+
+            const container = document.getElementById('report-content');
+            const catMap = {};
+            periodTxs.filter(t => t.type === 'expense').forEach(t => {
+                catMap[t.category] = (catMap[t.category] || 0) + Number(t.amount);
+            });
+
+            const sortedCats = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
+
+            if (sortedCats.length === 0) {
+                container.innerHTML =
+                    `<p style="color:var(--text-3);">Belum ada pengeluaran untuk ${label.toLowerCase()}.</p>`;
+                return;
+            }
+
+            const total = sortedCats.reduce((s, [, amt]) => s + amt, 0);
+            container.innerHTML = sortedCats.map(([cat, amt], i) => {
+                const pct = (amt / total) * 100;
+                return `
+                        <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px 16px;display:flex;align-items:center;gap:12px;width:100%;">
+                            <div style="width:40px;height:40px;border-radius:12px;background:rgba(177,188,251,0.08);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                <span class="material-symbols-outlined" style="font-size:20px;color:var(--accent);">${getCategoryIcon(cat)}</span>
+                            </div>
+                            <div style="flex:1;">
+                                <div style="font-size:14px;font-weight:600;color:var(--text-1);">${getCategoryLabel(cat)}</div>
+                                <div style="width:100%;height:3px;border-radius:2px;background:var(--surface-3);margin-top:6px;overflow:hidden;">
+                                    <div style="width:${pct}%;height:100%;border-radius:2px;background:var(--accent);transition:width 0.6s ease;"></div>
+                                </div>
+                            </div>
+                            <div style="text-align:right;flex-shrink:0;">
+                                <div style="font-size:14px;font-weight:700;color:var(--accent);">${formatCurrency(amt)}</div>
+                                <div style="font-size:11px;color:var(--text-3);margin-top:2px;">${pct.toFixed(1)}%</div>
+                            </div>
+                        </div>
+                    `;
+            }).join('');
         }
 
+        function getWeekStart() { const d = new Date(); const day = d.getDay(); const diff = d.getDate() - day + (day === 0 ?
+                -6 : 1); return new Date(d.getFullYear(), d.getMonth(), diff).toISOString().slice(0, 10); }
+
+        function getWeekEnd() { const d = new Date(); const day = d.getDay(); const diff = d.getDate() - day + (day === 0 ?
+                0 : 7 - day); return new Date(d.getFullYear(), d.getMonth(), diff).toISOString().slice(0, 10); }
+
+        function getYearStart() { const d = new Date(); return new Date(d.getFullYear(), 0, 1).toISOString().slice(0, 10); }
+
+        function getYearEnd() { const d = new Date(); return new Date(d.getFullYear(), 11, 31).toISOString().slice(0, 10); }
+
         // ============================================================
-        // PROFILE
+        // PROFILE (sederhana)
         // ============================================================
         function openProfileModal() {
-            const userId = USER_ID || '—';
-            document.getElementById('profile-user-id').textContent = userId;
-
-            const profile = getProfile();
-            const displayName = profile.name || 'Pengguna';
-            const photoUrl = profile.photo || '';
-
-            document.getElementById('profile-display-name').textContent = displayName;
-
-            const avatarImg = document.getElementById('profile-avatar-img');
-            const avatarInitial = document.getElementById('profile-avatar-initial');
-
-            if (photoUrl) {
-                avatarImg.src = photoUrl;
-                avatarImg.style.display = 'block';
-                avatarInitial.style.display = 'none';
-            } else {
-                avatarImg.style.display = 'none';
-                avatarInitial.style.display = 'block';
-                avatarInitial.textContent = displayName.charAt(0).toUpperCase() || '👤';
-            }
-
-            document.getElementById('profile-status-text').textContent =
-                IS_TELEGRAM ? 'Online via Telegram' : 'Online via Web';
-
-            document.getElementById('edit-name-input').value = displayName;
-            document.getElementById('edit-photo-url-input').value = photoUrl;
-
-            document.getElementById('profile-edit-form').classList.remove('active');
-
-            renderProfileStats();
-
-            const joined = localStorage.getItem('catatanku_joined') || new Date().toISOString().slice(0, 10);
-            if (!localStorage.getItem('catatanku_joined')) {
-                localStorage.setItem('catatanku_joined', new Date().toISOString().slice(0, 10));
-            }
-            document.getElementById('profile-joined').textContent = formatDate(joined);
-
-            document.getElementById('profile-modal').classList.add('active');
-            document.querySelectorAll('.bottom-nav a').forEach(el => el.classList.remove('active'));
-            document.querySelector('.bottom-nav a[data-page="profile"]')?.classList.add('active');
+            showToast('👤 Profil: ' + (USER_ID || 'Belum login'));
         }
 
-        function closeProfileModal() {
-            document.getElementById('profile-modal').classList.remove('active');
-            document.querySelectorAll('.bottom-nav a').forEach(el => el.classList.remove('active'));
-            document.querySelector('.bottom-nav a[data-page="dashboard"]')?.classList.add('active');
-        }
-
-        function toggleEditProfile() {
-            const form = document.getElementById('profile-edit-form');
-            form.classList.toggle('active');
-            const profile = getProfile();
-            document.getElementById('edit-name-input').value = profile.name || 'Pengguna';
-            document.getElementById('edit-photo-url-input').value = profile.photo || '';
-        }
-
-        function saveProfileChanges() {
-            const name = document.getElementById('edit-name-input').value.trim() || 'Pengguna';
-            const photo = document.getElementById('edit-photo-url-input').value.trim();
-            const profile = { name, photo };
-            saveProfile(profile);
-            document.getElementById('profile-display-name').textContent = name;
-            const avatarImg = document.getElementById('profile-avatar-img');
-            const avatarInitial = document.getElementById('profile-avatar-initial');
-            if (photo) {
-                avatarImg.src = photo;
-                avatarImg.style.display = 'block';
-                avatarInitial.style.display = 'none';
-            } else {
-                avatarImg.style.display = 'none';
-                avatarInitial.style.display = 'block';
-                avatarInitial.textContent = name.charAt(0).toUpperCase() || '👤';
-            }
-            document.getElementById('profile-edit-form').classList.remove('active');
-            showToast('✅ Profil diperbarui!');
-        }
-
-        document.getElementById('avatar-input').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(ev) {
-                const dataUrl = ev.target.result;
-                const profile = getProfile();
-                profile.photo = dataUrl;
-                saveProfile(profile);
-                const avatarImg = document.getElementById('profile-avatar-img');
-                const avatarInitial = document.getElementById('profile-avatar-initial');
-                avatarImg.src = dataUrl;
-                avatarImg.style.display = 'block';
-                avatarInitial.style.display = 'none';
-                document.getElementById('edit-photo-url-input').value = dataUrl;
-                showToast('✅ Foto profil diperbarui!');
-            };
-            reader.readAsDataURL(file);
-            e.target.value = '';
-        });
-
-        function renderProfileStats() {
-            const txs = getTransactions();
-            const totalTx = txs.length;
-            const totalIncome = txs.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
-            const totalExpense = txs.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
-            const balance = totalIncome - totalExpense;
-
-            document.getElementById('profile-total-income').textContent = formatCurrency(totalIncome);
-            document.getElementById('profile-total-expense').textContent = formatCurrency(totalExpense);
-            document.getElementById('profile-total-tx').textContent = totalTx;
-            document.getElementById('profile-balance').textContent = formatCurrency(balance);
-
-            const syncEl = document.getElementById('profile-sync-status');
-            if (navigator.onLine) {
-                syncEl.innerHTML =
-                    `<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">sync</span> Tersinkron`;
-            } else {
-                syncEl.innerHTML =
-                    `<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;color:var(--expense);">sync_disabled</span> Offline`;
-            }
-        }
-
-        function copyUserId() {
-            const id = document.getElementById('profile-user-id').textContent;
-            if (id && id !== '—') {
-                if (navigator.clipboard) {
-                    navigator.clipboard.writeText(id).then(() => {
-                        showToast('✅ ID Telegram disalin!');
-                    }).catch(() => {
-                        const el = document.createElement('textarea');
-                        el.value = id;
-                        document.body.appendChild(el);
-                        el.select();
-                        document.execCommand('copy');
-                        document.body.removeChild(el);
-                        showToast('✅ ID Telegram disalin!');
-                    });
-                } else {
-                    const el = document.createElement('textarea');
-                    el.value = id;
-                    document.body.appendChild(el);
-                    el.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(el);
-                    showToast('✅ ID Telegram disalin!');
-                }
-            }
-        }
+        function closeApp() { if (tg) tg.close();
+            else window.close(); }
 
         // ============================================================
         // INIT
         // ============================================================
-        (async function init() {
-            if (!USER_ID || !USER_ID.match(/^\d+$/)) {
+        (function init() {
+            if (!USER_ID) {
                 window.location.href = '/login.html';
                 return;
             }
-
-            const valid = await checkUserBeforeAction();
-            if (!valid) return;
-
             document.getElementById('loading-overlay').style.display = 'none';
             document.getElementById('add-date').value = todayStr();
-
-            if (!localStorage.getItem('catatanku_joined')) {
-                localStorage.setItem('catatanku_joined', new Date().toISOString().slice(0, 10));
-            }
-
-            if (!localStorage.getItem('catatanku_profile')) {
-                let initialName = 'Pengguna';
-                let initialPhoto = '';
-                if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
-                    const u = tg.initDataUnsafe.user;
-                    if (u.first_name) {
-                        initialName = u.first_name;
-                        if (u.last_name) initialName += ' ' + u.last_name;
-                    } else if (u.username) {
-                        initialName = '@' + u.username;
-                    }
-                    initialPhoto = u.photo_url || '';
-                }
-                saveProfile({ name: initialName, photo: initialPhoto });
-            }
-
             renderCategoryChips('add-category-grid', selectedCategory);
             setTransactionType('income');
             renderDashboard();
-
-            setTimeout(() => {
-                if (USER_ID) { syncFromBackend();
-                    startAutoSync(); }
-            }, 500);
-
+            setTimeout(() => { if (USER_ID) { syncFromBackend();
+                    startAutoSync(); } }, 500);
             document.addEventListener('visibilitychange', () => {
                 if (!document.hidden) {
                     if (currentPage === 'dashboard') renderDashboard();
                     if (currentPage === 'history') renderHistory();
+                    if (currentPage === 'reports') renderReports();
                     if (currentPage === 'dashboard' && USER_ID) syncFromBackend();
                 }
             });
