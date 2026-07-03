@@ -5,7 +5,8 @@ const { kv } = require('@vercel/kv');
 const axios = require('axios');
 const FormData = require('form-data');
 const multer = require('multer');
-const path = require('path');
+const { GoogleGenAI } = require('@google/genai');
+require('dotenv').config();
 
 const app = express();
 app.use(cors());
@@ -17,8 +18,8 @@ app.use(express.static('public'));
 // ============================================================
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'admin123';
-const OCR_API_KEY = process.env.OCR_API_KEY;
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const OCR_API_KEY = process.env.OCR_API_KEY; // OCR.space
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY; // opsional, untuk parsing lebih pintar
 
 console.log('🔍 BOT_TOKEN exists?', !!BOT_TOKEN);
 console.log('🔍 OCR_API_KEY exists?', !!OCR_API_KEY);
@@ -63,7 +64,7 @@ async function isUserRegistered(userId) {
 }
 
 // ============================================================
-// FUNGSI DATABASE
+// FUNGSI DATABASE TRANSACTION
 // ============================================================
 async function getTransactions(userId) {
   const key = `transactions:${userId}`;
@@ -114,7 +115,7 @@ async function clearAllTransactions(userId) {
 }
 
 // ============================================================
-// FUNGSI PARSING TEKS
+// FUNGSI PARSING TEKS MANUAL
 // ============================================================
 function parseTransactionText(text, userId) {
   const trimmed = text.trim();
@@ -160,24 +161,9 @@ function parseTransactionText(text, userId) {
 }
 
 // ============================================================
-// FUNGSI OCR
+// FUNGSI OCR — Ekstrak teks dengan OCR.space
 // ============================================================
 async function ocrImage(imageBuffer) {
-  // Coba Gunakan Gemini AI terlebih dahulu jika ada
-  if (GEMINI_API_KEY) {
-    try {
-      console.log('🧠 Mencoba Gemini AI OCR...');
-      const result = await ocrWithGemini(imageBuffer);
-      if (result && result.amount) {
-        console.log('✅ Gemini AI berhasil');
-        return result;
-      }
-    } catch (e) {
-      console.log('⚠️ Gemini AI gagal, fallback ke OCR.space:', e.message);
-    }
-  }
-
-  // Fallback: OCR.space
   if (!OCR_API_KEY) {
     throw new Error('OCR_API_KEY tidak diset. Dapatkan di https://ocr.space/OCRAPI');
   }
@@ -210,7 +196,7 @@ async function ocrImage(imageBuffer) {
     }
 
     console.log(`📝 OCR.space berhasil, ${text.length} karakter`);
-    return parseOcrText(text);
+    return text;
   } catch (error) {
     console.error('❌ OCR error:', error.message);
     throw error;
@@ -218,88 +204,7 @@ async function ocrImage(imageBuffer) {
 }
 
 // ============================================================
-// OCR DENGAN GEMINI AI
-// ============================================================
-async function ocrWithGemini(imageBuffer) {
-  if (!GEMINI_API_KEY) return null;
-
-  const base64Image = imageBuffer.toString('base64');
-
-  const prompt = `Anda adalah AI yang membaca struk belanja/nota. Ekstrak informasi berikut dari gambar struk ini:
-
-1. Grand Total (jumlah total yang harus dibayar)
-2. Tanggal transaksi (format: YYYY-MM-DD)
-3. Nama Toko/Merchant
-4. Daftar Item (nama, harga, qty)
-5. Kategori (dining, shopping, transport, bills, fun, health, gift, other)
-
-Output dalam format JSON SAJA, tanpa teks lain. Contoh:
-{
-  "grandTotal": 97500,
-  "tanggal": "2026-06-15",
-  "merchant": "Wizzmie Cipondoh",
-  "items": [
-    {"nama": "Rice Bowl Spicy", "harga": 30910, "qty": 2}
-  ],
-  "kategori": "dining"
-}
-Jika data tidak ditemukan, gunakan null.`;
-
-  try {
-    const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        contents: [{
-          parts: [
-            { text: prompt },
-            { inline_data: { mime_type: 'image/jpeg', data: base64Image } }
-          ]
-        }]
-      },
-      {
-        headers: { 'Content-Type': 'application/json' },
-        timeout: 30000
-      }
-    );
-
-    const result = response.data;
-    const text = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
-
-    let jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return null;
-
-    const parsed = JSON.parse(jsonMatch[0]);
-
-    const items = (parsed.items || []).map(item => ({
-      name: item.nama || item.name || 'Item',
-      price: parseInt(item.harga || item.price || 0),
-      quantity: parseInt(item.qty || item.quantity || 1)
-    })).filter(item => item.price > 0);
-
-    const grandTotal = parseInt(parsed.grandTotal) ||
-      (items.length > 0 ? items.reduce((s, i) => s + (i.price * i.quantity), 0) : null);
-
-    const merchant = parsed.merchant || null;
-    const date = parsed.tanggal || new Date().toISOString().slice(0, 10);
-    const category = parsed.kategori || 'other';
-
-    return {
-      amount: grandTotal,
-      date: date,
-      merchant: merchant,
-      items: items,
-      category: category,
-      grandTotal: grandTotal
-    };
-
-  } catch (error) {
-    console.error('❌ Gemini error:', error.message);
-    return null;
-  }
-}
-
-// ============================================================
-// PARSING OCR TEKS
+// FUNGSI PARSING OCR — Ekstrak data terstruktur
 // ============================================================
 function parseOcrText(text) {
   if (!text || text.trim().length < 3) return null;
@@ -427,12 +332,13 @@ function parseOcrText(text) {
     merchant: merchant,
     items: items,
     category: category,
-    grandTotal: grandTotal
+    grandTotal: grandTotal,
+    rawText: fullText
   };
 }
 
 // ============================================================
-// FORMAT RESPONSE
+// FUNGSI FORMAT RESPONSE
 // ============================================================
 function formatReceiptResponse(parsed) {
   const categoryMap = {
@@ -484,7 +390,7 @@ function formatReceiptResponse(parsed) {
 }
 
 // ============================================================
-// BOT TELEGRAM
+// BOT TELEGRAM HANDLER
 // ============================================================
 const bot = new Telegraf(BOT_TOKEN || 'dummy', { handlerTimeout: 90000 });
 const appUrl = process.env.VERCEL_URL
@@ -502,7 +408,7 @@ function miniAppKeyboard(buttons) {
   };
 }
 
-// Middleware
+// Middleware: cek login
 bot.use(async (ctx, next) => {
   if (!ctx.from) return next();
   const userId = ctx.from.id.toString();
@@ -527,7 +433,6 @@ bot.use(async (ctx, next) => {
   return next();
 });
 
-// /start
 bot.start(async (ctx) => {
   const userId = ctx.from.id.toString();
   const registered = await isUserRegistered(userId);
@@ -561,7 +466,7 @@ bot.start(async (ctx) => {
   }
 });
 
-// Teks
+// Handler: teks (transaksi manual)
 bot.on('text', async (ctx) => {
   try {
     const text = ctx.message.text;
@@ -630,7 +535,7 @@ bot.on('text', async (ctx) => {
   }
 });
 
-// Foto — OCR
+// Handler: foto (OCR AI)
 bot.on('photo', async (ctx) => {
   const processingMsg = await ctx.reply(
     '🤖 *AI OCR sedang menganalisis foto struk...* Mohon tunggu beberapa saat.',
@@ -664,10 +569,10 @@ bot.on('photo', async (ctx) => {
     const response = await axios.get(fileLink, { responseType: 'arraybuffer' });
     const imageBuffer = Buffer.from(response.data, 'binary');
 
-    // OCR
-    let parsed;
+    // OCR: ekstrak teks
+    let ocrText;
     try {
-      parsed = await ocrImage(imageBuffer);
+      ocrText = await ocrImage(imageBuffer);
     } catch (ocrError) {
       console.error('❌ OCR error:', ocrError.message);
       await ctx.telegram.editMessageText(
@@ -680,6 +585,7 @@ bot.on('photo', async (ctx) => {
       return;
     }
 
+    const parsed = parseOcrText(ocrText);
     if (!parsed || !parsed.amount) {
       await ctx.telegram.editMessageText(
         processingMsg.chat.id,
@@ -691,7 +597,6 @@ bot.on('photo', async (ctx) => {
       return;
     }
 
-    // Simpan transaksi
     const finalAmount = parsed.grandTotal || parsed.amount;
     const tx = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
@@ -737,18 +642,7 @@ bot.on('photo', async (ctx) => {
 // API ENDPOINTS
 // ============================================================
 
-// Health
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    bot_token_set: !!BOT_TOKEN,
-    ocr_api_key_set: !!OCR_API_KEY,
-    gemini_api_key_set: !!GEMINI_API_KEY,
-    timestamp: new Date().toISOString()
-  });
-});
-
-// Register
+// Register user
 app.post('/api/register', async (req, res) => {
   console.log('📥 Register request:', req.body);
   try {
@@ -836,7 +730,7 @@ app.delete('/api/transactions/:userId/:txId', async (req, res) => {
   }
 });
 
-// Clear all
+// Clear all transactions
 app.delete('/api/transactions/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
@@ -851,7 +745,7 @@ app.delete('/api/transactions/:userId', async (req, res) => {
   }
 });
 
-// OCR — Analyze image
+// OCR endpoint — upload gambar
 const storage = multer.memoryStorage();
 const upload = multer({
   storage,
@@ -873,22 +767,21 @@ app.post('/api/ocr/analyze', upload.single('image'), async (req, res) => {
     }
 
     const imageBuffer = req.file.buffer;
-    const parsed = await ocrImage(imageBuffer);
+    const ocrText = await ocrImage(imageBuffer);
+    const parsed = parseOcrText(ocrText);
 
     res.json({
       success: true,
+      text: ocrText,
       parsed: parsed
     });
-
   } catch (error) {
     console.error('❌ OCR API error:', error.message);
     res.status(500).json({ error: error.message });
   }
 });
 
-// ============================================================
-// WEBHOOK
-// ============================================================
+// Webhook Telegram
 app.post('/api/webhook', async (req, res) => {
   console.log('📥 Webhook received');
   try {
@@ -909,15 +802,11 @@ app.get('/', (req, res) => {
   res.redirect('/index.html');
 });
 
-// ============================================================
-// START
-// ============================================================
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Server berjalan di http://localhost:${PORT}`);
   console.log(`🤖 BOT_TOKEN: ${BOT_TOKEN ? '✅' : '❌'}`);
   console.log(`🔑 OCR_API_KEY: ${OCR_API_KEY ? '✅' : '❌'}`);
-  console.log(`🧠 GEMINI_API_KEY: ${GEMINI_API_KEY ? '✅' : '❌'}`);
 });
 
 module.exports = app;
