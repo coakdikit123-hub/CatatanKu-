@@ -3,6 +3,7 @@ const cors = require('cors');
 const { Telegraf } = require('telegraf');
 const { kv } = require('@vercel/kv');
 const axios = require('axios');
+const PDFDocument = require('pdfkit'); // TAMBAHAN untuk export PDF
 
 // Import OCR
 const { ocrStrukWithPuter } = require('./puter-ocr');
@@ -300,7 +301,6 @@ async function checkPendingReminders(userId, bot) {
     });
 
     for (const reminder of pending) {
-      // Kirim notifikasi
       const msg = 
         `⏰ *Pengingat!*\n\n` +
         `📝 *${reminder.title || 'Pengingat'}*\n` +
@@ -308,12 +308,9 @@ async function checkPendingReminders(userId, bot) {
         `📅 *Waktu:* ${new Date(reminder.remind_at).toLocaleString('id-ID')}`;
 
       await bot.telegram.sendMessage(userId, msg, { parse_mode: 'Markdown' });
-
-      // Tandai sudah dikirim (nonaktifkan atau hapus)
       reminder.is_active = false;
     }
 
-    // Simpan perubahan
     if (pending.length > 0) {
       await saveReminders(userId, reminders);
     }
@@ -331,7 +328,7 @@ async function getBudgetLimit(userId) {
   const key = `${BUDGET_LIMIT_KEY}:${userId}`;
   try {
     const data = await kv.get(key);
-    return data || 2000000; // default 2 juta
+    return data || 2000000;
   } catch (e) {
     return 2000000;
   }
@@ -353,7 +350,6 @@ async function checkBudgetAlert(userId) {
     const limit = await getBudgetLimit(userId);
     const txs = await getTransactions(userId);
     
-    // Hitung total pengeluaran bulan ini
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
@@ -364,13 +360,11 @@ async function checkBudgetAlert(userId) {
 
     const pct = (totalExpense / limit) * 100;
 
-    // Cek apakah perlu peringatan
     const reminders = await getReminders(userId);
     const alertKey = `budget_alert_${now.getMonth()}_${now.getFullYear()}`;
     const alreadyAlerted = reminders.some(r => r.id === alertKey && r.is_active === false);
 
     if (pct >= 80 && !alreadyAlerted) {
-      // Kirim peringatan
       const msg = 
         `⚠️ *Peringatan Budget!*\n\n` +
         `💸 Pengeluaran bulan ini: *Rp ${totalExpense.toLocaleString('id-ID')}*\n` +
@@ -380,7 +374,6 @@ async function checkBudgetAlert(userId) {
 
       await bot.telegram.sendMessage(userId, msg, { parse_mode: 'Markdown' });
       
-      // Tandai sudah terkirim
       const alertReminder = {
         id: alertKey,
         title: 'Peringatan Budget',
@@ -423,13 +416,10 @@ bot.use(async (ctx, next) => {
   if (!ctx.from) return next();
   const userId = ctx.from.id.toString();
 
-  // Cek reminder pending setiap kali user berinteraksi (kecuali /start)
-  if (!ctx.message?.text?.startsWith('/start')) {
-    try {
-      await checkPendingReminders(userId, bot);
-    } catch (e) {
-      console.error('❌ Error checking reminders in middleware:', e.message);
-    }
+  try {
+    await checkPendingReminders(userId, bot);
+  } catch (e) {
+    console.error('❌ Error checking reminders in middleware:', e.message);
   }
 
   if (ctx.message?.text?.startsWith('/start')) {
@@ -459,7 +449,6 @@ bot.start(async (ctx) => {
   const userId = ctx.from.id.toString();
   const registered = await isUserRegistered(userId);
 
-  // Cek reminder pending
   await checkPendingReminders(userId, bot);
 
   if (registered) {
@@ -500,13 +489,12 @@ bot.start(async (ctx) => {
 });
 
 // ============================================================
-// COMMAND: /remind — Atur pengingat
+// COMMAND: /remind
 // ============================================================
 bot.command('remind', async (ctx) => {
   const userId = ctx.from.id.toString();
   const text = ctx.message.text;
 
-  // Hapus command
   const args = text.replace('/remind', '').trim();
   if (!args) {
     return ctx.reply(
@@ -519,11 +507,9 @@ bot.command('remind', async (ctx) => {
     );
   }
 
-  // Parse: /remind 1h "Pesan" atau /remind "2026-12-31 23:59" "Pesan"
   let remindAt = null;
   let message = '';
 
-  // Coba parse format waktu relatif (1h, 30m, 2d)
   const relMatch = args.match(/^(\d+)([smhd])\s+(.+)$/);
   if (relMatch) {
     const num = parseInt(relMatch[1]);
@@ -540,7 +526,6 @@ bot.command('remind', async (ctx) => {
     remindAt = new Date(now.getTime() + seconds * 1000);
     message = msg;
   } else {
-    // Coba parse format absolut: "2026-12-31 23:59" "Pesan"
     const absMatch = args.match(/^"([^"]+)"\s+"([^"]+)"$/);
     if (absMatch) {
       const dateStr = absMatch[1];
@@ -555,7 +540,6 @@ bot.command('remind', async (ctx) => {
       remindAt = d;
       message = msg;
     } else {
-      // Coba tanpa tanda kutip: 1h Pesan
       const simpleMatch = args.match(/^(\d+)([smhd])\s+(.+)$/);
       if (simpleMatch) {
         const num = parseInt(simpleMatch[1]);
@@ -585,7 +569,6 @@ bot.command('remind', async (ctx) => {
     return ctx.reply('❌ Gagal memproses pengingat. Coba format yang benar.');
   }
 
-  // Simpan pengingat
   const reminder = {
     title: 'Pengingat',
     message: message,
@@ -609,7 +592,7 @@ bot.command('remind', async (ctx) => {
 });
 
 // ============================================================
-// COMMAND: /reminders — Lihat daftar pengingat
+// COMMAND: /reminders
 // ============================================================
 bot.command('reminders', async (ctx) => {
   const userId = ctx.from.id.toString();
@@ -638,7 +621,7 @@ bot.command('reminders', async (ctx) => {
 });
 
 // ============================================================
-// COMMAND: /remindcancel — Batalkan pengingat
+// COMMAND: /remindcancel
 // ============================================================
 bot.command('remindcancel', async (ctx) => {
   const userId = ctx.from.id.toString();
@@ -658,7 +641,7 @@ bot.command('remindcancel', async (ctx) => {
 });
 
 // ============================================================
-// COMMAND: /budget — Set budget bulanan
+// COMMAND: /budget
 // ============================================================
 bot.command('budget', async (ctx) => {
   const userId = ctx.from.id.toString();
@@ -695,10 +678,8 @@ bot.on('text', async (ctx) => {
     const text = ctx.message.text;
     const userId = ctx.from.id.toString();
 
-    // Skip command
     if (text.startsWith('/')) return;
 
-    // Jika user sedang dalam mode edit
     const draft = drafts[userId];
     if (draft && draft.waitingFor) {
       const field = draft.waitingFor;
@@ -763,7 +744,6 @@ bot.on('text', async (ctx) => {
       return;
     }
 
-    // Proses transaksi teks
     const registered = await isUserRegistered(userId);
     if (!registered) {
       await ctx.reply(
@@ -1352,6 +1332,155 @@ app.delete('/api/admin/users/:userId', async (req, res) => {
   }
 });
 
+// ============================================================
+// TAMBAHAN: ADMIN UPDATE USER STATUS (PUT)
+// ============================================================
+app.put('/api/admin/users/:userId', async (req, res) => {
+  const token = req.headers['x-admin-token'];
+  if (token !== ADMIN_TOKEN) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  try {
+    const userId = req.params.userId;
+    const { isActive } = req.body;
+    if (typeof isActive !== 'boolean') {
+      return res.status(400).json({ error: 'isActive harus boolean' });
+    }
+    const key = `user:${userId}`;
+    const existing = await kv.get(key);
+    if (!existing) {
+      return res.status(404).json({ error: 'User tidak ditemukan' });
+    }
+    existing.isActive = isActive;
+    await kv.set(key, existing);
+    res.json({ success: true, user: existing });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ============================================================
+// TAMBAHAN: ADMIN UPDATE TRANSACTION (PUT)
+// ============================================================
+app.put('/api/transactions/:txId', async (req, res) => {
+  const token = req.headers['x-admin-token'];
+  if (token !== ADMIN_TOKEN) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  try {
+    const txId = req.params.txId;
+    const { userId, type, amount, category, date, note } = req.body;
+    if (!userId || !amount) {
+      return res.status(400).json({ error: 'userId dan amount wajib' });
+    }
+    const key = `transactions:${userId}`;
+    let txs = await kv.get(key) || [];
+    const idx = txs.findIndex(t => t.id === txId);
+    if (idx === -1) {
+      return res.status(404).json({ error: 'Transaksi tidak ditemukan' });
+    }
+    txs[idx] = { ...txs[idx], type, amount, category, date, note };
+    await kv.set(key, txs);
+    res.json({ success: true, transaction: txs[idx] });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ============================================================
+// TAMBAHAN: ADMIN DELETE TRANSACTION (by ID)
+// ============================================================
+app.delete('/api/transactions/:txId', async (req, res) => {
+  const token = req.headers['x-admin-token'];
+  if (token !== ADMIN_TOKEN) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  try {
+    const txId = req.params.txId;
+    const keys = await kv.keys('transactions:*');
+    let found = false;
+    for (const key of keys) {
+      const txs = await kv.get(key);
+      const idx = txs.findIndex(t => t.id === txId);
+      if (idx !== -1) {
+        txs.splice(idx, 1);
+        await kv.set(key, txs);
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      return res.status(404).json({ error: 'Transaksi tidak ditemukan' });
+    }
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ============================================================
+// TAMBAHAN: EXPORT PDF
+// ============================================================
+app.get('/api/export-pdf/:userId', async (req, res) => {
+  const token = req.headers['x-admin-token'];
+  if (token !== ADMIN_TOKEN) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  try {
+    const userId = req.params.userId;
+    const txs = await getTransactions(userId);
+    const user = await getUser(userId);
+
+    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=transactions_${userId}_${Date.now()}.pdf`);
+    doc.pipe(res);
+
+    // Header
+    doc.fontSize(18).text('CatatanKu - Laporan Transaksi', { align: 'center' });
+    doc.fontSize(12).text(`User ID: ${userId}`, { align: 'center' });
+    doc.text(`Tanggal cetak: ${new Date().toLocaleDateString('id-ID')}`, { align: 'center' });
+    doc.moveDown();
+
+    const totalIncome = txs.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
+    const totalExpense = txs.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
+    doc.fontSize(12).text(`Total Pemasukan: Rp ${totalIncome.toLocaleString('id-ID')}`);
+    doc.text(`Total Pengeluaran: Rp ${totalExpense.toLocaleString('id-ID')}`);
+    doc.text(`Saldo: Rp ${(totalIncome - totalExpense).toLocaleString('id-ID')}`);
+    doc.moveDown();
+
+    const tableTop = doc.y;
+    doc.fontSize(10).text('Tanggal', 40, tableTop, { width: 90 });
+    doc.text('Kategori', 130, tableTop, { width: 80 });
+    doc.text('Catatan', 210, tableTop, { width: 150 });
+    doc.text('Jumlah', 360, tableTop, { width: 80, align: 'right' });
+    doc.moveDown();
+
+    let y = doc.y;
+    for (const tx of txs) {
+      const amt = Number(tx.amount);
+      const isIncome = tx.type === 'income';
+      doc.fontSize(9);
+      doc.text(tx.date || '-', 40, y, { width: 90 });
+      doc.text(tx.category || '-', 130, y, { width: 80 });
+      doc.text(tx.note || '-', 210, y, { width: 150 });
+      doc.text(
+        `${isIncome ? '+' : '-'} Rp ${amt.toLocaleString('id-ID')}`,
+        360, y, { width: 80, align: 'right' }
+      );
+      y += 20;
+      if (y > 700) { doc.addPage(); y = 40; }
+    }
+
+    doc.end();
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ============================================================
+// ROOT
+// ============================================================
 app.get('/', (req, res) => {
   res.redirect('/index.html');
 });
