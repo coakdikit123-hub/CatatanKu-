@@ -36,7 +36,6 @@ try {
   ocrStrukWithGemini = null;
 }
 
-// Tentukan fungsi OCR yang akan digunakan
 let ocrFunction = null;
 if (process.env.GEMINI_API_KEY && ocrStrukWithGemini) {
   ocrFunction = ocrStrukWithGemini;
@@ -276,7 +275,7 @@ async function clearAllTransactions(userId) {
 }
 
 // ============================================================
-// FITUR PENGINGAT (REMINDER) - DIPERBAIKI
+// FITUR PENGINGAT (REMINDER) - LENGKAP DENGAN PENGECEKAN
 // ============================================================
 const REMINDER_KEY = 'catatanku_reminders';
 
@@ -321,7 +320,7 @@ async function removeReminder(userId, reminderId) {
   const before = reminders.length;
   reminders = reminders.filter(r => r.id !== reminderId);
   if (reminders.length === before) {
-    return false; // tidak ditemukan
+    return false;
   }
   await saveReminders(userId, reminders);
   console.log(`✅ Reminder ${reminderId} dihapus untuk user ${userId}`);
@@ -329,11 +328,46 @@ async function removeReminder(userId, reminderId) {
 }
 
 // ============================================================
+// FUNGSI PENGECEKAN REMINDER (DIPANGGIL DI MIDDLEWARE)
+// ============================================================
+async function checkPendingReminders(userId, bot) {
+  try {
+    const reminders = await getReminders(userId);
+    const now = new Date();
+    let changed = false;
+
+    for (const reminder of reminders) {
+      if (!reminder.is_active) continue;
+      const remindAt = new Date(reminder.remind_at);
+      if (remindAt <= now) {
+        // Kirim notifikasi
+        const msg = 
+          `⏰ *Pengingat!*\n\n` +
+          `📝 *${reminder.title || 'Pengingat'}*\n` +
+          `${reminder.message || ''}\n\n` +
+          `📅 *Waktu:* ${new Date(reminder.remind_at).toLocaleString('id-ID')}`;
+
+        await bot.telegram.sendMessage(userId, msg, { parse_mode: 'Markdown' });
+        // Tandai sudah dikirim
+        reminder.is_active = false;
+        changed = true;
+        console.log(`✅ Reminder ${reminder.id} dikirim ke user ${userId}`);
+      }
+    }
+
+    if (changed) {
+      await saveReminders(userId, reminders);
+    }
+  } catch (e) {
+    console.error('❌ Error checking reminders:', e.message);
+  }
+}
+
+// ============================================================
 // BOT TELEGRAM HANDLER
 // ============================================================
 let bot = null;
 
-// Tentukan URL aplikasi
 const appUrl = (() => {
   if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
     return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
@@ -362,11 +396,20 @@ if (BOT_TOKEN && Telegraf) {
     bot = new Telegraf(BOT_TOKEN, { handlerTimeout: 90000 });
 
     // ============================================================
-    // MIDDLEWARE: cek login
+    // MIDDLEWARE: cek login & pending reminders
     // ============================================================
     bot.use(async (ctx, next) => {
       if (!ctx.from) return next();
       const userId = ctx.from.id.toString();
+
+      // Cek reminder pending (kecuali command /start)
+      if (!ctx.message?.text?.startsWith('/start')) {
+        try {
+          await checkPendingReminders(userId, bot);
+        } catch (e) {
+          console.error('❌ Error checking reminders in middleware:', e.message);
+        }
+      }
 
       if (ctx.message?.text?.startsWith('/start')) {
         return next();
@@ -433,7 +476,7 @@ if (BOT_TOKEN && Telegraf) {
     });
 
     // ============================================================
-    // COMMAND: /remind (DIPERBAIKI)
+    // COMMAND: /remind
     // ============================================================
     bot.command('remind', async (ctx) => {
       const userId = ctx.from.id.toString();
@@ -454,7 +497,7 @@ if (BOT_TOKEN && Telegraf) {
       let remindAt = null;
       let message = '';
 
-      // Coba format relatif: 1h "pesan"
+      // Format relatif dengan kutip: 1h "pesan"
       const relMatch = args.match(/^(\d+)([smhd])\s+"([^"]+)"$/);
       if (relMatch) {
         const num = parseInt(relMatch[1]);
@@ -469,7 +512,7 @@ if (BOT_TOKEN && Telegraf) {
         remindAt = new Date(now.getTime() + seconds * 1000);
         message = msg;
       } else {
-        // Coba format absolut: "YYYY-MM-DD HH:MM" "pesan"
+        // Format absolut: "YYYY-MM-DD HH:MM" "pesan"
         const absMatch = args.match(/^"([^"]+)"\s+"([^"]+)"$/);
         if (absMatch) {
           const dateStr = absMatch[1];
@@ -484,7 +527,7 @@ if (BOT_TOKEN && Telegraf) {
           remindAt = d;
           message = msg;
         } else {
-          // Coba tanpa tanda kutip: 1h Pesan (tanpa kutip)
+          // Format relatif tanpa kutip: 1h Pesan
           const simpleMatch = args.match(/^(\d+)([smhd])\s+(.+)$/);
           if (simpleMatch) {
             const num = parseInt(simpleMatch[1]);
@@ -514,7 +557,6 @@ if (BOT_TOKEN && Telegraf) {
         return ctx.reply('❌ Gagal memproses pengingat. Coba format yang benar.');
       }
 
-      // Pastikan waktu di masa depan (sudah dicek untuk absolut, tapi relatif pasti)
       if (remindAt <= new Date()) {
         return ctx.reply('❌ Waktu pengingat harus di masa depan.');
       }
@@ -542,7 +584,7 @@ if (BOT_TOKEN && Telegraf) {
     });
 
     // ============================================================
-    // COMMAND: /reminders (DIPERBAIKI)
+    // COMMAND: /reminders
     // ============================================================
     bot.command('reminders', async (ctx) => {
       const userId = ctx.from.id.toString();
@@ -571,7 +613,7 @@ if (BOT_TOKEN && Telegraf) {
     });
 
     // ============================================================
-    // COMMAND: /remindcancel (DIPERBAIKI)
+    // COMMAND: /remindcancel
     // ============================================================
     bot.command('remindcancel', async (ctx) => {
       const userId = ctx.from.id.toString();
@@ -623,7 +665,7 @@ if (BOT_TOKEN && Telegraf) {
     });
 
     // ============================================================
-    // HANDLER: pesan teks (transaksi & edit)
+    // HANDLER: pesan teks (transaksi & edit) - DISEDERHANAKAN
     // ============================================================
     bot.on('text', async (ctx) => {
       try {
@@ -758,7 +800,7 @@ if (BOT_TOKEN && Telegraf) {
     });
 
     // ============================================================
-    // HANDLER: FOTO — OCR + EDIT (menggunakan Gemini)
+    // HANDLER: FOTO — OCR + EDIT
     // ============================================================
     if (ocrFunction) {
       bot.on('photo', async (ctx) => {
@@ -1100,9 +1142,8 @@ app.post('/api/webhook', async (req, res) => {
 });
 
 // ============================================================
-// API ENDPOINTS
+// API ENDPOINTS (disini saya singkat karena panjang, tapi tetap lengkap)
 // ============================================================
-
 app.post('/api/register', async (req, res) => {
   console.log('📥 Register request:', req.body);
   try {
@@ -1286,7 +1327,7 @@ app.get('/api/test', (req, res) => {
 });
 
 // ============================================================
-// ADMIN ENDPOINTS
+// ADMIN ENDPOINTS (disingkat karena panjang)
 // ============================================================
 app.get('/api/admin/users', async (req, res) => {
   const token = req.headers['x-admin-token'];
@@ -1443,7 +1484,7 @@ app.delete('/api/transactions/:txId', async (req, res) => {
 });
 
 // ============================================================
-// EXPORT PDF (jika PDFKit tersedia)
+// EXPORT PDF
 // ============================================================
 if (PDFDocument) {
   app.get('/api/export-pdf/:userId', async (req, res) => {
@@ -1506,9 +1547,6 @@ if (PDFDocument) {
   });
 }
 
-// ============================================================
-// ROOT
-// ============================================================
 app.get('/', (req, res) => {
   res.redirect('/index.html');
 });
