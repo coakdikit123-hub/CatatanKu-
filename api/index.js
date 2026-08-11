@@ -276,6 +276,172 @@ async function clearAllTransactions(userId) {
 }
 
 // ============================================================
+// BUDGET MANAGEMENT
+// ============================================================
+const BUDGET_LIMIT_KEY = 'catatanku_budget_limit';
+
+async function getBudgetLimit(userId) {
+  const key = `${BUDGET_LIMIT_KEY}:${userId}`;
+  try {
+    const data = await kv.get(key);
+    return data || 2000000; // default 2 juta
+  } catch (e) {
+    return 2000000;
+  }
+}
+
+async function setBudgetLimit(userId, limit) {
+  const key = `${BUDGET_LIMIT_KEY}:${userId}`;
+  try {
+    await kv.set(key, limit);
+    return true;
+  } catch (e) {
+    console.error('❌ Gagal set budget limit:', e.message);
+    return false;
+  }
+}
+
+// ============================================================
+// FUNGSI GENERATE LAPORAN BULANAN
+// ============================================================
+async function generateMonthlyReport(userId, month, year) {
+  const txs = await getTransactions(userId);
+  
+  // Filter transaksi bulan yang diminta
+  const monthStart = `${year}-${String(month).padStart(2, '0')}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const monthEnd = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+  
+  const monthTxs = txs.filter(t => t.date >= monthStart && t.date <= monthEnd);
+  
+  if (monthTxs.length === 0) {
+    return null; // Tidak ada transaksi di bulan ini
+  }
+  
+  // Hitung total
+  const totalIncome = monthTxs
+    .filter(t => t.type === 'income')
+    .reduce((sum, t) => sum + Number(t.amount), 0);
+  
+  const totalExpense = monthTxs
+    .filter(t => t.type === 'expense')
+    .reduce((sum, t) => sum + Number(t.amount), 0);
+  
+  const balance = totalIncome - totalExpense;
+  
+  // Hitung kategori terbanyak (hanya pengeluaran)
+  const categoryMap = {};
+  const expenseTxs = monthTxs.filter(t => t.type === 'expense');
+  for (const tx of expenseTxs) {
+    const cat = tx.category || 'other';
+    categoryMap[cat] = (categoryMap[cat] || 0) + Number(tx.amount);
+  }
+  
+  let topCategory = null;
+  let topCategoryAmount = 0;
+  for (const [cat, amount] of Object.entries(categoryMap)) {
+    if (amount > topCategoryAmount) {
+      topCategoryAmount = amount;
+      topCategory = cat;
+    }
+  }
+  
+  // Ambil budget untuk perbandingan
+  const budget = await getBudgetLimit(userId);
+  const expensePercent = budget > 0 ? Math.round((totalExpense / budget) * 100) : 0;
+  
+  // Nama bulan
+  const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 
+                      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+  const monthName = monthNames[month - 1];
+  
+  // Format laporan
+  let report = `📊 *Laporan Keuangan ${monthName} ${year}*\n\n`;
+  report += `💰 *Total Pemasukan:* Rp ${totalIncome.toLocaleString('id-ID')}\n`;
+  report += `💸 *Total Pengeluaran:* Rp ${totalExpense.toLocaleString('id-ID')}\n`;
+  report += `📈 *Saldo:* Rp ${balance.toLocaleString('id-ID')}\n`;
+  report += `📊 *Budget:* Rp ${budget.toLocaleString('id-ID')} (${expensePercent}% terpakai)\n\n`;
+  
+  if (topCategory) {
+    const catLabel = getCategoryLabel(topCategory);
+    report += `🏷️ *Kategori Terbanyak:* ${catLabel} (Rp ${topCategoryAmount.toLocaleString('id-ID')})\n`;
+  }
+  
+  report += `\n📌 *Total Transaksi:* ${monthTxs.length} transaksi`;
+  
+  return report;
+}
+
+// ============================================================
+// CRON: LAPORAN BULANAN OTOMATIS
+// ============================================================
+app.get('/api/cron/monthly-report', async (req, res) => {
+  // Proteksi dengan token rahasia
+  const cronSecret = process.env.CRON_SECRET || 'default-secret';
+  if (req.query.secret !== cronSecret) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  console.log('📊 Cron job: generating monthly reports...');
+
+  try {
+    // Ambil semua user dari KV
+    const userKeys = await kv.keys('user:*');
+    let totalSent = 0;
+    let totalSkipped = 0;
+
+    // Ambil bulan dan tahun lalu (karena kita kirim laporan bulan sebelumnya)
+    const now = new Date();
+    const lastMonth = now.getMonth(); // 0-11
+    const lastYear = now.getFullYear();
+    // Jika bulan ini Januari, bulan lalu adalah Desember tahun lalu
+    const month = lastMonth === 0 ? 12 : lastMonth;
+    const year = lastMonth === 0 ? lastYear - 1 : lastYear;
+
+    for (const key of userKeys) {
+      const userId = key.replace('user:', '');
+      
+      try {
+        // Cek user aktif
+        const userData = await getUser(userId);
+        if (!userData || userData.isActive === false) {
+          console.log(`⏭️ Skip user ${userId} (tidak aktif)`);
+          totalSkipped++;
+          continue;
+        }
+
+        // Generate laporan
+        const report = await generateMonthlyReport(userId, month, year);
+        
+        if (!report) {
+          console.log(`⏭️ Skip user ${userId} (tidak ada transaksi bulan ${month}/${year})`);
+          totalSkipped++;
+          continue;
+        }
+
+        // Kirim laporan ke user
+        try {
+          await bot.telegram.sendMessage(userId, report, { parse_mode: 'Markdown' });
+          totalSent++;
+          console.log(`✅ Laporan bulanan dikirim ke user ${userId}`);
+        } catch (sendError) {
+          console.error(`❌ Gagal kirim laporan ke ${userId}:`, sendError.message);
+        }
+      } catch (userError) {
+        console.error(`❌ Error proses user ${userId}:`, userError.message);
+      }
+    }
+
+    console.log(`📊 Cron job selesai: ${totalSent} laporan terkirim, ${totalSkipped} user dilewati`);
+    res.json({ success: true, totalSent, totalSkipped, month, year });
+
+  } catch (e) {
+    console.error('❌ Cron job error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ============================================================
 // BOT TELEGRAM HANDLER
 // ============================================================
 let bot = null;
@@ -349,7 +515,8 @@ if (BOT_TOKEN && Telegraf) {
           `➜ \`+20000 makan siang\` → pemasukan Rp 20.000\n` +
           `➜ \`-15000 transport\` → pengeluaran transportasi\n\n` +
           `📸 Kirim *foto struk* untuk scan otomatis!\n\n` +
-          `💰 /budget 3000000 → set budget bulanan Rp 3.000.000`,
+          `💰 /budget 3000000 → set budget bulanan Rp 3.000.000\n` +
+          `📊 /report → laporan keuangan bulan ini`,
           {
             parse_mode: 'Markdown',
             reply_markup: miniAppKeyboard([
@@ -373,15 +540,16 @@ if (BOT_TOKEN && Telegraf) {
     });
 
     // ============================================================
-    // COMMAND: /budget (sederhana)
+    // COMMAND: /budget
     // ============================================================
     bot.command('budget', async (ctx) => {
       const userId = ctx.from.id.toString();
       const args = ctx.message.text.replace('/budget', '').trim();
 
       if (!args) {
+        const current = await getBudgetLimit(userId);
         return ctx.reply(
-          `💰 *Budget Bulanan:* Rp 2.000.000\n\n` +
+          `💰 *Budget Bulanan:* Rp ${current.toLocaleString('id-ID')}\n\n` +
           `Gunakan /budget <nominal> untuk mengubah.\n` +
           `Contoh: /budget 3000000`,
           { parse_mode: 'Markdown' }
@@ -393,11 +561,39 @@ if (BOT_TOKEN && Telegraf) {
         return ctx.reply('❌ Masukkan nominal yang valid. Contoh: `/budget 3000000`', { parse_mode: 'Markdown' });
       }
 
+      await setBudgetLimit(userId, amount);
       await ctx.reply(
         `✅ *Budget berhasil diatur!*\n\n` +
         `💰 Batas pengeluaran bulanan: *Rp ${amount.toLocaleString('id-ID')}*`,
         { parse_mode: 'Markdown' }
       );
+    });
+
+    // ============================================================
+    // COMMAND: /report
+    // ============================================================
+    bot.command('report', async (ctx) => {
+      const userId = ctx.from.id.toString();
+      const now = new Date();
+      const month = now.getMonth() + 1;
+      const year = now.getFullYear();
+
+      try {
+        const report = await generateMonthlyReport(userId, month, year);
+        if (!report) {
+          return ctx.reply(
+            `📭 *Belum ada transaksi di bulan ${month}/${year}.*\n\n` +
+            `Mulai catat transaksi dengan:\n` +
+            `\`-5000 makan siang\` untuk pengeluaran\n` +
+            `\`+50000 gaji\` untuk pemasukan`,
+            { parse_mode: 'Markdown' }
+          );
+        }
+        await ctx.reply(report, { parse_mode: 'Markdown' });
+      } catch (e) {
+        console.error('❌ Error generating report:', e.message);
+        await ctx.reply('❌ Gagal membuat laporan. Coba lagi nanti.');
+      }
     });
 
     // ============================================================
