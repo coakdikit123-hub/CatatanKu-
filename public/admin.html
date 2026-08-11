@@ -1890,7 +1890,7 @@
 
 
     <!-- ============================================================
-    JAVASCRIPT — FULL FEATURES
+    JAVASCRIPT — FULL FEATURES (dengan tambahan Export PDF)
     ============================================================ -->
     <script>
         // ============================================================
@@ -2395,7 +2395,7 @@
         }
 
         // ============================================================
-        // USER DETAIL (Modal)
+        // USER DETAIL (Modal) — dengan tombol Export PDF
         // ============================================================
         async function viewUserDetail(userId) {
             const modal = document.getElementById('detail-modal');
@@ -2411,8 +2411,17 @@
                 const sorted = txs.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
                 const totalIncome = txs.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
                 const totalExpense = txs.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
+                
+                // ---- TAMBAHAN: tombol Export PDF ----
                 let html =
-                    `<div class="summary-grid"><div class="sum-item"><div class="sum-label">Total Transaksi</div><div class="sum-value accent">${sorted.length}</div></div><div class="sum-item"><div class="sum-label">Pemasukan</div><div class="sum-value income">Rp ${totalIncome.toLocaleString('id-ID')}</div></div><div class="sum-item"><div class="sum-label">Pengeluaran</div><div class="sum-value expense">Rp ${totalExpense.toLocaleString('id-ID')}</div></div></div>`;
+                    `<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+                        <button class="btn btn-primary btn-sm" onclick="exportPDF('${userId}')">
+                            <span class="material-symbols-outlined">picture_as_pdf</span> Export PDF
+                        </button>
+                    </div>
+                    <div class="summary-grid"><div class="sum-item"><div class="sum-label">Total Transaksi</div><div class="sum-value accent">${sorted.length}</div></div><div class="sum-item"><div class="sum-label">Pemasukan</div><div class="sum-value income">Rp ${totalIncome.toLocaleString('id-ID')}</div></div><div class="sum-item"><div class="sum-label">Pengeluaran</div><div class="sum-value expense">Rp ${totalExpense.toLocaleString('id-ID')}</div></div></div>`;
+                // ------------------------------------
+
                 if (sorted.length === 0) {
                     html +=
                         `<div class="tx-empty"><span class="material-symbols-outlined">inbox</span> Belum ada transaksi.</div>`;
@@ -2438,6 +2447,15 @@
             }
         }
 
+        // ============================================================
+        // EXPORT PDF — fungsi baru
+        // ============================================================
+        function exportPDF(userId) {
+            if (!adminToken) { showToast('⚠️ Login terlebih dahulu'); return; }
+            // Buka PDF di tab baru dengan header token (query param tidak aman, tapi untuk demo cukup)
+            window.open(`${API_BASE}/api/export-pdf/${userId}?x-admin-token=${adminToken}`, '_blank');
+        }
+
         function closeDetailModal() { document.getElementById('detail-modal').classList.remove('active'); }
 
         // ============================================================
@@ -2456,7 +2474,6 @@
                     `<tr><td colspan="7" style="text-align:center;padding:28px 0;color:var(--text-3);"><span class="material-symbols-outlined" style="font-size:28px;display:block;margin-bottom:6px;">sync</span> Memuat transaksi...</td></tr>`;
             }
             try {
-                // Fetch all users then get transactions per user
                 const res = await fetch(`${API_BASE}/api/admin/users`, { headers: { 'x-admin-token': adminToken } });
                 if (!res.ok) throw new Error('Gagal memuat user');
                 const data = await res.json();
@@ -2538,7 +2555,6 @@
                 }).join('');
             }
 
-            // Pagination for tx
             const container = document.getElementById('tx-pagination-container');
             if (totalPages <= 1) { container.innerHTML = ''; return; }
             let html =
@@ -2572,7 +2588,6 @@
             document.getElementById('tx-form-category').value = 'Makanan';
             document.getElementById('tx-form-date').value = new Date().toISOString().slice(0, 10);
             document.getElementById('tx-form-note').value = '';
-            // Populate datalist
             const datalist = document.getElementById('user-list-datalist');
             datalist.innerHTML = allUsers.map(u => `<option value="${u.userId}">`).join('');
             document.getElementById('tx-modal').classList.add('active');
@@ -2613,7 +2628,6 @@
             if (!amount || amount <= 0) { showToast('⚠️ Jumlah harus lebih dari 0'); return; }
             if (!date) { showToast('⚠️ Tanggal wajib diisi'); return; }
 
-            // Check if user exists
             if (!allUsers.find(u => u.userId === userId)) {
                 showToast('⚠️ User ID tidak ditemukan, tambahkan user terlebih dahulu');
                 return;
@@ -2621,7 +2635,6 @@
 
             try {
                 if (id) {
-                    // Edit
                     const res = await fetch(`${API_BASE}/api/transactions/${id}`, {
                         method: 'PUT',
                         headers: { 'x-admin-token': adminToken, 'Content-Type': 'application/json' },
@@ -2631,7 +2644,6 @@
                     showToast('✅ Transaksi berhasil diupdate');
                     addLog('edit_tx', `Mengedit transaksi ${id} untuk user ${userId}`);
                 } else {
-                    // Add
                     const res = await fetch(`${API_BASE}/api/transactions`, {
                         method: 'POST',
                         headers: { 'x-admin-token': adminToken, 'Content-Type': 'application/json' },
@@ -2738,7 +2750,6 @@
                         .toISOString().slice(0, 10);
 
                     if (!userId || amount <= 0) continue;
-                    // Check if user exists, if not create
                     let userExists = allUsers.find(u => u.userId === userId);
                     if (!userExists) {
                         await fetch(`${API_BASE}/api/admin/users`, {
@@ -2749,7 +2760,6 @@
                         userExists = { userId };
                         added++;
                     }
-                    // Add transaction
                     await fetch(`${API_BASE}/api/transactions`, {
                         method: 'POST',
                         headers: { 'x-admin-token': adminToken, 'Content-Type': 'application/json' },
