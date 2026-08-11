@@ -326,9 +326,24 @@ async function removeReminder(userId, reminderId) {
 // BOT TELEGRAM HANDLER
 // ============================================================
 let bot = null;
-const appUrl = process.env.VERCEL_URL
-  ? `https://${process.env.VERCEL_URL}`
-  : 'https://catatan-ku-silk.vercel.app';
+
+// ============================================================
+// PERBAIKAN URL: gunakan environment variable yang benar
+// ============================================================
+const appUrl = (() => {
+  // Prioritas: gunakan VERCEL_PROJECT_PRODUCTION_URL (domain produksi)
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+  }
+  // Jika tidak ada, gunakan VERCEL_URL (branch preview atau custom)
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  // Fallback terakhir (jika lokal)
+  return 'https://catatan-ku-silk.vercel.app';
+})();
+
+console.log(`🌐 App URL yang digunakan: ${appUrl}`);
 
 function miniAppKeyboard(buttons) {
   return {
