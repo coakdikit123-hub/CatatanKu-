@@ -18,14 +18,6 @@ async function ocrStrukWithGemini(imageBuffer) {
   // DAFTAR MODEL PRIORITAS (berdasarkan hasil curl Anda)
   // ============================================================
   const modelPriority = [
-    'gemini-2.5-flash-lite',      // Stabil, murah, cepat (Juli 2025)
-    'gemini-flash-lite-latest',   // Latest release dari Flash-Lite
-    'gemini-2.5-flash',           // Sedikit lebih berat, tetap bagus
-    'gemini-flash-latest',        // Latest Flash
-    'gemini-2.5-pro',             // Pro (lebih akurat, lebih lambat)
-    'gemini-pro-latest',          // Latest Pro
-    'gemini-3.5-flash',           // Versi terbaru (jika tersedia)
-    'gemini-3.5-flash-lite',      // Versi terbaru lite
     'gemini-3.6-flash',           // Terbaru
   ];
 
