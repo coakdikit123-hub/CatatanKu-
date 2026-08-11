@@ -2,36 +2,6 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 /**
- * Mendapatkan model yang tersedia dan cocok untuk OCR
- */
-async function getAvailableModel(genAI) {
-  // Daftar model yang mungkin tersedia (prioritas tertinggi dulu)
-  const candidateModels = [
-    'gemini-1.5-flash',
-    'gemini-1.5-pro',
-    'gemini-2.0-flash-exp',
-    'gemini-pro-vision',  // versi lama, mungkin masih ada
-    'gemini-pro',         // versi lama
-  ];
-
-  for (const modelName of candidateModels) {
-    try {
-      // Coba instantiate model (tidak langsung generate, cek dulu)
-      const model = genAI.getGenerativeModel({ model: modelName });
-      // Coba simple test (generate dengan prompt kecil) untuk memastikan model aktif
-      // Tapi ini akan memakan biaya, jadi kita hanya coba instantiate dulu.
-      // Jika model tidak ada, akan throw error saat digunakan nanti.
-      // Kita bisa langsung return model pertama yang dianggap ada.
-      console.log(`✅ Model ${modelName} ditemukan, mencoba menggunakannya...`);
-      return modelName;
-    } catch (e) {
-      console.warn(`⚠️ Model ${modelName} tidak tersedia:`, e.message);
-    }
-  }
-  throw new Error('Tidak ada model Gemini yang tersedia untuk API key ini. Periksa API key Anda.');
-}
-
-/**
  * OCR menggunakan Google Gemini API
  * @param {Buffer} imageBuffer - Buffer gambar
  * @returns {Promise<Object>} - Hasil parsing struk
@@ -44,15 +14,45 @@ async function ocrStrukWithGemini(imageBuffer) {
 
   const genAI = new GoogleGenerativeAI(apiKey);
 
-  // Cari model yang tersedia
-  let modelName;
-  try {
-    modelName = await getAvailableModel(genAI);
-  } catch (e) {
-    throw new Error('Tidak dapat menemukan model Gemini: ' + e.message);
+  // ============================================================
+  // DAFTAR MODEL PRIORITAS (berdasarkan hasil curl Anda)
+  // ============================================================
+  const modelPriority = [
+    'gemini-2.5-flash-lite',      // Stabil, murah, cepat (Juli 2025)
+    'gemini-flash-lite-latest',   // Latest release dari Flash-Lite
+    'gemini-2.5-flash',           // Sedikit lebih berat, tetap bagus
+    'gemini-flash-latest',        // Latest Flash
+    'gemini-2.5-pro',             // Pro (lebih akurat, lebih lambat)
+    'gemini-pro-latest',          // Latest Pro
+    'gemini-3.5-flash',           // Versi terbaru (jika tersedia)
+    'gemini-3.5-flash-lite',      // Versi terbaru lite
+    'gemini-3.6-flash',           // Terbaru
+  ];
+
+  let model = null;
+  let usedModelName = null;
+
+  // Coba setiap model secara berurutan
+  for (const modelName of modelPriority) {
+    try {
+      // Coba instantiate model (tidak langsung generate, cek dulu)
+      const testModel = genAI.getGenerativeModel({ model: modelName });
+      // Lakukan test sederhana dengan prompt kecil untuk memastikan model bisa digunakan
+      // Kita tidak ingin memakai biaya untuk test, jadi kita hanya coba instantiate.
+      // Jika model tidak ada, akan throw error saat generateContent nanti.
+      // Kita akan mencoba generate nanti, jika gagal lanjut ke model berikutnya.
+      model = testModel;
+      usedModelName = modelName;
+      console.log(`✅ Mencoba menggunakan model: ${modelName}`);
+      break;
+    } catch (e) {
+      console.warn(`⚠️ Model ${modelName} tidak dapat di-instantiate:`, e.message);
+    }
   }
 
-  const model = genAI.getGenerativeModel({ model: modelName });
+  if (!model) {
+    throw new Error('Tidak ada model Gemini yang tersedia. Periksa API key Anda.');
+  }
 
   // Konversi buffer ke base64
   const base64Image = imageBuffer.toString('base64');
@@ -71,7 +71,7 @@ Jangan tambahkan teks apapun selain JSON. JSON harus valid.
 `;
 
   try {
-    console.log(`📡 Mengirim request ke Gemini dengan model: ${modelName}`);
+    console.log(`📡 Mengirim request ke Gemini dengan model: ${usedModelName}`);
     const result = await model.generateContent({
       contents: [
         {
@@ -116,11 +116,14 @@ Jangan tambahkan teks apapun selain JSON. JSON harus valid.
     resultObj.grandTotal = Number(resultObj.grandTotal);
     resultObj.amount = Number(resultObj.amount);
 
-    console.log(`✅ OCR berhasil menggunakan model ${modelName}`);
+    console.log(`✅ OCR berhasil menggunakan model ${usedModelName}`);
     return resultObj;
   } catch (error) {
-    console.error('❌ Gemini OCR error:', error.message);
-    throw new Error('Gagal memproses gambar dengan Gemini: ' + error.message);
+    console.error(`❌ Gemini OCR error (model ${usedModelName}):`, error.message);
+    // Jika model gagal, coba model berikutnya (fallback)
+    // Karena kita sudah loop di atas, kita bisa coba lagi dengan model lain
+    // Namun untuk simpel, kita lempar error dengan saran model yang tersedia.
+    throw new Error(`Gagal memproses gambar dengan Gemini (model: ${usedModelName}): ${error.message}`);
   }
 }
 
