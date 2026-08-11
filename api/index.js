@@ -62,35 +62,126 @@ console.log('🔍 PDFKit available?', !!PDFDocument);
 // ============================================================
 const drafts = {};
 
+// ============================================================
+// KATEGORI DEFAULT
+// ============================================================
+const DEFAULT_CATEGORIES = [
+  'dining', 'shopping', 'transport', 'bills', 'fun', 'health', 'gift', 'other'
+];
+
+const CATEGORY_LABELS = {
+  dining: 'Makan',
+  shopping: 'Belanja',
+  transport: 'Transportasi',
+  bills: 'Tagihan',
+  fun: 'Hiburan',
+  health: 'Kesehatan',
+  gift: 'Hadiah',
+  other: 'Lainnya'
+};
+
+const CATEGORY_MAP = {
+  'makan': 'dining',
+  'belanja': 'shopping',
+  'transportasi': 'transport',
+  'tagihan': 'bills',
+  'hiburan': 'fun',
+  'kesehatan': 'health',
+  'hadiah': 'gift',
+  'lainnya': 'other'
+};
+
 function getCategoryLabel(id) {
-  const map = {
-    dining: 'Makan',
-    shopping: 'Belanja',
-    transport: 'Transportasi',
-    bills: 'Tagihan',
-    fun: 'Hiburan',
-    health: 'Kesehatan',
-    gift: 'Hadiah',
-    other: 'Lainnya'
-  };
-  return map[id] || id;
+  return CATEGORY_LABELS[id] || id;
 }
 
-function getCategoryId(label) {
-  const map = {
-    'makan': 'dining',
-    'belanja': 'shopping',
-    'transportasi': 'transport',
-    'tagihan': 'bills',
-    'hiburan': 'fun',
-    'kesehatan': 'health',
-    'hadiah': 'gift',
-    'lainnya': 'other'
-  };
+function getDefaultCategoryId(label) {
   const lower = label.toLowerCase();
-  if (map[lower]) return map[lower];
-  const list = ['dining', 'shopping', 'transport', 'bills', 'fun', 'health', 'gift', 'other'];
-  if (list.includes(lower)) return lower;
+  if (CATEGORY_MAP[lower]) return CATEGORY_MAP[lower];
+  if (DEFAULT_CATEGORIES.includes(lower)) return lower;
+  return null;
+}
+
+// ============================================================
+// KATEGORI KUSTOM
+// ============================================================
+const CUSTOM_CATEGORY_KEY = 'custom_categories';
+
+async function getCustomCategories(userId) {
+  const key = `${CUSTOM_CATEGORY_KEY}:${userId}`;
+  try {
+    const data = await kv.get(key);
+    return data || [];
+  } catch (e) {
+    console.error('❌ Gagal baca custom categories:', e.message);
+    return [];
+  }
+}
+
+async function saveCustomCategories(userId, categories) {
+  const key = `${CUSTOM_CATEGORY_KEY}:${userId}`;
+  try {
+    await kv.set(key, categories);
+    return true;
+  } catch (e) {
+    console.error('❌ Gagal simpan custom categories:', e.message);
+    return false;
+  }
+}
+
+async function addCustomCategory(userId, categoryName) {
+  // Validasi: minimal 2 karakter, tidak mengandung karakter aneh
+  const clean = categoryName.trim().toLowerCase();
+  if (clean.length < 2) {
+    return { success: false, message: '❌ Nama kategori minimal 2 karakter.' };
+  }
+  if (!/^[a-z0-9\s]+$/.test(clean)) {
+    return { success: false, message: '❌ Nama kategori hanya boleh huruf, angka, dan spasi.' };
+  }
+  
+  // Cek apakah sudah ada di default
+  if (DEFAULT_CATEGORIES.includes(clean)) {
+    return { success: false, message: `❌ "${clean}" adalah kategori default. Tidak perlu ditambahkan.` };
+  }
+  
+  const categories = await getCustomCategories(userId);
+  if (categories.includes(clean)) {
+    return { success: false, message: `❌ Kategori "${clean}" sudah ada.` };
+  }
+  
+  categories.push(clean);
+  await saveCustomCategories(userId, categories);
+  return { success: true, message: `✅ Kategori "${clean}" berhasil ditambahkan!` };
+}
+
+async function removeCustomCategory(userId, categoryName) {
+  const clean = categoryName.trim().toLowerCase();
+  const categories = await getCustomCategories(userId);
+  const index = categories.indexOf(clean);
+  if (index === -1) {
+    return { success: false, message: `❌ Kategori "${clean}" tidak ditemukan.` };
+  }
+  categories.splice(index, 1);
+  await saveCustomCategories(userId, categories);
+  return { success: true, message: `✅ Kategori "${clean}" berhasil dihapus.` };
+}
+
+async function getAllCategories(userId) {
+  const custom = await getCustomCategories(userId);
+  return [...DEFAULT_CATEGORIES, ...custom];
+}
+
+async function getCategoryId(userId, label) {
+  const lower = label.toLowerCase().trim();
+  
+  // Cek di default dulu
+  const defaultId = getDefaultCategoryId(lower);
+  if (defaultId) return defaultId;
+  
+  // Cek di custom
+  const custom = await getCustomCategories(userId);
+  if (custom.includes(lower)) return lower;
+  
   return 'other';
 }
 
@@ -133,9 +224,9 @@ async function isUserRegistered(userId) {
 }
 
 // ============================================================
-// FUNGSI PARSING PESAN TEKS
+// FUNGSI PARSING PESAN TEKS (dengan kategori kustom)
 // ============================================================
-function parseTransaction(text, userId) {
+async function parseTransaction(text, userId) {
   const trimmed = text.trim();
   let type = 'expense';
   let amountText = trimmed;
@@ -155,15 +246,20 @@ function parseTransaction(text, userId) {
   const amount = parseInt(match[1]);
   note = match[2] || (type === 'income' ? 'Pemasukan' : 'Pengeluaran');
 
-  const lowerNote = note.toLowerCase();
+  // Ekstrak kategori dari note (kata pertama)
+  const words = note.split(/\s+/);
   let category = 'other';
-  if (lowerNote.includes('makan') || lowerNote.includes('resto') || lowerNote.includes('food')) category = 'dining';
-  else if (lowerNote.includes('belanja') || lowerNote.includes('shop') || lowerNote.includes('baju')) category = 'shopping';
-  else if (lowerNote.includes('transport') || lowerNote.includes('ojol') || lowerNote.includes('bensin')) category = 'transport';
-  else if (lowerNote.includes('tagihan') || lowerNote.includes('listrik') || lowerNote.includes('air')) category = 'bills';
-  else if (lowerNote.includes('hiburan') || lowerNote.includes('film') || lowerNote.includes('game')) category = 'fun';
-  else if (lowerNote.includes('kesehatan') || lowerNote.includes('obat') || lowerNote.includes('dokter')) category = 'health';
-  else if (lowerNote.includes('hadiah') || lowerNote.includes('gift')) category = 'gift';
+  if (words.length > 0) {
+    const firstWord = words[0].toLowerCase();
+    // Coba cocokkan dengan kategori yang ada (default atau custom)
+    category = await getCategoryId(userId, firstWord);
+    // Jika kategori cocok, hapus kata pertama dari note
+    if (category !== 'other' || DEFAULT_CATEGORIES.includes(firstWord)) {
+      // Note tanpa kata pertama
+      const remaining = words.slice(1).join(' ');
+      note = remaining || (type === 'income' ? 'Pemasukan' : 'Pengeluaran');
+    }
+  }
 
   return {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
@@ -284,7 +380,7 @@ async function getBudgetLimit(userId) {
   const key = `${BUDGET_LIMIT_KEY}:${userId}`;
   try {
     const data = await kv.get(key);
-    return data || 2000000; // default 2 juta
+    return data || 2000000;
   } catch (e) {
     return 2000000;
   }
@@ -327,6 +423,7 @@ async function generateMonthlyReport(userId, month, year) {
   
   const balance = totalIncome - totalExpense;
   
+  // Hitung kategori terbanyak (custom + default)
   const categoryMap = {};
   const expenseTxs = monthTxs.filter(t => t.type === 'expense');
   for (const tx of expenseTxs) {
@@ -388,7 +485,7 @@ app.get('/api/cron/monthly-report', async (req, res) => {
     let totalSkipped = 0;
 
     const now = new Date();
-    const lastMonth = now.getMonth(); // 0-11
+    const lastMonth = now.getMonth();
     const lastYear = now.getFullYear();
     const month = lastMonth === 0 ? 12 : lastMonth;
     const year = lastMonth === 0 ? lastYear - 1 : lastYear;
@@ -504,6 +601,10 @@ if (BOT_TOKEN && Telegraf) {
           `➜ \`+20000 makan siang\` → pemasukan Rp 20.000\n` +
           `➜ \`-15000 transport\` → pengeluaran transportasi\n\n` +
           `📸 Kirim *foto struk* untuk scan otomatis!\n\n` +
+          `🏷️ *Fitur Kategori Kustom:*\n` +
+          `➜ /addcategory "Investasi" → tambah kategori\n` +
+          `➜ /listcategories → lihat semua kategori\n` +
+          `➜ /removecategory "Investasi" → hapus kategori\n\n` +
           `💰 /budget 3000000 → set budget bulanan Rp 3.000.000\n` +
           `📊 /report → laporan keuangan bulan ini`,
           {
@@ -526,6 +627,93 @@ if (BOT_TOKEN && Telegraf) {
           }
         );
       }
+    });
+
+    // ============================================================
+    // COMMAND: /addcategory
+    // ============================================================
+    bot.command('addcategory', async (ctx) => {
+      const userId = ctx.from.id.toString();
+      const args = ctx.message.text.replace('/addcategory', '').trim();
+
+      if (!args) {
+        return ctx.reply(
+          `🏷️ *Cara menambah kategori:*\n\n` +
+          `/addcategory "Nama Kategori"\n\n` +
+          `Contoh: /addcategory "Investasi"\n` +
+          `Kategori akan otomatis terdeteksi saat transaksi.\n\n` +
+          `*Kategori Default:*\n` +
+          `Makan, Belanja, Transportasi, Tagihan, Hiburan, Kesehatan, Hadiah, Lainnya`,
+          { parse_mode: 'Markdown' }
+        );
+      }
+
+      // Ambil teks di dalam tanda kutip
+      const match = args.match(/^"([^"]+)"$/);
+      if (!match) {
+        return ctx.reply('❌ Format salah. Gunakan: `/addcategory "Nama Kategori"`', { parse_mode: 'Markdown' });
+      }
+
+      const categoryName = match[1];
+      const result = await addCustomCategory(userId, categoryName);
+      await ctx.reply(result.message, { parse_mode: 'Markdown' });
+    });
+
+    // ============================================================
+    // COMMAND: /listcategories
+    // ============================================================
+    bot.command('listcategories', async (ctx) => {
+      const userId = ctx.from.id.toString();
+      
+      try {
+        const custom = await getCustomCategories(userId);
+        let msg = `🏷️ *Daftar Kategori*\n\n`;
+        msg += `📌 *Kategori Default:*\n`;
+        for (const cat of DEFAULT_CATEGORIES) {
+          msg += `  • ${getCategoryLabel(cat)}\n`;
+        }
+        
+        if (custom.length > 0) {
+          msg += `\n⭐ *Kategori Kustom:*\n`;
+          for (const cat of custom) {
+            msg += `  • ${cat}\n`;
+          }
+        } else {
+          msg += `\n❌ *Belum ada kategori kustom.*\n`;
+          msg += `Gunakan /addcategory "Nama" untuk menambahkan.`;
+        }
+        
+        await ctx.reply(msg, { parse_mode: 'Markdown' });
+      } catch (e) {
+        console.error('❌ Error list categories:', e.message);
+        await ctx.reply('❌ Gagal mengambil daftar kategori.');
+      }
+    });
+
+    // ============================================================
+    // COMMAND: /removecategory
+    // ============================================================
+    bot.command('removecategory', async (ctx) => {
+      const userId = ctx.from.id.toString();
+      const args = ctx.message.text.replace('/removecategory', '').trim();
+
+      if (!args) {
+        return ctx.reply(
+          `🏷️ *Cara menghapus kategori:*\n\n` +
+          `/removecategory "Nama Kategori"\n\n` +
+          `Contoh: /removecategory "Investasi"`,
+          { parse_mode: 'Markdown' }
+        );
+      }
+
+      const match = args.match(/^"([^"]+)"$/);
+      if (!match) {
+        return ctx.reply('❌ Format salah. Gunakan: `/removecategory "Nama Kategori"`', { parse_mode: 'Markdown' });
+      }
+
+      const categoryName = match[1];
+      const result = await removeCustomCategory(userId, categoryName);
+      await ctx.reply(result.message, { parse_mode: 'Markdown' });
     });
 
     // ============================================================
@@ -607,7 +795,7 @@ if (BOT_TOKEN && Telegraf) {
             }
             draft.amount = amount;
           } else if (field === 'kategori') {
-            const catId = getCategoryId(input);
+            const catId = await getCategoryId(userId, input);
             draft.category = catId;
           } else if (field === 'tanggal') {
             let dateStr = input;
@@ -681,7 +869,7 @@ if (BOT_TOKEN && Telegraf) {
           return;
         }
 
-        const tx = parseTransaction(text, userId);
+        const tx = await parseTransaction(text, userId);
         if (!tx) {
           await ctx.reply(
             '❌ Format tidak dikenali.\n\nContoh: `-5000` atau `+20000 makan siang`',
@@ -694,16 +882,12 @@ if (BOT_TOKEN && Telegraf) {
 
         const emoji = tx.type === 'income' ? '✅' : '📤';
         const typeLabel = tx.type === 'income' ? 'Pemasukan' : 'Pengeluaran';
-        const categoryMap = {
-          dining: 'Makan', shopping: 'Belanja', transport: 'Transportasi',
-          bills: 'Tagihan', fun: 'Hiburan', health: 'Kesehatan',
-          gift: 'Hadiah', other: 'Lainnya'
-        };
+        const categoryLabel = getCategoryLabel(tx.category);
 
         await ctx.reply(
           `${emoji} *Transaksi berhasil dicatat!*\n\n` +
           `💳 *${typeLabel}:* Rp ${tx.amount.toLocaleString('id-ID')}\n` +
-          `📂 *Kategori:* ${categoryMap[tx.category] || tx.category}\n` +
+          `📂 *Kategori:* ${categoryLabel}\n` +
           `📝 *Catatan:* ${tx.note}\n` +
           `📅 *Tanggal:* ${tx.date}\n\n` +
           `📊 *Data otomatis muncul di Mini App* — buka CatatanKu untuk melihat.`,
@@ -792,8 +976,15 @@ if (BOT_TOKEN && Telegraf) {
             return;
           }
 
+          // Gunakan kategori dari OCR, atau default ke 'other'
+          let category = ocrResult.category || 'other';
+          // Coba validasi kategori
+          const allCats = await getAllCategories(userId);
+          if (!allCats.includes(category)) {
+            category = 'other';
+          }
+
           const finalAmount = ocrResult.grandTotal || ocrResult.amount;
-          const category = ocrResult.category || 'other';
           const date = ocrResult.date || new Date().toISOString().slice(0, 10);
           const note = ocrResult.merchant || 'Struk';
 
@@ -910,7 +1101,7 @@ if (BOT_TOKEN && Telegraf) {
 
       const fieldLabels = {
         jumlah: 'Jumlah (contoh: 50000)',
-        kategori: 'Kategori (Makan, Belanja, Transportasi, Tagihan, Hiburan, Kesehatan, Hadiah, Lainnya)',
+        kategori: 'Kategori (Makan, Belanja, Transportasi, Tagihan, Hiburan, Kesehatan, Hadiah, Lainnya, atau kustom)',
         catatan: 'Catatan (deskripsi transaksi)',
         tanggal: 'Tanggal (format: YYYY-MM-DD atau DD/MM/YYYY)'
       };
@@ -1179,6 +1370,25 @@ app.get('/api/summary/:userId', async (req, res) => {
   }
 });
 
+// API untuk mengambil daftar kategori (default + custom)
+app.get('/api/categories/:userId', async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const registered = await isUserRegistered(userId);
+    if (!registered) {
+      return res.status(401).json({ error: 'User tidak terdaftar' });
+    }
+    const custom = await getCustomCategories(userId);
+    const categories = {
+      default: DEFAULT_CATEGORIES.map(id => ({ id, label: CATEGORY_LABELS[id] })),
+      custom: custom.map(name => ({ id: name, label: name }))
+    };
+    res.json(categories);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'ok', 
@@ -1275,6 +1485,7 @@ app.delete('/api/admin/users/:userId', async (req, res) => {
     const userId = req.params.userId;
     await kv.del(`user:${userId}`);
     await kv.del(`transactions:${userId}`);
+    await kv.del(`${CUSTOM_CATEGORY_KEY}:${userId}`);
     await kv.del(`${BUDGET_LIMIT_KEY}:${userId}`);
     res.json({ success: true });
   } catch (e) {
