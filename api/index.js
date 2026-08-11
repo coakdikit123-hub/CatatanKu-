@@ -3,7 +3,7 @@ const cors = require('cors');
 const { kv } = require('@vercel/kv');
 
 // Import dengan fallback
-let Telegraf, PDFDocument, axios, ocrStrukWithPuter, ocrStrukWithGemini;
+let Telegraf, PDFDocument;
 
 try {
   Telegraf = require('telegraf').Telegraf;
@@ -19,22 +19,8 @@ try {
   PDFDocument = null;
 }
 
-try {
-  axios = require('axios');
-} catch (e) {
-  console.warn('⚠️ Axios tidak tersedia');
-  axios = null;
-}
-
-// Coba load OCR modules
-try {
-  const ocrModule = require('./puter-ocr');
-  ocrStrukWithPuter = ocrModule.ocrStrukWithPuter;
-} catch (e) {
-  console.warn('⚠️ puter-ocr.js tidak tersedia:', e.message);
-  ocrStrukWithPuter = null;
-}
-
+// Import Gemini OCR
+let ocrStrukWithGemini;
 try {
   const geminiModule = require('./gemini-ocr');
   ocrStrukWithGemini = geminiModule.ocrStrukWithGemini;
@@ -43,16 +29,12 @@ try {
   ocrStrukWithGemini = null;
 }
 
-// Pilih OCR: prioritas Gemini jika ada API key, else fallback ke puter-ocr
-let ocrFunction = null;
-if (process.env.GEMINI_API_KEY && ocrStrukWithGemini) {
-  ocrFunction = ocrStrukWithGemini;
+// Cek apakah Gemini tersedia
+const isGeminiAvailable = process.env.GEMINI_API_KEY && ocrStrukWithGemini;
+if (isGeminiAvailable) {
   console.log('✅ Menggunakan OCR dengan Gemini API');
-} else if (ocrStrukWithPuter) {
-  ocrFunction = ocrStrukWithPuter;
-  console.log('✅ Menggunakan OCR dengan Puter (fallback)');
 } else {
-  console.warn('⚠️ Tidak ada OCR yang tersedia!');
+  console.warn('⚠️ OCR tidak tersedia (GEMINI_API_KEY tidak di-set atau gemini-ocr.js tidak ditemukan)');
 }
 
 const app = express();
@@ -64,7 +46,7 @@ const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'admin123';
 
 console.log('🔍 BOT_TOKEN exists?', !!BOT_TOKEN);
 console.log('🔍 ADMIN_TOKEN exists?', !!ADMIN_TOKEN);
-console.log('🔍 OCR available?', !!ocrFunction);
+console.log('🔍 Gemini OCR available?', isGeminiAvailable);
 console.log('🔍 PDFKit available?', !!PDFDocument);
 
 // ============================================================
@@ -333,7 +315,7 @@ async function removeReminder(userId, reminderId) {
 }
 
 // ============================================================
-// BOT TELEGRAM HANDLER (HANYA JIKA TERSEDIA)
+// BOT TELEGRAM HANDLER
 // ============================================================
 let bot = null;
 const appUrl = process.env.VERCEL_URL
@@ -740,12 +722,12 @@ if (BOT_TOKEN && Telegraf) {
     });
 
     // ============================================================
-    // HANDLER: FOTO — OCR + EDIT (menggunakan OCR yang tersedia)
+    // HANDLER: FOTO — OCR dengan Gemini
     // ============================================================
-    if (ocrFunction) {
+    if (isGeminiAvailable) {
       bot.on('photo', async (ctx) => {
         const processingMsg = await ctx.reply(
-          '🤖 *AI sedang menganalisis foto struk...* Mohon tunggu beberapa saat.',
+          '🤖 *AI Gemini sedang menganalisis foto struk...* Mohon tunggu beberapa saat.',
           { parse_mode: 'Markdown' }
         );
 
@@ -775,23 +757,16 @@ if (BOT_TOKEN && Telegraf) {
           const fileLink = await ctx.telegram.getFileLink(photo.file_id);
           console.log('📸 File link:', fileLink);
 
-          // Gunakan axios atau fetch untuk download gambar
-          let imageBuffer;
-          if (axios) {
-            const response = await axios.get(fileLink, { responseType: 'arraybuffer' });
-            imageBuffer = Buffer.from(response.data, 'binary');
-          } else {
-            // Fallback menggunakan fetch (Node 18+)
-            const resp = await fetch(fileLink);
-            const arrayBuffer = await resp.arrayBuffer();
-            imageBuffer = Buffer.from(arrayBuffer);
-          }
+          // Download gambar menggunakan fetch (Node 18+)
+          const resp = await fetch(fileLink);
+          const arrayBuffer = await resp.arrayBuffer();
+          const imageBuffer = Buffer.from(arrayBuffer);
 
           let ocrResult;
           try {
-            ocrResult = await ocrFunction(imageBuffer);
+            ocrResult = await ocrStrukWithGemini(imageBuffer);
           } catch (ocrError) {
-            console.error('❌ OCR error:', ocrError.message);
+            console.error('❌ Gemini OCR error:', ocrError.message);
             await ctx.telegram.editMessageText(
               processingMsg.chat.id,
               processingMsg.message_id,
@@ -827,7 +802,7 @@ if (BOT_TOKEN && Telegraf) {
           };
 
           const previewMsg = 
-            `📝 *Hasil OCR — Periksa sebelum simpan*\n\n` +
+            `📝 *Hasil OCR Gemini — Periksa sebelum simpan*\n\n` +
             `💰 *Jumlah:* Rp ${finalAmount.toLocaleString('id-ID')}\n` +
             `📂 *Kategori:* ${getCategoryLabel(category)}\n` +
             `📝 *Catatan:* ${note}\n` +
@@ -866,10 +841,10 @@ if (BOT_TOKEN && Telegraf) {
         }
       });
     } else {
-      // Fallback jika OCR tidak tersedia
+      // Fallback jika Gemini tidak tersedia
       bot.on('photo', async (ctx) => {
         await ctx.reply(
-          '⚠️ *Fitur OCR sedang tidak tersedia.*\n\nSilakan catat manual:\n`-5000 deskripsi` untuk pengeluaran\n`+50000 deskripsi` untuk pemasukan',
+          '⚠️ *Fitur OCR tidak tersedia.*\n\nPastikan GEMINI_API_KEY sudah di-set di environment variables.\n\nSilakan catat manual:\n`-5000 deskripsi` untuk pengeluaran\n`+50000 deskripsi` untuk pemasukan',
           { parse_mode: 'Markdown' }
         );
       });
@@ -1081,7 +1056,7 @@ app.post('/api/webhook', async (req, res) => {
 });
 
 // ============================================================
-// API ENDPOINTS (sama seperti sebelumnya, disingkat)
+// API ENDPOINTS
 // ============================================================
 app.post('/api/register', async (req, res) => {
   console.log('📥 Register request:', req.body);
@@ -1247,9 +1222,9 @@ app.get('/api/health', (req, res) => {
     status: 'ok', 
     timestamp: new Date().toISOString(), 
     bot_token_set: !!BOT_TOKEN,
-    ocr_available: !!ocrFunction,
-    pdf_available: !!PDFDocument,
-    ocr_engine: ocrFunction === ocrStrukWithGemini ? 'Gemini' : (ocrFunction === ocrStrukWithPuter ? 'Puter' : 'None')
+    ocr_available: isGeminiAvailable,
+    ocr_engine: isGeminiAvailable ? 'Gemini' : 'None',
+    pdf_available: !!PDFDocument
   });
 });
 
@@ -1257,8 +1232,8 @@ app.get('/api/test', (req, res) => {
   res.json({
     message: 'API is working',
     bot_token_set: !!BOT_TOKEN,
-    ocr_available: !!ocrFunction,
-    ocr_engine: ocrFunction === ocrStrukWithGemini ? 'Gemini' : (ocrFunction === ocrStrukWithPuter ? 'Puter' : 'None'),
+    ocr_available: isGeminiAvailable,
+    ocr_engine: isGeminiAvailable ? 'Gemini' : 'None',
     pdf_available: !!PDFDocument,
     vercel_url: process.env.VERCEL_URL,
     app_url: appUrl
@@ -1266,7 +1241,7 @@ app.get('/api/test', (req, res) => {
 });
 
 // ============================================================
-// ADMIN ENDPOINTS (sama seperti sebelumnya)
+// ADMIN ENDPOINTS
 // ============================================================
 app.get('/api/admin/users', async (req, res) => {
   const token = req.headers['x-admin-token'];
