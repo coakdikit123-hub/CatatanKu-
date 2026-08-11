@@ -2441,6 +2441,10 @@
                 <h1>Riwayat</h1>
             </div>
             <div class="actions">
+                <!-- === TOMBOL EKSPOR GOOGLE SHEETS === -->
+                <button class="icon-btn" onclick="exportToSheets()" title="Ekspor ke Google Sheets">
+                    <span class="material-symbols-outlined" style="color:var(--accent);">google</span>
+                </button>
                 <button class="icon-btn" onclick="clearAllData()" title="Hapus semua">
                     <span class="material-symbols-outlined" style="color:var(--expense);">delete</span>
                 </button>
@@ -2574,7 +2578,7 @@
     </nav>
 
     <!-- ============================================================
-    JAVASCRIPT — DIPERBAIKI UNTUK SYNC LEBIH CEPAT
+    JAVASCRIPT — DENGAN FITUR EKSPOR GOOGLE SHEETS
     ============================================================ -->
     <script>
         // ============================================================
@@ -2761,7 +2765,7 @@
         }
 
         // ============================================================
-        // SYNC — DIPERBAIKI: LEBIH CEPAT & DENGAN NOTIFIKASI
+        // SYNC
         // ============================================================
         async function syncFromBackend(showNotif = false) {
             if (!USER_ID) return;
@@ -2778,20 +2782,17 @@
                 if (!res.ok) throw new Error('Gagal sync');
                 const data = await res.json();
 
-                // Cek apakah ada transaksi baru
                 const oldCount = lastTxCount || getTransactions().length;
                 const newCount = data.length;
 
                 saveLocalTransactions(data);
 
-                // Notifikasi jika ada data baru
                 if (showNotif || newCount > oldCount) {
                     showSyncNotification(`📥 ${newCount - oldCount} transaksi baru`);
                 }
 
                 lastTxCount = newCount;
 
-                // Render ulang halaman yang aktif
                 if (currentPage === 'dashboard') renderDashboard();
                 if (currentPage === 'history') renderHistory();
                 if (currentPage === 'reports') renderReports();
@@ -2806,26 +2807,51 @@
             }
         }
 
-        // Manual sync dengan notifikasi
         async function manualSync() {
             await syncFromBackend(true);
             showToast('🔄 Sinkronisasi selesai');
         }
 
-        // Auto sync setiap 5 detik (lebih cepat)
         function startAutoSync() {
             if (syncInterval) clearInterval(syncInterval);
             if (!USER_ID) return;
             syncInterval = setInterval(() => {
-                // Sync di semua halaman kecuali add (untuk mencegah konflik)
                 if (currentPage !== 'add') {
                     syncFromBackend(false);
                 }
-            }, 5000); // 5 detik
+            }, 5000);
         }
 
         function stopAutoSync() { if (syncInterval) { clearInterval(syncInterval);
                 syncInterval = null; } }
+
+        // ============================================================
+        // EKSPOR KE GOOGLE SHEETS
+        // ============================================================
+        async function exportToSheets() {
+            if (!USER_ID) {
+                showToast('⚠️ User ID tidak ditemukan');
+                return;
+            }
+            showToast('⏳ Menyiapkan ekspor...');
+            try {
+                const res = await fetch(`/api/export-sheets/${USER_ID}`);
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.error || 'Gagal ekspor');
+                }
+                const data = await res.json();
+                if (data.url) {
+                    showToast('✅ Buka Google Sheets untuk melihat data');
+                    window.open(data.url, '_blank');
+                } else {
+                    showToast('⚠️ Tidak ada URL yang dikembalikan.');
+                }
+            } catch (e) {
+                showToast('❌ ' + e.message);
+                console.error(e);
+            }
+        }
 
         // ============================================================
         // HELPERS
@@ -2874,7 +2900,7 @@
         function getCategoryLabel(id) { const c = CATEGORIES.find(c => c.id === id); return c ? c.label : 'Lainnya'; }
 
         // ============================================================
-        // NAVIGATION — DIPERBAIKI: SYNC SETIAP PINDAH HALAMAN
+        // NAVIGATION
         // ============================================================
         function navigateTo(page) {
             if (page === 'add') {
@@ -2907,7 +2933,6 @@
                 if (page === 'history') renderHistory();
                 if (page === 'reports') renderReports();
                 if (page === 'profile') renderProfileStats();
-                // Sync setiap kali pindah ke halaman lain
                 if (page !== 'add') {
                     setTimeout(() => syncFromBackend(false), 200);
                 }
@@ -3669,7 +3694,6 @@
                 saveProfile({ name: initialName, photo: initialPhoto });
             }
 
-            // Inisialisasi lastTxCount
             const initialTxs = getTransactions();
             lastTxCount = initialTxs.length;
 
@@ -3677,13 +3701,11 @@
             setTransactionType('income');
             renderDashboard();
 
-            // Sync pertama kali dengan notifikasi
             setTimeout(() => {
                 if (USER_ID) { syncFromBackend(true);
                     startAutoSync(); }
             }, 500);
 
-            // Listener visibility change — sync saat tab aktif
             document.addEventListener('visibilitychange', () => {
                 if (!document.hidden) {
                     if (currentPage === 'dashboard') renderDashboard();
