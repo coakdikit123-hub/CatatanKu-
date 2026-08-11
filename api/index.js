@@ -1,1488 +1,2933 @@
-const express = require('express');
-const cors = require('cors');
-const { Telegraf } = require('telegraf');
-const { kv } = require('@vercel/kv');
-const axios = require('axios');
-const PDFDocument = require('pdfkit'); // TAMBAHAN untuk export PDF
-
-// Import OCR
-const { ocrStrukWithPuter } = require('./puter-ocr');
-
-const app = express();
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
-
-const BOT_TOKEN = process.env.BOT_TOKEN;
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'admin123';
-
-console.log('🔍 BOT_TOKEN exists?', !!BOT_TOKEN);
-
-if (!BOT_TOKEN) {
-  console.error('❌ BOT_TOKEN tidak ditemukan!');
-}
-
-// ============================================================
-// STATE DRAFT UNTUK EDIT OCR
-// ============================================================
-const drafts = {};
-
-function getCategoryLabel(id) {
-  const map = {
-    dining: 'Makan',
-    shopping: 'Belanja',
-    transport: 'Transportasi',
-    bills: 'Tagihan',
-    fun: 'Hiburan',
-    health: 'Kesehatan',
-    gift: 'Hadiah',
-    other: 'Lainnya'
-  };
-  return map[id] || id;
-}
-
-function getCategoryId(label) {
-  const map = {
-    'makan': 'dining',
-    'belanja': 'shopping',
-    'transportasi': 'transport',
-    'tagihan': 'bills',
-    'hiburan': 'fun',
-    'kesehatan': 'health',
-    'hadiah': 'gift',
-    'lainnya': 'other'
-  };
-  const lower = label.toLowerCase();
-  if (map[lower]) return map[lower];
-  const list = ['dining', 'shopping', 'transport', 'bills', 'fun', 'health', 'gift', 'other'];
-  if (list.includes(lower)) return lower;
-  return 'other';
-}
-
-// ============================================================
-// USER MANAGEMENT
-// ============================================================
-async function registerUser(userId) {
-  const key = `user:${userId}`;
-  try {
-    const existing = await kv.get(key);
-    if (existing) return existing;
-    const userData = {
-      userId,
-      registeredAt: new Date().toISOString(),
-      isActive: true
-    };
-    await kv.set(key, userData);
-    return userData;
-  } catch (e) {
-    console.error('❌ Gagal register user:', e.message);
-    return null;
-  }
-}
-
-async function getUser(userId) {
-  const key = `user:${userId}`;
-  try {
-    return await kv.get(key);
-  } catch (e) {
-    console.error('❌ Gagal get user:', e.message);
-    return null;
-  }
-}
-
-async function isUserRegistered(userId) {
-  const user = await getUser(userId);
-  const result = !!user && user.isActive !== false;
-  console.log(`🔍 Cek user ${userId}: ${result ? 'TERDAFTAR' : 'BELUM TERDAFTAR'}`);
-  return result;
-}
-
-// ============================================================
-// FUNGSI PARSING PESAN TEKS
-// ============================================================
-function parseTransaction(text, userId) {
-  const trimmed = text.trim();
-  let type = 'expense';
-  let amountText = trimmed;
-  let note = '';
-
-  if (trimmed.startsWith('+')) {
-    type = 'income';
-    amountText = trimmed.slice(1).trim();
-  } else if (trimmed.startsWith('-')) {
-    type = 'expense';
-    amountText = trimmed.slice(1).trim();
-  }
-
-  const match = amountText.match(/^(\d+)\s*(.*)$/);
-  if (!match) return null;
-
-  const amount = parseInt(match[1]);
-  note = match[2] || (type === 'income' ? 'Pemasukan' : 'Pengeluaran');
-
-  const lowerNote = note.toLowerCase();
-  let category = 'other';
-  if (lowerNote.includes('makan') || lowerNote.includes('resto') || lowerNote.includes('food')) category = 'dining';
-  else if (lowerNote.includes('belanja') || lowerNote.includes('shop') || lowerNote.includes('baju')) category = 'shopping';
-  else if (lowerNote.includes('transport') || lowerNote.includes('ojol') || lowerNote.includes('bensin')) category = 'transport';
-  else if (lowerNote.includes('tagihan') || lowerNote.includes('listrik') || lowerNote.includes('air')) category = 'bills';
-  else if (lowerNote.includes('hiburan') || lowerNote.includes('film') || lowerNote.includes('game')) category = 'fun';
-  else if (lowerNote.includes('kesehatan') || lowerNote.includes('obat') || lowerNote.includes('dokter')) category = 'health';
-  else if (lowerNote.includes('hadiah') || lowerNote.includes('gift')) category = 'gift';
-
-  return {
-    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-    amount,
-    type,
-    category,
-    date: new Date().toISOString().slice(0, 10),
-    account: 'Bot',
-    note,
-    created_at: new Date().toISOString(),
-    user_id: userId
-  };
-}
-
-// ============================================================
-// FUNGSI FORMAT RESPONSE STRUK
-// ============================================================
-function formatReceiptResponse(parsed, userId) {
-  const categoryLabel = getCategoryLabel(parsed.category);
-
-  let dateDisplay = parsed.date || new Date().toISOString().slice(0, 10);
-  const dateObj = new Date(dateDisplay + 'T00:00:00');
-  const formattedDate = dateObj.toLocaleDateString('id-ID', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric'
-  });
-
-  let response = `📤 *Transaksi berhasil dicatat dari struk!*\n\n`;
-  response += `💰 *${parsed.amount ? 'Rp ' + parsed.amount.toLocaleString('id-ID') : 'Tidak terdeteksi'}*\n\n`;
-
-  if (parsed.items && parsed.items.length > 0) {
-    response += `📋 *Rincian Struk:*\n`;
-    const merchantName = parsed.merchant || 'Struk';
-    response += `*${merchantName}*\n`;
-
-    for (const item of parsed.items) {
-      const qtyDisplay = item.quantity > 1 ? `${item.quantity}x ` : '';
-      const priceDisplay = item.price.toLocaleString('id-ID');
-      response += `  - ${qtyDisplay}${item.name} - ${priceDisplay}\n`;
-    }
-
-    if (parsed.grandTotal) {
-      response += `\n  🏷️ *Grand Total:* Rp ${parsed.grandTotal.toLocaleString('id-ID')}\n`;
-    }
-    response += `  📦 *Total Item:* ${parsed.items.length}\n`;
-    response += `\n📂 *Kategori:* ${categoryLabel}\n`;
-    response += `📅 *Tanggal:* ${formattedDate}\n`;
-  } else {
-    response += `📋 *Rincian:* ${parsed.merchant || 'Struk'}\n`;
-    response += `📂 *Kategori:* ${categoryLabel}\n`;
-    response += `📅 *Tanggal:* ${formattedDate}\n`;
-  }
-
-  response += `\n📌 *Dicatat di:* ${formattedDate}`;
-  response += `\n📊 *Data otomatis muncul di Mini App* — buka CatatanKu untuk melihat.`;
-
-  return response;
-}
-
-// ============================================================
-// FUNGSI DATABASE TRANSACTION & REMINDER
-// ============================================================
-async function getTransactions(userId) {
-  const key = `transactions:${userId}`;
-  try {
-    const data = await kv.get(key);
-    return data || [];
-  } catch (e) {
-    console.error('❌ Gagal baca Redis:', e.message);
-    return [];
-  }
-}
-
-async function addTransaction(userId, tx) {
-  const key = `transactions:${userId}`;
-  try {
-    const txs = await getTransactions(userId);
-    txs.push(tx);
-    await kv.set(key, txs);
-    console.log(`✅ Transaksi berhasil disimpan untuk user ${userId}`);
-    
-    // Cek budget alert
-    await checkBudgetAlert(userId);
-    
-    return tx;
-  } catch (e) {
-    console.error('❌ Gagal simpan ke Redis:', e.message);
-    throw e;
-  }
-}
-
-async function deleteTransaction(userId, txId) {
-  const key = `transactions:${userId}`;
-  try {
-    let txs = await getTransactions(userId);
-    txs = txs.filter(t => t.id !== txId);
-    await kv.set(key, txs);
-    return txs;
-  } catch (e) {
-    console.error('❌ Gagal hapus dari Redis:', e.message);
-    throw e;
-  }
-}
-
-async function clearAllTransactions(userId) {
-  const key = `transactions:${userId}`;
-  try {
-    await kv.set(key, []);
-  } catch (e) {
-    console.error('❌ Gagal clear Redis:', e.message);
-    throw e;
-  }
-}
-
-// ============================================================
-// FITUR PENGINGAT (REMINDER)
-// ============================================================
-const REMINDER_KEY = 'catatanku_reminders';
-
-async function getReminders(userId) {
-  const key = `${REMINDER_KEY}:${userId}`;
-  try {
-    const data = await kv.get(key);
-    return data || [];
-  } catch (e) {
-    console.error('❌ Gagal baca reminder:', e.message);
-    return [];
-  }
-}
-
-async function saveReminders(userId, reminders) {
-  const key = `${REMINDER_KEY}:${userId}`;
-  try {
-    await kv.set(key, reminders);
-    return true;
-  } catch (e) {
-    console.error('❌ Gagal simpan reminder:', e.message);
-    return false;
-  }
-}
-
-async function addReminder(userId, reminder) {
-  const reminders = await getReminders(userId);
-  const newReminder = {
-    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-    ...reminder,
-    created_at: new Date().toISOString(),
-    is_active: true
-  };
-  reminders.push(newReminder);
-  await saveReminders(userId, reminders);
-  return newReminder;
-}
-
-async function removeReminder(userId, reminderId) {
-  let reminders = await getReminders(userId);
-  reminders = reminders.filter(r => r.id !== reminderId);
-  await saveReminders(userId, reminders);
-  return reminders;
-}
-
-async function checkPendingReminders(userId, bot) {
-  try {
-    const reminders = await getReminders(userId);
-    const now = new Date();
-    const pending = reminders.filter(r => {
-      if (!r.is_active) return false;
-      const remindAt = new Date(r.remind_at);
-      return remindAt <= now;
-    });
-
-    for (const reminder of pending) {
-      const msg = 
-        `⏰ *Pengingat!*\n\n` +
-        `📝 *${reminder.title || 'Pengingat'}*\n` +
-        `${reminder.message || ''}\n\n` +
-        `📅 *Waktu:* ${new Date(reminder.remind_at).toLocaleString('id-ID')}`;
-
-      await bot.telegram.sendMessage(userId, msg, { parse_mode: 'Markdown' });
-      reminder.is_active = false;
-    }
-
-    if (pending.length > 0) {
-      await saveReminders(userId, reminders);
-    }
-  } catch (e) {
-    console.error('❌ Error checking reminders:', e.message);
-  }
-}
-
-// ============================================================
-// FUNGSI BUDGET ALERT
-// ============================================================
-const BUDGET_LIMIT_KEY = 'catatanku_budget_limit';
-
-async function getBudgetLimit(userId) {
-  const key = `${BUDGET_LIMIT_KEY}:${userId}`;
-  try {
-    const data = await kv.get(key);
-    return data || 2000000;
-  } catch (e) {
-    return 2000000;
-  }
-}
-
-async function setBudgetLimit(userId, limit) {
-  const key = `${BUDGET_LIMIT_KEY}:${userId}`;
-  try {
-    await kv.set(key, limit);
-    return true;
-  } catch (e) {
-    console.error('❌ Gagal set budget limit:', e.message);
-    return false;
-  }
-}
-
-async function checkBudgetAlert(userId) {
-  try {
-    const limit = await getBudgetLimit(userId);
-    const txs = await getTransactions(userId);
-    
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
-    
-    const totalExpense = txs
-      .filter(t => t.type === 'expense' && t.date >= monthStart && t.date <= monthEnd)
-      .reduce((s, t) => s + Number(t.amount), 0);
-
-    const pct = (totalExpense / limit) * 100;
-
-    const reminders = await getReminders(userId);
-    const alertKey = `budget_alert_${now.getMonth()}_${now.getFullYear()}`;
-    const alreadyAlerted = reminders.some(r => r.id === alertKey && r.is_active === false);
-
-    if (pct >= 80 && !alreadyAlerted) {
-      const msg = 
-        `⚠️ *Peringatan Budget!*\n\n` +
-        `💸 Pengeluaran bulan ini: *Rp ${totalExpense.toLocaleString('id-ID')}*\n` +
-        `📊 Batas budget: *Rp ${limit.toLocaleString('id-ID')}*\n` +
-        `📈 Terpakai: *${Math.round(pct)}%*\n\n` +
-        `${pct >= 100 ? '🚨 Anda telah melewati batas budget!' : '⚠️ Budget hampir habis, perhatikan pengeluaran Anda!'}`;
-
-      await bot.telegram.sendMessage(userId, msg, { parse_mode: 'Markdown' });
-      
-      const alertReminder = {
-        id: alertKey,
-        title: 'Peringatan Budget',
-        message: `Budget ${Math.round(pct)}% terpakai`,
-        remind_at: new Date().toISOString(),
-        is_active: false,
-        created_at: new Date().toISOString()
-      };
-      reminders.push(alertReminder);
-      await saveReminders(userId, reminders);
-    }
-  } catch (e) {
-    console.error('❌ Error checking budget:', e.message);
-  }
-}
-
-// ============================================================
-// BOT TELEGRAM HANDLER
-// ============================================================
-const bot = new Telegraf(BOT_TOKEN || 'dummy', { handlerTimeout: 90000 });
-const appUrl = process.env.VERCEL_URL
-  ? `https://catatan-ku-silk.vercel.app`
-  : 'https://catatan-ku-silk.vercel.app';
-
-function miniAppKeyboard(buttons) {
-  return {
-    inline_keyboard: buttons.map(row =>
-      row.map(btn => ({
-        text: btn.text,
-        web_app: { url: `${appUrl}${btn.path || '/'}` }
-      }))
-    )
-  };
-}
-
-// ============================================================
-// MIDDLEWARE: cek login & pending reminders
-// ============================================================
-bot.use(async (ctx, next) => {
-  if (!ctx.from) return next();
-  const userId = ctx.from.id.toString();
-
-  try {
-    await checkPendingReminders(userId, bot);
-  } catch (e) {
-    console.error('❌ Error checking reminders in middleware:', e.message);
-  }
-
-  if (ctx.message?.text?.startsWith('/start')) {
-    return next();
-  }
-
-  const registered = await isUserRegistered(userId);
-  if (!registered) {
-    await ctx.reply(
-      `⚠️ *Anda belum login!*\n\nSilakan login terlebih dahulu melalui Mini App CatatanKu.`,
-      {
-        parse_mode: 'Markdown',
-        reply_markup: miniAppKeyboard([
-          [{ text: '🔑 Login ke CatatanKu', path: '/login.html' }]
-        ])
-      }
-    );
-    return;
-  }
-  return next();
-});
-
-// ============================================================
-// COMMAND: /start
-// ============================================================
-bot.start(async (ctx) => {
-  const userId = ctx.from.id.toString();
-  const registered = await isUserRegistered(userId);
-
-  await checkPendingReminders(userId, bot);
-
-  if (registered) {
-    await ctx.reply(
-      `👋 *Halo! Selamat datang kembali di CatatanKu!*\n\n` +
-      `📝 *Cara pakai:*\n` +
-      `➜ \`-5000\` → pengeluaran Rp 5.000\n` +
-      `➜ \`+20000 makan siang\` → pemasukan Rp 20.000\n` +
-      `➜ \`-15000 transport\` → pengeluaran transportasi\n\n` +
-      `📸 Kirim *foto struk* untuk scan otomatis!\n\n` +
-      `⏰ *Fitur Pengingat:*\n` +
-      `➜ /remind 1h "Catat pengeluaran" → pengingat 1 jam\n` +
-      `➜ /remind 30m "Bayar tagihan" → pengingat 30 menit\n` +
-      `➜ /remind "2026-12-31 23:59" "Tahun baru" → pengingat tanggal spesifik\n` +
-      `➜ /reminders → lihat daftar pengingat\n` +
-      `➜ /remindcancel <id> → batalkan pengingat\n\n` +
-      `💰 /budget 3000000 → set budget bulanan Rp 3.000.000`,
-      {
-        parse_mode: 'Markdown',
-        reply_markup: miniAppKeyboard([
-          [{ text: '📊 Buka CatatanKu', path: '/' }],
-        ])
-      }
-    );
-  } else {
-    await ctx.reply(
-      `👋 *Selamat datang di CatatanKu!*\n\n` +
-      `CatatanKu membantu kamu mencatat keuangan langsung dari Telegram.\n\n` +
-      `🔑 Login terlebih dahulu untuk mulai mencatat.`,
-      {
-        parse_mode: 'Markdown',
-        reply_markup: miniAppKeyboard([
-          [{ text: '🔑 Login ke CatatanKu', path: '/login.html' }]
-        ])
-      }
-    );
-  }
-});
-
-// ============================================================
-// COMMAND: /remind
-// ============================================================
-bot.command('remind', async (ctx) => {
-  const userId = ctx.from.id.toString();
-  const text = ctx.message.text;
-
-  const args = text.replace('/remind', '').trim();
-  if (!args) {
-    return ctx.reply(
-      `⏰ *Cara pakai /remind:*\n\n` +
-      `➜ /remind 1h "Catat pengeluaran"\n` +
-      `➜ /remind 30m "Bayar tagihan"\n` +
-      `➜ /remind "2026-12-31 23:59" "Tahun baru"\n\n` +
-      `Satuan waktu: \`s\` (detik), \`m\` (menit), \`h\` (jam), \`d\` (hari)`,
-      { parse_mode: 'Markdown' }
-    );
-  }
-
-  let remindAt = null;
-  let message = '';
-
-  const relMatch = args.match(/^(\d+)([smhd])\s+(.+)$/);
-  if (relMatch) {
-    const num = parseInt(relMatch[1]);
-    const unit = relMatch[2];
-    const msg = relMatch[3];
-    
-    const now = new Date();
-    let seconds = 0;
-    if (unit === 's') seconds = num;
-    else if (unit === 'm') seconds = num * 60;
-    else if (unit === 'h') seconds = num * 3600;
-    else if (unit === 'd') seconds = num * 86400;
-    
-    remindAt = new Date(now.getTime() + seconds * 1000);
-    message = msg;
-  } else {
-    const absMatch = args.match(/^"([^"]+)"\s+"([^"]+)"$/);
-    if (absMatch) {
-      const dateStr = absMatch[1];
-      const msg = absMatch[2];
-      const d = new Date(dateStr);
-      if (isNaN(d.getTime())) {
-        return ctx.reply('❌ Format tanggal tidak valid. Gunakan: `"YYYY-MM-DD HH:MM"`', { parse_mode: 'Markdown' });
-      }
-      if (d <= new Date()) {
-        return ctx.reply('❌ Tanggal harus di masa depan.');
-      }
-      remindAt = d;
-      message = msg;
-    } else {
-      const simpleMatch = args.match(/^(\d+)([smhd])\s+(.+)$/);
-      if (simpleMatch) {
-        const num = parseInt(simpleMatch[1]);
-        const unit = simpleMatch[2];
-        const msg = simpleMatch[3];
-        const now = new Date();
-        let seconds = 0;
-        if (unit === 's') seconds = num;
-        else if (unit === 'm') seconds = num * 60;
-        else if (unit === 'h') seconds = num * 3600;
-        else if (unit === 'd') seconds = num * 86400;
-        remindAt = new Date(now.getTime() + seconds * 1000);
-        message = msg;
-      } else {
-        return ctx.reply(
-          `❌ Format tidak dikenali.\n\n` +
-          `Contoh:\n` +
-          `/remind 1h "Catat pengeluaran"\n` +
-          `/remind "2026-12-31 23:59" "Tahun baru"`,
-          { parse_mode: 'Markdown' }
-        );
-      }
-    }
-  }
-
-  if (!remindAt || !message) {
-    return ctx.reply('❌ Gagal memproses pengingat. Coba format yang benar.');
-  }
-
-  const reminder = {
-    title: 'Pengingat',
-    message: message,
-    remind_at: remindAt.toISOString()
-  };
-
-  try {
-    await addReminder(userId, reminder);
-    const formattedDate = remindAt.toLocaleString('id-ID');
-    await ctx.reply(
-      `✅ *Pengingat berhasil dibuat!*\n\n` +
-      `📝 *Pesan:* ${message}\n` +
-      `⏰ *Waktu:* ${formattedDate}\n\n` +
-      `🆔 ID: \`${reminder.id}\``,
-      { parse_mode: 'Markdown' }
-    );
-  } catch (e) {
-    console.error('❌ Error saving reminder:', e.message);
-    await ctx.reply('❌ Gagal menyimpan pengingat. Coba lagi nanti.');
-  }
-});
-
-// ============================================================
-// COMMAND: /reminders
-// ============================================================
-bot.command('reminders', async (ctx) => {
-  const userId = ctx.from.id.toString();
-  try {
-    const reminders = await getReminders(userId);
-    const active = reminders.filter(r => r.is_active !== false);
-
-    if (active.length === 0) {
-      return ctx.reply('📭 *Tidak ada pengingat aktif.*', { parse_mode: 'Markdown' });
-    }
-
-    let msg = `⏰ *Daftar Pengingat Aktif:*\n\n`;
-    for (const r of active) {
-      const date = new Date(r.remind_at).toLocaleString('id-ID');
-      msg += `🆔 \`${r.id}\`\n`;
-      msg += `📝 *${r.title || 'Pengingat'}*: ${r.message}\n`;
-      msg += `⏰ ${date}\n\n`;
-    }
-    msg += `Gunakan /remindcancel <id> untuk membatalkan.`;
-
-    await ctx.reply(msg, { parse_mode: 'Markdown' });
-  } catch (e) {
-    console.error('❌ Error getting reminders:', e.message);
-    await ctx.reply('❌ Gagal mengambil daftar pengingat.');
-  }
-});
-
-// ============================================================
-// COMMAND: /remindcancel
-// ============================================================
-bot.command('remindcancel', async (ctx) => {
-  const userId = ctx.from.id.toString();
-  const args = ctx.message.text.replace('/remindcancel', '').trim();
-
-  if (!args) {
-    return ctx.reply('❌ Masukkan ID pengingat. Contoh: `/remindcancel abc123`', { parse_mode: 'Markdown' });
-  }
-
-  try {
-    await removeReminder(userId, args);
-    await ctx.reply(`✅ Pengingat dengan ID \`${args}\` berhasil dibatalkan.`, { parse_mode: 'Markdown' });
-  } catch (e) {
-    console.error('❌ Error canceling reminder:', e.message);
-    await ctx.reply('❌ Gagal membatalkan pengingat. Pastikan ID benar.');
-  }
-});
-
-// ============================================================
-// COMMAND: /budget
-// ============================================================
-bot.command('budget', async (ctx) => {
-  const userId = ctx.from.id.toString();
-  const args = ctx.message.text.replace('/budget', '').trim();
-
-  if (!args) {
-    const current = await getBudgetLimit(userId);
-    return ctx.reply(
-      `💰 *Budget Bulanan:* Rp ${current.toLocaleString('id-ID')}\n\n` +
-      `Gunakan /budget <nominal> untuk mengubah.\n` +
-      `Contoh: /budget 3000000`,
-      { parse_mode: 'Markdown' }
-    );
-  }
-
-  const amount = parseInt(args.replace(/[^0-9]/g, ''));
-  if (isNaN(amount) || amount <= 0) {
-    return ctx.reply('❌ Masukkan nominal yang valid. Contoh: `/budget 3000000`', { parse_mode: 'Markdown' });
-  }
-
-  await setBudgetLimit(userId, amount);
-  await ctx.reply(
-    `✅ *Budget berhasil diatur!*\n\n` +
-    `💰 Batas pengeluaran bulanan: *Rp ${amount.toLocaleString('id-ID')}*`,
-    { parse_mode: 'Markdown' }
-  );
-});
-
-// ============================================================
-// HANDLER: pesan teks (transaksi & edit)
-// ============================================================
-bot.on('text', async (ctx) => {
-  try {
-    const text = ctx.message.text;
-    const userId = ctx.from.id.toString();
-
-    if (text.startsWith('/')) return;
-
-    const draft = drafts[userId];
-    if (draft && draft.waitingFor) {
-      const field = draft.waitingFor;
-      const input = text.trim();
-
-      if (field === 'jumlah') {
-        const amount = parseInt(input.replace(/[^0-9]/g, ''));
-        if (isNaN(amount) || amount <= 0) {
-          return ctx.reply('❌ Masukkan angka yang valid (contoh: 50000)');
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport" />
+    <title>Admin Panel - CatatanKu</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries">
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <style>
+        /* ============================================================
+               ROOT & BASE
+            ============================================================ */
+        * {
+            font-family: 'Inter', sans-serif;
+            box-sizing: border-box;
         }
-        draft.amount = amount;
-      } else if (field === 'kategori') {
-        const catId = getCategoryId(input);
-        draft.category = catId;
-      } else if (field === 'tanggal') {
-        let dateStr = input;
-        let match = input.match(/(\d{2})[\/-](\d{2})[\/-](\d{4})/);
-        if (match) {
-          dateStr = `${match[3]}-${match[2]}-${match[1]}`;
-        } else {
-          match = input.match(/(\d{4})-(\d{2})-(\d{2})/);
-          if (match) {
-            dateStr = input;
-          } else {
-            const d = new Date(input);
-            if (!isNaN(d.getTime())) {
-              dateStr = d.toISOString().slice(0, 10);
-            } else {
-              return ctx.reply('❌ Format tanggal tidak valid. Gunakan YYYY-MM-DD atau DD/MM/YYYY');
+
+        :root {
+            --accent: #9b8cff;
+            --accent-light: #b8adff;
+            --accent-dim: rgba(155, 140, 255, 0.12);
+            --accent-glow: rgba(155, 140, 255, 0.18);
+            --surface-0: #090b14;
+            --surface-1: #10131f;
+            --surface-2: #181d2e;
+            --surface-3: #21273d;
+            --surface-4: #2c3350;
+            --border: rgba(255, 255, 255, 0.05);
+            --border-hover: rgba(155, 140, 255, 0.20);
+            --text-1: #edf0f7;
+            --text-2: #8e9bb8;
+            --text-3: #4a5a78;
+            --income: #6ee7b7;
+            --expense: #f87171;
+            --warning: #fbbf24;
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.5);
+            --shadow-glow: 0 8px 32px rgba(155, 140, 255, 0.10);
+            --sidebar-width: 230px;
+            --header-height: 60px;
+        }
+
+        body {
+            background-color: var(--surface-0);
+            color: var(--text-1);
+            min-height: 100dvh;
+            margin: 0;
+            font-weight: 400;
+            line-height: 1.5;
+            display: flex;
+            overflow: hidden;
+            height: 100dvh;
+        }
+
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--surface-4);
+            border-radius: 9999px;
+        }
+
+        /* ============================================================
+               SIDEBAR
+            ============================================================ */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: var(--surface-1);
+            border-right: 1px solid var(--border);
+            height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            position: sticky;
+            top: 0;
+            overflow-y: auto;
+            padding: 18px 12px 18px 14px;
+            z-index: 50;
+            transition: transform 0.3s cubic-bezier(0.34, 1.2, 0.64, 1);
+        }
+        .sidebar .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 4px 6px 16px 6px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 16px;
+        }
+        .sidebar .brand .logo {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            background: var(--accent-dim);
+            border: 1px solid rgba(155, 140, 255, 0.12);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .sidebar .brand .logo .material-symbols-outlined {
+            font-size: 20px;
+            color: var(--accent);
+        }
+        .sidebar .brand .brand-text h1 {
+            font-size: 16px;
+            font-weight: 800;
+            color: var(--text-1);
+            letter-spacing: -0.3px;
+            line-height: 1.1;
+        }
+        .sidebar .brand .brand-text h1 span {
+            color: var(--accent);
+        }
+        .sidebar .brand .brand-text p {
+            font-size: 10px;
+            color: var(--text-3);
+            font-weight: 500;
+            letter-spacing: 0.02em;
+            margin: 0;
+        }
+
+        .sidebar .menu-label {
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-3);
+            padding: 10px 8px 4px;
+            opacity: 0.5;
+        }
+
+        .sidebar .menu-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            border-radius: var(--radius-sm);
+            color: var(--text-2);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+            text-decoration: none;
+            border: none;
+            background: transparent;
+            width: 100%;
+            text-align: left;
+            position: relative;
+        }
+        .sidebar .menu-item:hover {
+            background: var(--surface-2);
+            color: var(--text-1);
+        }
+        .sidebar .menu-item.active {
+            background: var(--accent-dim);
+            color: var(--accent-light);
+        }
+        .sidebar .menu-item.active::before {
+            content: '';
+            position: absolute;
+            left: -14px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 3px;
+            height: 20px;
+            border-radius: 0 4px 4px 0;
+            background: var(--accent);
+        }
+        .sidebar .menu-item .material-symbols-outlined {
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+        .sidebar .menu-item .badge-menu {
+            margin-left: auto;
+            font-size: 9px;
+            background: var(--surface-3);
+            padding: 1px 8px;
+            border-radius: 10px;
+            color: var(--text-3);
+            font-weight: 600;
+        }
+        .sidebar .sidebar-footer {
+            margin-top: auto;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+        }
+
+        /* ============================================================
+               MAIN WRAP
+            ============================================================ */
+        .main-wrap {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100dvh;
+            overflow: hidden;
+            background: var(--surface-0);
+            min-width: 0;
+        }
+
+        /* ============================================================
+               TOP HEADER
+            ============================================================ */
+        .top-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 24px;
+            height: var(--header-height);
+            background: var(--surface-1);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+            gap: 12px;
+        }
+        .top-header .left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .top-header .left .hamburger {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--text-2);
+            cursor: pointer;
+            padding: 4px;
+        }
+        .top-header .left .hamburger .material-symbols-outlined {
+            font-size: 24px;
+        }
+        .top-header .left .page-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-1);
+        }
+        .top-header .left .page-title .accent {
+            color: var(--accent);
+        }
+
+        .top-header .right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .top-header .right .status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--income);
+            display: inline-block;
+            margin-right: 3px;
+            animation: pulse-dot 2s ease-in-out infinite;
+        }
+        @keyframes pulse-dot {
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
             }
-          }
+            50% {
+                opacity: 0.4;
+                transform: scale(0.85);
+            }
         }
-        draft.date = dateStr;
-      } else if (field === 'catatan') {
-        draft.note = input;
-      }
 
-      draft.waitingFor = null;
-
-      const previewMsg = 
-        `📝 *Preview Transaksi*\n\n` +
-        `💰 *Jumlah:* Rp ${draft.amount.toLocaleString('id-ID')}\n` +
-        `📂 *Kategori:* ${getCategoryLabel(draft.category)}\n` +
-        `📝 *Catatan:* ${draft.note}\n` +
-        `📅 *Tanggal:* ${draft.date}\n\n` +
-        `Klik "✏️ Edit" untuk mengubah lagi, atau "✅ Simpan" untuk menyimpan.`;
-
-      await ctx.reply(previewMsg, {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: '✏️ Edit', callback_data: `edit_${userId}` },
-              { text: '✅ Simpan', callback_data: `save_${userId}` }
-            ],
-            [
-              { text: '❌ Batal', callback_data: `cancel_${userId}` }
-            ]
-          ]
+        .top-header .right .user-badge-header {
+            font-size: 11px;
+            color: var(--text-2);
+            background: var(--surface-2);
+            padding: 3px 12px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 4px;
         }
-      });
-      return;
-    }
-
-    const registered = await isUserRegistered(userId);
-    if (!registered) {
-      await ctx.reply(
-        `⚠️ *Anda belum login!*\n\nSilakan login terlebih dahulu.`,
-        {
-          parse_mode: 'Markdown',
-          reply_markup: miniAppKeyboard([
-            [{ text: '🔑 Login ke CatatanKu', path: '/login.html' }]
-          ])
+        .top-header .right .btn-logout {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            color: var(--text-2);
+            padding: 5px 14px;
+            border-radius: var(--radius-sm);
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.15s;
         }
-      );
-      return;
-    }
-
-    if (!/\d/.test(text)) {
-      await ctx.reply(
-        '❓ Format tidak dikenali.\n\nContoh:\n`-5000 makan siang`\n`+50000 gaji`\n\nAtau kirim foto struk untuk scan otomatis.',
-        { parse_mode: 'Markdown' }
-      );
-      return;
-    }
-
-    const tx = parseTransaction(text, userId);
-    if (!tx) {
-      await ctx.reply(
-        '❌ Format tidak dikenali.\n\nContoh: `-5000` atau `+20000 makan siang`',
-        { parse_mode: 'Markdown' }
-      );
-      return;
-    }
-
-    await addTransaction(userId, tx);
-
-    const emoji = tx.type === 'income' ? '✅' : '📤';
-    const typeLabel = tx.type === 'income' ? 'Pemasukan' : 'Pengeluaran';
-    const categoryMap = {
-      dining: 'Makan', shopping: 'Belanja', transport: 'Transportasi',
-      bills: 'Tagihan', fun: 'Hiburan', health: 'Kesehatan',
-      gift: 'Hadiah', other: 'Lainnya'
-    };
-
-    await ctx.reply(
-      `${emoji} *Transaksi berhasil dicatat!*\n\n` +
-      `💳 *${typeLabel}:* Rp ${tx.amount.toLocaleString('id-ID')}\n` +
-      `📂 *Kategori:* ${categoryMap[tx.category] || tx.category}\n` +
-      `📝 *Catatan:* ${tx.note}\n` +
-      `📅 *Tanggal:* ${tx.date}\n\n` +
-      `📊 *Data otomatis muncul di Mini App* — buka CatatanKu untuk melihat.`,
-      {
-        parse_mode: 'Markdown',
-        reply_markup: miniAppKeyboard([
-          [{ text: '📊 Lihat di CatatanKu', path: '/' }]
-        ])
-      }
-    );
-  } catch (e) {
-    console.error('❌ Error di handler text:', e.message);
-    await ctx.reply('❌ Gagal menyimpan transaksi. Coba lagi nanti.');
-  }
-});
-
-// ============================================================
-// CALLBACK QUERY (Edit OCR, dll)
-// ============================================================
-bot.action(/edit_(.+)/, async (ctx) => {
-  const userId = ctx.match[1];
-  if (ctx.from.id.toString() !== userId) {
-    return ctx.answerCbQuery('❌ Ini bukan sesi Anda');
-  }
-
-  const draft = drafts[userId];
-  if (!draft) {
-    return ctx.answerCbQuery('❌ Sesi habis, kirim ulang foto');
-  }
-
-  await ctx.answerCbQuery();
-
-  await ctx.reply(
-    `✏️ *Pilih field yang ingin diedit:*\n\n` +
-    `💰 Jumlah: Rp ${draft.amount.toLocaleString('id-ID')}\n` +
-    `📂 Kategori: ${getCategoryLabel(draft.category)}\n` +
-    `📝 Catatan: ${draft.note}\n` +
-    `📅 Tanggal: ${draft.date}`,
-    {
-      parse_mode: 'Markdown',
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '💰 Edit Jumlah', callback_data: `editfield_jumlah_${userId}` }],
-          [{ text: '📂 Edit Kategori', callback_data: `editfield_kategori_${userId}` }],
-          [{ text: '📝 Edit Catatan', callback_data: `editfield_catatan_${userId}` }],
-          [{ text: '📅 Edit Tanggal', callback_data: `editfield_tanggal_${userId}` }],
-          [{ text: '🔙 Kembali', callback_data: `back_${userId}` }]
-        ]
-      }
-    }
-  );
-});
-
-bot.action(/editfield_(.+)_(.+)/, async (ctx) => {
-  const field = ctx.match[1];
-  const userId = ctx.match[2];
-  if (ctx.from.id.toString() !== userId) {
-    return ctx.answerCbQuery('❌ Bukan milik Anda');
-  }
-
-  const draft = drafts[userId];
-  if (!draft) {
-    return ctx.answerCbQuery('❌ Sesi habis');
-  }
-
-  await ctx.answerCbQuery();
-
-  const fieldLabels = {
-    jumlah: 'Jumlah (contoh: 50000)',
-    kategori: 'Kategori (Makan, Belanja, Transportasi, Tagihan, Hiburan, Kesehatan, Hadiah, Lainnya)',
-    catatan: 'Catatan (deskripsi transaksi)',
-    tanggal: 'Tanggal (format: YYYY-MM-DD atau DD/MM/YYYY)'
-  };
-
-  draft.waitingFor = field;
-  await ctx.reply(
-    `✏️ *Edit ${field}*\n\nKirim nilai baru untuk *${field}*.\n\n${fieldLabels[field]}`,
-    { parse_mode: 'Markdown' }
-  );
-});
-
-bot.action(/back_(.+)/, async (ctx) => {
-  const userId = ctx.match[1];
-  if (ctx.from.id.toString() !== userId) {
-    return ctx.answerCbQuery('❌ Bukan milik Anda');
-  }
-
-  const draft = drafts[userId];
-  if (!draft) {
-    return ctx.answerCbQuery('❌ Sesi habis');
-  }
-
-  await ctx.answerCbQuery();
-
-  const previewMsg = 
-    `📝 *Preview Transaksi*\n\n` +
-    `💰 *Jumlah:* Rp ${draft.amount.toLocaleString('id-ID')}\n` +
-    `📂 *Kategori:* ${getCategoryLabel(draft.category)}\n` +
-    `📝 *Catatan:* ${draft.note}\n` +
-    `📅 *Tanggal:* ${draft.date}\n\n` +
-    `Klik "✏️ Edit" untuk mengubah lagi, atau "✅ Simpan" untuk menyimpan.`;
-
-  await ctx.reply(previewMsg, {
-    parse_mode: 'Markdown',
-    reply_markup: {
-      inline_keyboard: [
-        [
-          { text: '✏️ Edit', callback_data: `edit_${userId}` },
-          { text: '✅ Simpan', callback_data: `save_${userId}` }
-        ],
-        [
-          { text: '❌ Batal', callback_data: `cancel_${userId}` }
-        ]
-      ]
-    }
-  });
-});
-
-bot.action(/save_(.+)/, async (ctx) => {
-  const userId = ctx.match[1];
-  if (ctx.from.id.toString() !== userId) {
-    return ctx.answerCbQuery('❌ Bukan milik Anda');
-  }
-
-  const draft = drafts[userId];
-  if (!draft) {
-    return ctx.answerCbQuery('❌ Sesi habis');
-  }
-
-  await ctx.answerCbQuery('✅ Menyimpan transaksi...');
-
-  try {
-    const finalAmount = draft.amount;
-
-    const tx = {
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-      amount: finalAmount,
-      type: 'expense',
-      category: draft.category || 'other',
-      date: draft.date || new Date().toISOString().slice(0, 10),
-      account: 'Bot OCR (Manual Edit)',
-      note: draft.note || 'Struk',
-      created_at: new Date().toISOString(),
-      user_id: userId
-    };
-
-    await addTransaction(userId, tx);
-
-    const categoryLabel = getCategoryLabel(tx.category);
-    const dateObj = new Date(tx.date + 'T00:00:00');
-    const formattedDate = dateObj.toLocaleDateString('id-ID', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric'
-    });
-
-    await ctx.reply(
-      `✅ *Transaksi berhasil disimpan!*\n\n` +
-      `💰 *Jumlah:* Rp ${tx.amount.toLocaleString('id-ID')}\n` +
-      `📂 *Kategori:* ${categoryLabel}\n` +
-      `📝 *Catatan:* ${tx.note}\n` +
-      `📅 *Tanggal:* ${formattedDate}\n\n` +
-      `📊 *Data otomatis muncul di Mini App* — buka CatatanKu untuk melihat.`,
-      {
-        parse_mode: 'Markdown',
-        reply_markup: miniAppKeyboard([
-          [{ text: '📊 Lihat di CatatanKu', path: '/' }]
-        ])
-      }
-    );
-
-    delete drafts[userId];
-  } catch (e) {
-    console.error('❌ Error saving draft:', e.message);
-    await ctx.reply('❌ Gagal menyimpan transaksi. Coba lagi nanti.');
-  }
-});
-
-bot.action(/cancel_(.+)/, async (ctx) => {
-  const userId = ctx.match[1];
-  if (ctx.from.id.toString() !== userId) {
-    return ctx.answerCbQuery('❌ Bukan milik Anda');
-  }
-
-  delete drafts[userId];
-  await ctx.answerCbQuery('❌ Dibatalkan');
-  await ctx.reply('❌ Transaksi dibatalkan.');
-});
-
-// ============================================================
-// HANDLER: FOTO — OCR + EDIT
-// ============================================================
-bot.on('photo', async (ctx) => {
-  const processingMsg = await ctx.reply(
-    '🤖 *AI sedang menganalisis foto struk...* Mohon tunggu beberapa saat.',
-    { parse_mode: 'Markdown' }
-  );
-
-  try {
-    const userId = ctx.from.id.toString();
-
-    const registered = await isUserRegistered(userId);
-    if (!registered) {
-      await ctx.telegram.editMessageText(
-        processingMsg.chat.id,
-        processingMsg.message_id,
-        null,
-        `⚠️ *Anda belum login!*\n\nSilakan login terlebih dahulu.`,
-        {
-          parse_mode: 'Markdown',
-          reply_markup: miniAppKeyboard([
-            [{ text: '🔑 Login ke CatatanKu', path: '/login.html' }]
-          ])
+        .top-header .right .btn-logout:hover {
+            background: var(--surface-3);
+            color: var(--text-1);
+            border-color: var(--border-hover);
         }
-      );
-      return;
-    }
-
-    delete drafts[userId];
-
-    const photo = ctx.message.photo[ctx.message.photo.length - 1];
-    const fileLink = await ctx.telegram.getFileLink(photo.file_id);
-    console.log('📸 File link:', fileLink);
-
-    const response = await axios.get(fileLink, { responseType: 'arraybuffer' });
-    const imageBuffer = Buffer.from(response.data, 'binary');
-
-    let ocrResult;
-    try {
-      ocrResult = await ocrStrukWithPuter(imageBuffer);
-    } catch (ocrError) {
-      console.error('❌ OCR error:', ocrError.message);
-      await ctx.telegram.editMessageText(
-        processingMsg.chat.id,
-        processingMsg.message_id,
-        null,
-        `❌ *Gagal membaca gambar:* ${ocrError.message}\n\nSilakan catat manual:\n\`-5000 deskripsi\` untuk pengeluaran\n\`+50000 deskripsi\` untuk pemasukan`,
-        { parse_mode: 'Markdown' }
-      );
-      return;
-    }
-
-    if (!ocrResult || !ocrResult.amount) {
-      await ctx.telegram.editMessageText(
-        processingMsg.chat.id,
-        processingMsg.message_id,
-        null,
-        `⚠️ *Tidak dapat mendeteksi jumlah transaksi.*\n\nSilakan catat manual:\n\`-5000 deskripsi\` untuk pengeluaran\n\`+50000 deskripsi\` untuk pemasukan`,
-        { parse_mode: 'Markdown' }
-      );
-      return;
-    }
-
-    const finalAmount = ocrResult.grandTotal || ocrResult.amount;
-    const category = ocrResult.category || 'other';
-    const date = ocrResult.date || new Date().toISOString().slice(0, 10);
-    const note = ocrResult.merchant || 'Struk';
-
-    drafts[userId] = {
-      amount: finalAmount,
-      category: category,
-      date: date,
-      note: note,
-      waitingFor: null
-    };
-
-    const previewMsg = 
-      `📝 *Hasil OCR — Periksa sebelum simpan*\n\n` +
-      `💰 *Jumlah:* Rp ${finalAmount.toLocaleString('id-ID')}\n` +
-      `📂 *Kategori:* ${getCategoryLabel(category)}\n` +
-      `📝 *Catatan:* ${note}\n` +
-      `📅 *Tanggal:* ${date}\n\n` +
-      `Jika ada kesalahan, klik "✏️ Edit" untuk mengubah.`;
-
-    await ctx.telegram.editMessageText(
-      processingMsg.chat.id,
-      processingMsg.message_id,
-      null,
-      previewMsg,
-      {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: '✏️ Edit', callback_data: `edit_${userId}` },
-              { text: '✅ Simpan', callback_data: `save_${userId}` }
-            ],
-            [
-              { text: '❌ Batal', callback_data: `cancel_${userId}` }
-            ]
-          ]
+        .top-header .right .btn-logout .material-symbols-outlined {
+            font-size: 15px;
         }
-      }
-    );
 
-  } catch (e) {
-    console.error('❌ Error di handler photo:', e.message);
-    await ctx.telegram.editMessageText(
-      processingMsg.chat.id,
-      processingMsg.message_id,
-      null,
-      `❌ Gagal memproses foto: ${e.message || 'Coba lagi nanti.'}`
-    );
-  }
-});
+        /* ============================================================
+               TABS BAR
+            ============================================================ */
+        .tabs-bar {
+            display: flex;
+            gap: 2px;
+            padding: 8px 24px 0;
+            background: var(--surface-0);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+            overflow-x: auto;
+        }
+        .tabs-bar .tab {
+            padding: 8px 14px 10px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-3);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.15s;
+            white-space: nowrap;
+            background: transparent;
+            border-top: none;
+            border-left: none;
+            border-right: none;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .tabs-bar .tab:hover {
+            color: var(--text-1);
+        }
+        .tabs-bar .tab.active {
+            color: var(--accent-light);
+            border-bottom-color: var(--accent);
+        }
+        .tabs-bar .tab .material-symbols-outlined {
+            font-size: 16px;
+        }
 
-// ============================================================
-// WEBHOOK
-// ============================================================
-app.post('/api/webhook', async (req, res) => {
-  console.log('📥 Webhook received');
-  try {
-    if (!BOT_TOKEN) {
-      console.error('❌ BOT_TOKEN tidak ada');
-      return res.status(500).json({ error: 'BOT_TOKEN missing' });
-    }
-    await bot.handleUpdate(req.body);
-    console.log('✅ Webhook processed successfully');
-    res.status(200).json({ ok: true });
-  } catch (err) {
-    console.error('❌ Webhook error:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
+        /* ============================================================
+               CONTENT PANEL
+            ============================================================ */
+        .content-panel {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 24px 24px;
+        }
 
-// ============================================================
-// API ENDPOINTS
-// ============================================================
+        /* ============================================================
+               CARDS
+            ============================================================ */
+        .card {
+            background: var(--surface-1);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 18px 20px;
+            margin-bottom: 16px;
+            transition: border-color 0.2s;
+        }
+        .card:hover {
+            border-color: var(--border-hover);
+        }
 
-app.post('/api/register', async (req, res) => {
-  console.log('📥 Register request:', req.body);
-  try {
-    const { userId } = req.body;
-    if (!userId || !userId.match(/^\d+$/)) {
-      return res.status(400).json({ error: 'userId tidak valid' });
-    }
-    const user = await registerUser(userId);
-    if (user) {
-      console.log(`✅ User ${userId} berhasil register`);
-      res.json({ success: true, user });
-    } else {
-      res.status(500).json({ error: 'Gagal registrasi user' });
-    }
-  } catch (e) {
-    console.error('❌ Error register:', e.message);
-    res.status(500).json({ error: e.message });
-  }
-});
+        /* ============================================================
+               STATS ROW
+            ============================================================ */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .stat-mini {
+            background: var(--surface-1);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 12px 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: border-color 0.2s;
+        }
+        .stat-mini:hover {
+            border-color: var(--border-hover);
+        }
+        .stat-mini .stat-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--accent-dim);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .stat-mini .stat-icon .material-symbols-outlined {
+            font-size: 16px;
+            color: var(--accent);
+        }
+        .stat-mini .stat-info .stat-number {
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--text-1);
+            line-height: 1.1;
+        }
+        .stat-mini .stat-info .stat-label {
+            font-size: 10px;
+            color: var(--text-3);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
 
-app.get('/api/check-user/:userId', async (req, res) => {
-  try {
-    const userId = req.params.userId;
-    const user = await getUser(userId);
-    const registered = !!user && user.isActive !== false;
-    res.json({ registered, user });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
+        /* ============================================================
+               TABLE
+            ============================================================ */
+        .table-wrap {
+            overflow-x: auto;
+            margin: 0 -4px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        table th {
+            text-align: left;
+            padding: 10px 10px 8px 10px;
+            font-weight: 600;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-3);
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+        table td {
+            padding: 10px 10px;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-2);
+            vertical-align: middle;
+        }
+        table tr:hover td {
+            background: var(--surface-2);
+        }
+        table td .user-id-cell {
+            font-weight: 600;
+            color: var(--text-1);
+            font-family: 'Inter', monospace;
+            background: var(--surface-0);
+            padding: 1px 10px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+            font-size: 11px;
+            display: inline-block;
+        }
+        table td .status-badge {
+            font-size: 10px;
+            padding: 2px 12px;
+            border-radius: 16px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            display: inline-block;
+        }
+        table td .status-badge.active {
+            background: rgba(110, 231, 183, 0.08);
+            color: var(--income);
+            border: 1px solid rgba(110, 231, 183, 0.10);
+        }
+        table td .status-badge.inactive {
+            background: rgba(248, 113, 113, 0.06);
+            color: var(--expense);
+            border: 1px solid rgba(248, 113, 113, 0.10);
+        }
+        table td .date-cell {
+            font-size: 10px;
+            color: var(--text-3);
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            white-space: nowrap;
+        }
+        table td .date-cell .material-symbols-outlined {
+            font-size: 13px;
+        }
 
-app.get('/api/transactions/:userId', async (req, res) => {
-  try {
-    const userId = req.params.userId;
-    const registered = await isUserRegistered(userId);
-    if (!registered) {
-      return res.status(401).json({ error: 'User tidak terdaftar' });
-    }
-    const txs = await getTransactions(userId);
-    res.json(txs);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
+        .table-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .table-toolbar .search-wrap {
+            flex: 1;
+            min-width: 150px;
+            position: relative;
+        }
+        .table-toolbar .search-wrap .material-symbols-outlined {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 16px;
+            color: var(--text-3);
+        }
+        .table-toolbar .search-wrap input {
+            background: var(--surface-0);
+            border: 1.5px solid var(--border);
+            color: var(--text-1);
+            padding: 6px 10px 6px 34px;
+            border-radius: var(--radius-sm);
+            width: 100%;
+            outline: none;
+            font-size: 12px;
+            transition: border-color 0.2s;
+        }
+        .table-toolbar .search-wrap input:focus {
+            border-color: var(--accent);
+        }
+        .table-toolbar .search-wrap input::placeholder {
+            color: var(--text-3);
+        }
 
-app.post('/api/transactions', async (req, res) => {
-  try {
-    const { userId, ...tx } = req.body;
-    if (!userId || !tx.amount) {
-      return res.status(400).json({ error: 'userId dan amount wajib diisi' });
-    }
-    const registered = await isUserRegistered(userId);
-    if (!registered) {
-      return res.status(401).json({ error: 'User tidak terdaftar' });
-    }
-    const newTx = {
-      ...tx,
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-      created_at: new Date().toISOString(),
-      user_id: userId
-    };
-    await addTransaction(userId, newTx);
-    res.json({ success: true, transaction: newTx });
-  } catch (e) {
-    console.error('❌ Error POST /transactions:', e.message);
-    res.status(500).json({ error: e.message });
-  }
-});
+        .table-toolbar .filter-group {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .table-toolbar .filter-group select {
+            background: var(--surface-0);
+            border: 1.5px solid var(--border);
+            color: var(--text-1);
+            padding: 6px 28px 6px 10px;
+            border-radius: var(--radius-sm);
+            outline: none;
+            font-size: 11px;
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238e9bb8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 8px center;
+            min-width: 90px;
+            font-size: 11px;
+        }
+        .table-toolbar .filter-group select:focus {
+            border-color: var(--accent);
+        }
 
-app.delete('/api/transactions/:userId/:txId', async (req, res) => {
-  try {
-    const { userId, txId } = req.params;
-    const registered = await isUserRegistered(userId);
-    if (!registered) {
-      return res.status(401).json({ error: 'User tidak terdaftar' });
-    }
-    await deleteTransaction(userId, txId);
-    res.json({ success: true });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
+        .btn {
+            padding: 6px 14px;
+            border-radius: var(--radius-sm);
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 11px;
+            transition: all 0.15s;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+        .btn:active {
+            transform: scale(0.96);
+        }
+        .btn .material-symbols-outlined {
+            font-size: 15px;
+        }
 
-app.delete('/api/transactions/:userId', async (req, res) => {
-  try {
-    const userId = req.params.userId;
-    const registered = await isUserRegistered(userId);
-    if (!registered) {
-      return res.status(401).json({ error: 'User tidak terdaftar' });
-    }
-    await clearAllTransactions(userId);
-    res.json({ success: true });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
+        .btn-primary {
+            background: var(--accent);
+            color: #0a0e1a;
+        }
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(155, 140, 255, 0.30);
+        }
 
-app.get('/api/summary/:userId', async (req, res) => {
-  try {
-    const userId = req.params.userId;
-    const registered = await isUserRegistered(userId);
-    if (!registered) {
-      return res.status(401).json({ error: 'User tidak terdaftar' });
-    }
-    const txs = await getTransactions(userId);
-    const total_income = txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-    const total_expense = txs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-    res.json({ total_income, total_expense, balance: total_income - total_expense });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
+        .btn-secondary {
+            background: var(--surface-2);
+            color: var(--text-1);
+            border: 1px solid var(--border);
+        }
+        .btn-secondary:hover {
+            background: var(--surface-3);
+            border-color: var(--border-hover);
+        }
 
-app.get('/api/reminders/:userId', async (req, res) => {
-  try {
-    const userId = req.params.userId;
-    const registered = await isUserRegistered(userId);
-    if (!registered) {
-      return res.status(401).json({ error: 'User tidak terdaftar' });
-    }
-    const reminders = await getReminders(userId);
-    res.json(reminders);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
+        .btn-danger {
+            background: var(--expense);
+            color: #0a0e1a;
+        }
+        .btn-danger:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(248, 113, 113, 0.25);
+        }
 
-app.post('/api/reminders/:userId', async (req, res) => {
-  try {
-    const userId = req.params.userId;
-    const { reminder } = req.body;
-    if (!reminder || !reminder.remind_at) {
-      return res.status(400).json({ error: 'Data reminder tidak lengkap' });
-    }
-    const registered = await isUserRegistered(userId);
-    if (!registered) {
-      return res.status(401).json({ error: 'User tidak terdaftar' });
-    }
-    const newReminder = await addReminder(userId, reminder);
-    res.json({ success: true, reminder: newReminder });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
+        .btn-success {
+            background: var(--income);
+            color: #0a0e1a;
+        }
+        .btn-success:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(110, 231, 183, 0.25);
+        }
 
-app.delete('/api/reminders/:userId/:reminderId', async (req, res) => {
-  try {
-    const { userId, reminderId } = req.params;
-    const registered = await isUserRegistered(userId);
-    if (!registered) {
-      return res.status(401).json({ error: 'User tidak terdaftar' });
-    }
-    await removeReminder(userId, reminderId);
-    res.json({ success: true });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
+        .btn-warning {
+            background: var(--warning);
+            color: #0a0e1a;
+        }
+        .btn-warning:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(251, 191, 36, 0.25);
+        }
 
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString(), bot_token_set: !!BOT_TOKEN });
-});
+        .btn-sm {
+            padding: 3px 10px;
+            font-size: 10px;
+        }
+        .btn-sm .material-symbols-outlined {
+            font-size: 13px;
+        }
+        .btn-ghost {
+            background: transparent;
+            color: var(--text-2);
+            border: 1px solid transparent;
+        }
+        .btn-ghost:hover {
+            background: var(--surface-2);
+            border-color: var(--border);
+            color: var(--text-1);
+        }
 
-app.get('/api/test', (req, res) => {
-  res.json({
-    message: 'API is working',
-    bot_token_set: !!BOT_TOKEN,
-    ocr_api_key_set: !!process.env.OCR_API_KEY,
-    vercel_url: process.env.VERCEL_URL,
-    app_url: appUrl
-  });
-});
+        /* ============================================================
+               TOAST
+            ============================================================ */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: var(--surface-2);
+            color: var(--text-1);
+            padding: 10px 24px;
+            border-radius: 32px;
+            font-weight: 500;
+            font-size: 12px;
+            border: 1px solid var(--border);
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            z-index: 999;
+            pointer-events: none;
+            white-space: nowrap;
+            max-width: 90vw;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
 
-app.get('/api/admin/users', async (req, res) => {
-  const token = req.headers['x-admin-token'];
-  if (token !== ADMIN_TOKEN) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  try {
-    const keys = await kv.keys('user:*');
-    const users = await Promise.all(keys.map(async (key) => {
-      const userId = key.replace('user:', '');
-      const userData = await kv.get(key);
-      const txs = await getTransactions(userId);
-      return {
-        userId,
-        registeredAt: userData?.registeredAt,
-        isActive: userData?.isActive !== false,
-        transactionCount: txs.length
-      };
-    }));
-    res.json({ users });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
+        /* ============================================================
+               LOGIN OVERLAY
+            ============================================================ */
+        .login-overlay {
+            position: fixed;
+            inset: 0;
+            background: var(--surface-0);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            transition: opacity 0.4s, transform 0.4s;
+        }
+        .login-overlay.hidden {
+            opacity: 0;
+            transform: scale(0.96);
+            pointer-events: none;
+        }
+        .login-box {
+            background: var(--surface-1);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 30px 32px 28px;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: var(--shadow-card);
+        }
+        .login-box .login-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: var(--accent-dim);
+            border: 1px solid rgba(155, 140, 255, 0.12);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 10px;
+        }
+        .login-box .login-icon .material-symbols-outlined {
+            font-size: 24px;
+            color: var(--accent);
+        }
+        .login-box h2 {
+            font-size: 18px;
+            font-weight: 700;
+            text-align: center;
+            color: var(--text-1);
+            margin-bottom: 2px;
+        }
+        .login-box p.sub {
+            font-size: 12px;
+            color: var(--text-2);
+            text-align: center;
+            margin-bottom: 16px;
+        }
+        .login-box .token-input {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .login-box .token-input input {
+            flex: 1;
+            min-width: 120px;
+            background: var(--surface-0);
+            border: 1.5px solid var(--border);
+            color: var(--text-1);
+            padding: 8px 14px;
+            border-radius: var(--radius-sm);
+            outline: none;
+            font-size: 13px;
+            transition: border-color 0.2s;
+        }
+        .login-box .token-input input:focus {
+            border-color: var(--accent);
+        }
+        .login-box .token-input input::placeholder {
+            color: var(--text-3);
+        }
+        .login-box .status-text {
+            font-size: 11px;
+            color: var(--text-2);
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            min-height: 22px;
+        }
+        .login-box .status-text.success {
+            color: var(--income);
+        }
+        .login-box .status-text.error {
+            color: var(--expense);
+        }
+        .login-box .status-text.loading {
+            color: var(--warning);
+        }
+        .login-box .hint {
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid var(--border);
+            font-size: 10px;
+            color: var(--text-3);
+            text-align: center;
+        }
+        .login-box .hint code {
+            background: var(--surface-2);
+            padding: 1px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            color: var(--text-2);
+        }
 
-app.delete('/api/admin/users/:userId', async (req, res) => {
-  const token = req.headers['x-admin-token'];
-  if (token !== ADMIN_TOKEN) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  try {
-    const userId = req.params.userId;
-    await kv.del(`user:${userId}`);
-    await kv.del(`transactions:${userId}`);
-    await kv.del(`${REMINDER_KEY}:${userId}`);
-    await kv.del(`${BUDGET_LIMIT_KEY}:${userId}`);
-    res.json({ success: true });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
+        /* ============================================================
+               PAGINATION
+            ============================================================ */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 3px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+        .pagination .page-btn {
+            padding: 4px 11px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            background: var(--surface-2);
+            color: var(--text-2);
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 11px;
+            transition: all 0.15s;
+            min-width: 28px;
+            text-align: center;
+        }
+        .pagination .page-btn:hover:not(.disabled) {
+            background: var(--surface-3);
+            border-color: var(--border-hover);
+            color: var(--text-1);
+        }
+        .pagination .page-btn.active {
+            background: var(--accent);
+            color: #0a0e1a;
+            border-color: var(--accent);
+        }
+        .pagination .page-btn.disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
 
-// ============================================================
-// TAMBAHAN: ADMIN UPDATE USER STATUS (PUT)
-// ============================================================
-app.put('/api/admin/users/:userId', async (req, res) => {
-  const token = req.headers['x-admin-token'];
-  if (token !== ADMIN_TOKEN) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  try {
-    const userId = req.params.userId;
-    const { isActive } = req.body;
-    if (typeof isActive !== 'boolean') {
-      return res.status(400).json({ error: 'isActive harus boolean' });
-    }
-    const key = `user:${userId}`;
-    const existing = await kv.get(key);
-    if (!existing) {
-      return res.status(404).json({ error: 'User tidak ditemukan' });
-    }
-    existing.isActive = isActive;
-    await kv.set(key, existing);
-    res.json({ success: true, user: existing });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
+        /* ============================================================
+               MODAL
+            ============================================================ */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            z-index: 200;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+        .modal-overlay.active {
+            display: flex;
+        }
+        .modal-box {
+            background: var(--surface-1);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            max-width: 600px;
+            width: 100%;
+            max-height: 85vh;
+            overflow-y: auto;
+            padding: 0 20px 20px;
+            animation: modalUp 0.3s cubic-bezier(0.34, 1.2, 0.64, 1);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+        }
+        @keyframes modalUp {
+            from {
+                transform: scale(0.95) translateY(16px);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1) translateY(0);
+                opacity: 1;
+            }
+        }
+        .modal-box .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 0 12px;
+            position: sticky;
+            top: 0;
+            background: var(--surface-1);
+            z-index: 2;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 14px;
+        }
+        .modal-box .modal-header h2 {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-1);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .modal-box .modal-header h2 .material-symbols-outlined {
+            color: var(--accent);
+        }
+        .modal-box .modal-header .close-modal {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            color: var(--text-2);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            transition: all 0.15s;
+        }
+        .modal-box .modal-header .close-modal:hover {
+            background: var(--surface-3);
+            color: var(--text-1);
+        }
+        .modal-box .modal-body {
+            color: var(--text-2);
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        .modal-box .modal-body .form-group {
+            margin-bottom: 12px;
+        }
+        .modal-box .modal-body .form-group label {
+            display: block;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-2);
+            margin-bottom: 3px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .modal-box .modal-body .form-group input,
+        .modal-box .modal-body .form-group select,
+        .modal-box .modal-body .form-group textarea {
+            width: 100%;
+            background: var(--surface-0);
+            border: 1.5px solid var(--border);
+            color: var(--text-1);
+            padding: 7px 12px;
+            border-radius: var(--radius-sm);
+            outline: none;
+            font-size: 13px;
+            transition: border-color 0.2s;
+        }
+        .modal-box .modal-body .form-group input:focus,
+        .modal-box .modal-body .form-group select:focus,
+        .modal-box .modal-body .form-group textarea:focus {
+            border-color: var(--accent);
+        }
+        .modal-box .modal-body .form-group textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+        .modal-box .modal-body .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .modal-box .modal-body .form-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            margin-top: 16px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+        }
 
-// ============================================================
-// TAMBAHAN: ADMIN UPDATE TRANSACTION (PUT)
-// ============================================================
-app.put('/api/transactions/:txId', async (req, res) => {
-  const token = req.headers['x-admin-token'];
-  if (token !== ADMIN_TOKEN) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  try {
-    const txId = req.params.txId;
-    const { userId, type, amount, category, date, note } = req.body;
-    if (!userId || !amount) {
-      return res.status(400).json({ error: 'userId dan amount wajib' });
-    }
-    const key = `transactions:${userId}`;
-    let txs = await kv.get(key) || [];
-    const idx = txs.findIndex(t => t.id === txId);
-    if (idx === -1) {
-      return res.status(404).json({ error: 'Transaksi tidak ditemukan' });
-    }
-    txs[idx] = { ...txs[idx], type, amount, category, date, note };
-    await kv.set(key, txs);
-    res.json({ success: true, transaction: txs[idx] });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
+        .modal-box .modal-body .tx-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--border);
+            font-size: 12px;
+            border-radius: 6px;
+            transition: background 0.15s;
+        }
+        .modal-box .modal-body .tx-item:hover {
+            background: var(--surface-2);
+        }
+        .modal-box .modal-body .tx-item:last-child {
+            border-bottom: none;
+        }
+        .modal-box .modal-body .tx-item .tx-amount.income {
+            color: var(--income);
+            font-weight: 600;
+        }
+        .modal-box .modal-body .tx-item .tx-amount.expense {
+            color: var(--expense);
+            font-weight: 600;
+        }
+        .modal-box .modal-body .tx-item .tx-actions {
+            display: flex;
+            gap: 4px;
+        }
+        .modal-box .modal-body .tx-empty {
+            text-align: center;
+            padding: 28px 0;
+            color: var(--text-3);
+        }
+        .modal-box .modal-body .tx-empty .material-symbols-outlined {
+            font-size: 36px;
+            display: block;
+            margin-bottom: 6px;
+            opacity: 0.4;
+        }
+        .modal-box .modal-body .summary-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+        .modal-box .modal-body .summary-grid .sum-item {
+            background: var(--surface-2);
+            padding: 10px;
+            border-radius: var(--radius-sm);
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+        .modal-box .modal-body .summary-grid .sum-item .sum-label {
+            font-size: 9px;
+            font-weight: 600;
+            color: var(--text-3);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .modal-box .modal-body .summary-grid .sum-item .sum-value {
+            font-size: 17px;
+            font-weight: 800;
+            margin-top: 2px;
+        }
+        .modal-box .modal-body .summary-grid .sum-item .sum-value.accent {
+            color: var(--accent);
+        }
+        .modal-box .modal-body .summary-grid .sum-item .sum-value.income {
+            color: var(--income);
+        }
+        .modal-box .modal-body .summary-grid .sum-item .sum-value.expense {
+            color: var(--expense);
+        }
 
-// ============================================================
-// TAMBAHAN: ADMIN DELETE TRANSACTION (by ID)
-// ============================================================
-app.delete('/api/transactions/:txId', async (req, res) => {
-  const token = req.headers['x-admin-token'];
-  if (token !== ADMIN_TOKEN) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  try {
-    const txId = req.params.txId;
-    const keys = await kv.keys('transactions:*');
-    let found = false;
-    for (const key of keys) {
-      const txs = await kv.get(key);
-      const idx = txs.findIndex(t => t.id === txId);
-      if (idx !== -1) {
-        txs.splice(idx, 1);
-        await kv.set(key, txs);
-        found = true;
-        break;
-      }
-    }
-    if (!found) {
-      return res.status(404).json({ error: 'Transaksi tidak ditemukan' });
-    }
-    res.json({ success: true });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
+        /* ============================================================
+               TOGGLE SWITCH
+            ============================================================ */
+        .toggle-wrap {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: var(--text-2);
+        }
+        .toggle-switch {
+            width: 32px;
+            height: 16px;
+            background: var(--surface-3);
+            border-radius: 16px;
+            cursor: pointer;
+            position: relative;
+            transition: background 0.25s;
+            flex-shrink: 0;
+            border: 1px solid var(--border);
+        }
+        .toggle-switch.active {
+            background: var(--accent);
+        }
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--text-1);
+            transition: transform 0.25s;
+        }
+        .toggle-switch.active::after {
+            transform: translateX(16px);
+            background: #0a0e1a;
+        }
 
-// ============================================================
-// TAMBAHAN: EXPORT PDF
-// ============================================================
-app.get('/api/export-pdf/:userId', async (req, res) => {
-  const token = req.headers['x-admin-token'];
-  if (token !== ADMIN_TOKEN) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  try {
-    const userId = req.params.userId;
-    const txs = await getTransactions(userId);
-    const user = await getUser(userId);
+        /* ============================================================
+               BADGE COUNT
+            ============================================================ */
+        .badge-count {
+            font-size: 10px;
+            background: var(--surface-2);
+            padding: 1px 10px;
+            border-radius: 16px;
+            font-weight: 600;
+            color: var(--text-2);
+            border: 1px solid var(--border);
+        }
 
-    const doc = new PDFDocument({ margin: 40, size: 'A4' });
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=transactions_${userId}_${Date.now()}.pdf`);
-    doc.pipe(res);
+        /* ============================================================
+               FOOTER
+            ============================================================ */
+        .footer-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 10px;
+            color: var(--text-3);
+            padding: 10px 0 2px;
+            border-top: 1px solid var(--border);
+            margin-top: 6px;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .footer-bar .dot {
+            color: var(--text-3);
+            opacity: 0.3;
+        }
+        .footer-bar .material-symbols-outlined {
+            font-size: 13px;
+            vertical-align: middle;
+        }
 
-    // Header
-    doc.fontSize(18).text('CatatanKu - Laporan Transaksi', { align: 'center' });
-    doc.fontSize(12).text(`User ID: ${userId}`, { align: 'center' });
-    doc.text(`Tanggal cetak: ${new Date().toLocaleDateString('id-ID')}`, { align: 'center' });
-    doc.moveDown();
+        /* ============================================================
+               EMPTY STATE
+            ============================================================ */
+        .empty-state {
+            text-align: center;
+            padding: 32px 16px 20px;
+            color: var(--text-3);
+        }
+        .empty-state .material-symbols-outlined {
+            font-size: 36px;
+            display: block;
+            margin-bottom: 8px;
+            opacity: 0.4;
+        }
 
-    const totalIncome = txs.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
-    const totalExpense = txs.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
-    doc.fontSize(12).text(`Total Pemasukan: Rp ${totalIncome.toLocaleString('id-ID')}`);
-    doc.text(`Total Pengeluaran: Rp ${totalExpense.toLocaleString('id-ID')}`);
-    doc.text(`Saldo: Rp ${(totalIncome - totalExpense).toLocaleString('id-ID')}`);
-    doc.moveDown();
+        /* ============================================================
+               CHECKBOX
+            ============================================================ */
+        .checkbox-custom {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--accent);
+            cursor: pointer;
+            background: var(--surface-0);
+            border: 1.5px solid var(--border);
+            border-radius: 4px;
+        }
+        .checkbox-custom:checked {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
 
-    const tableTop = doc.y;
-    doc.fontSize(10).text('Tanggal', 40, tableTop, { width: 90 });
-    doc.text('Kategori', 130, tableTop, { width: 80 });
-    doc.text('Catatan', 210, tableTop, { width: 150 });
-    doc.text('Jumlah', 360, tableTop, { width: 80, align: 'right' });
-    doc.moveDown();
+        /* ============================================================
+               RESPONSIVE
+            ============================================================ */
+        @media (max-width: 900px) {
+            .stats-row {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .modal-box .modal-body .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
 
-    let y = doc.y;
-    for (const tx of txs) {
-      const amt = Number(tx.amount);
-      const isIncome = tx.type === 'income';
-      doc.fontSize(9);
-      doc.text(tx.date || '-', 40, y, { width: 90 });
-      doc.text(tx.category || '-', 130, y, { width: 80 });
-      doc.text(tx.note || '-', 210, y, { width: 150 });
-      doc.text(
-        `${isIncome ? '+' : '-'} Rp ${amt.toLocaleString('id-ID')}`,
-        360, y, { width: 80, align: 'right' }
-      );
-      y += 20;
-      if (y > 700) { doc.addPage(); y = 40; }
-    }
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                transform: translateX(-100%);
+                width: 250px;
+                z-index: 60;
+                box-shadow: 4px 0 30px rgba(0, 0, 0, 0.6);
+            }
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            .sidebar-overlay {
+                display: none;
+                position: fixed;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 55;
+            }
+            .sidebar-overlay.active {
+                display: block;
+            }
+            .top-header .left .hamburger {
+                display: flex;
+            }
+            .top-header {
+                padding: 0 12px;
+            }
+            .content-panel {
+                padding: 12px 12px 16px;
+            }
+            .tabs-bar {
+                padding: 6px 12px 0;
+                gap: 1px;
+            }
+            .tabs-bar .tab {
+                font-size: 11px;
+                padding: 6px 10px 8px;
+            }
+            .stats-row {
+                grid-template-columns: 1fr 1fr;
+                gap: 6px;
+            }
+            .stat-mini {
+                padding: 8px 10px;
+            }
+            .stat-mini .stat-info .stat-number {
+                font-size: 15px;
+            }
+            .table-toolbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .table-toolbar .filter-group {
+                justify-content: flex-start;
+                flex-wrap: wrap;
+            }
+            .modal-box {
+                padding: 0 14px 14px;
+                margin: 4px;
+            }
+            .modal-box .modal-body .summary-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+            .login-box {
+                padding: 20px 16px 20px;
+            }
+            table td,
+            table th {
+                padding: 6px 6px;
+                font-size: 11px;
+            }
+            .card {
+                padding: 12px 12px;
+            }
+        }
 
-    doc.end();
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
+        @media (max-width: 480px) {
+            .stats-row {
+                grid-template-columns: 1fr 1fr;
+                gap: 4px;
+            }
+            .stat-mini .stat-info .stat-number {
+                font-size: 13px;
+            }
+            .top-header .left .page-title {
+                font-size: 13px;
+            }
+            .top-header .right .user-badge-header {
+                display: none;
+            }
+            .modal-box .modal-body .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
 
-// ============================================================
-// ROOT
-// ============================================================
-app.get('/', (req, res) => {
-  res.redirect('/index.html');
-});
+        .fade-in {
+            animation: fadeIn 0.3s ease forwards;
+            opacity: 0;
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(6px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
 
-module.exports = app;
+        /* Activity log styling */
+        .log-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 10px;
+            border-bottom: 1px solid var(--border);
+            font-size: 12px;
+            border-radius: 4px;
+            transition: background 0.15s;
+        }
+        .log-item:hover {
+            background: var(--surface-2);
+        }
+        .log-item .log-time {
+            font-size: 10px;
+            color: var(--text-3);
+            min-width: 60px;
+            flex-shrink: 0;
+        }
+        .log-item .log-icon {
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+        .log-item .log-text {
+            color: var(--text-2);
+            flex: 1;
+        }
+        .log-item .log-text strong {
+            color: var(--text-1);
+            font-weight: 600;
+        }
+        .log-item .log-badge {
+            font-size: 9px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+        .log-item .log-badge.success {
+            background: rgba(110, 231, 183, 0.08);
+            color: var(--income);
+        }
+        .log-item .log-badge.danger {
+            background: rgba(248, 113, 113, 0.08);
+            color: var(--expense);
+        }
+        .log-item .log-badge.warning {
+            background: rgba(251, 191, 36, 0.08);
+            color: var(--warning);
+        }
+        .log-item .log-badge.info {
+            background: rgba(155, 140, 255, 0.08);
+            color: var(--accent-light);
+        }
+
+        /* Bulk actions bar */
+        .bulk-bar {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: var(--surface-2);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        .bulk-bar.active {
+            display: flex;
+        }
+        .bulk-bar .bulk-info {
+            font-size: 12px;
+            color: var(--text-2);
+        }
+        .bulk-bar .bulk-info strong {
+            color: var(--text-1);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ===== TOAST ===== -->
+    <div id="toast" class="toast"></div>
+
+    <!-- ============================================================
+    SIDEBAR OVERLAY (mobile)
+    ============================================================ -->
+    <div id="sidebar-overlay" class="sidebar-overlay" onclick="closeSidebar()"></div>
+
+    <!-- ============================================================
+    SIDEBAR
+    ============================================================ -->
+    <aside class="sidebar" id="sidebar">
+        <div class="brand">
+            <div class="logo"><span class="material-symbols-outlined">admin_panel_settings</span></div>
+            <div class="brand-text">
+                <h1>Catatan<span>Ku</span></h1>
+                <p>Admin Panel</p>
+            </div>
+        </div>
+
+        <div class="menu-label">Menu</div>
+        <button class="menu-item active" data-tab="dashboard" onclick="switchTab('dashboard')">
+            <span class="material-symbols-outlined">dashboard</span> Dashboard
+            <span class="badge-menu" id="sidebar-user-count">0</span>
+        </button>
+        <button class="menu-item" data-tab="users" onclick="switchTab('users')">
+            <span class="material-symbols-outlined">people</span> User Management
+            <span class="badge-menu" id="sidebar-user-count2">0</span>
+        </button>
+        <button class="menu-item" data-tab="transactions" onclick="switchTab('transactions')">
+            <span class="material-symbols-outlined">receipt_long</span> All Transactions
+        </button>
+        <button class="menu-item" data-tab="activity" onclick="switchTab('activity')">
+            <span class="material-symbols-outlined">history</span> Activity Log
+        </button>
+
+        <div class="menu-label" style="margin-top:4px;">Tools</div>
+        <button class="menu-item" onclick="openImportModal()">
+            <span class="material-symbols-outlined">upload_file</span> Import Data
+        </button>
+        <button class="menu-item" onclick="exportCSV()">
+            <span class="material-symbols-outlined">download</span> Export CSV
+        </button>
+
+        <div class="sidebar-footer">
+            <button class="menu-item" onclick="logoutAdmin()">
+                <span class="material-symbols-outlined">logout</span> Keluar
+            </button>
+        </div>
+    </aside>
+
+    <!-- ============================================================
+    MAIN WRAP
+    ============================================================ -->
+    <div class="main-wrap">
+
+        <!-- TOP HEADER -->
+        <header class="top-header">
+            <div class="left">
+                <button class="hamburger" onclick="toggleSidebar()">
+                    <span class="material-symbols-outlined">menu</span>
+                </button>
+                <span class="page-title" id="page-title">Admin <span class="accent">Panel</span></span>
+            </div>
+            <div class="right" id="header-actions" style="display:none;">
+                <span class="user-badge-header">
+                    <span class="status-dot"></span>
+                    <span id="header-user-count">0</span> user
+                </span>
+                <button class="btn-logout" onclick="logoutAdmin()">
+                    <span class="material-symbols-outlined">logout</span> Keluar
+                </button>
+            </div>
+        </header>
+
+        <!-- TABS BAR -->
+        <div class="tabs-bar" id="tabs-bar" style="display:none;">
+            <button class="tab active" data-tab="dashboard" onclick="switchTab('dashboard')">
+                <span class="material-symbols-outlined">dashboard</span> Dashboard
+            </button>
+            <button class="tab" data-tab="users" onclick="switchTab('users')">
+                <span class="material-symbols-outlined">people</span> Users
+            </button>
+            <button class="tab" data-tab="transactions" onclick="switchTab('transactions')">
+                <span class="material-symbols-outlined">receipt_long</span> Transactions
+            </button>
+            <button class="tab" data-tab="activity" onclick="switchTab('activity')">
+                <span class="material-symbols-outlined">history</span> Activity
+            </button>
+        </div>
+
+        <!-- ============================================================
+        CONTENT PANEL
+        ============================================================ -->
+        <div class="content-panel" id="content-panel" style="display:none;">
+
+            <!-- ==========================================================
+            TAB: DASHBOARD
+            ========================================================== -->
+            <div id="tab-dashboard" class="tab-content">
+                <div class="stats-row" id="stats-row">
+                    <div class="stat-mini fade-in">
+                        <div class="stat-icon"><span class="material-symbols-outlined">people</span></div>
+                        <div class="stat-info">
+                            <div class="stat-number" id="stat-users">0</div>
+                            <div class="stat-label">Total User</div>
+                        </div>
+                    </div>
+                    <div class="stat-mini fade-in">
+                        <div class="stat-icon"><span class="material-symbols-outlined">receipt_long</span></div>
+                        <div class="stat-info">
+                            <div class="stat-number" id="stat-transactions">0</div>
+                            <div class="stat-label">Total Transaksi</div>
+                        </div>
+                    </div>
+                    <div class="stat-mini fade-in">
+                        <div class="stat-icon"><span class="material-symbols-outlined">check_circle</span></div>
+                        <div class="stat-info">
+                            <div class="stat-number" id="stat-active">0</div>
+                            <div class="stat-label">User Aktif</div>
+                        </div>
+                    </div>
+                    <div class="stat-mini fade-in">
+                        <div class="stat-icon"><span class="material-symbols-outlined">trending_up</span></div>
+                        <div class="stat-info">
+                            <div class="stat-number" id="stat-avg">0</div>
+                            <div class="stat-label">Rata-rata Tx / User</div>
+                        </div>
+                    </div>
+                    <div class="stat-mini fade-in">
+                        <div class="stat-icon"><span class="material-symbols-outlined">attach_money</span></div>
+                        <div class="stat-info">
+                            <div class="stat-number" id="stat-income">Rp0</div>
+                            <div class="stat-label">Total Pemasukan</div>
+                        </div>
+                    </div>
+                    <div class="stat-mini fade-in">
+                        <div class="stat-icon"><span class="material-symbols-outlined">money_off</span></div>
+                        <div class="stat-info">
+                            <div class="stat-number" id="stat-expense">Rp0</div>
+                            <div class="stat-label">Total Pengeluaran</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card fade-in">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+                        <span style="font-weight:700;font-size:14px;color:var(--text-1);">📊 Ringkasan Cepat</span>
+                        <button class="btn btn-secondary btn-sm" onclick="loadUsers()">
+                            <span class="material-symbols-outlined">refresh</span> Refresh
+                        </button>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        <div style="background:var(--surface-2);padding:12px 16px;border-radius:var(--radius-sm);border:1px solid var(--border);">
+                            <div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.04em;">User dengan Tx Terbanyak</div>
+                            <div id="top-user" style="font-size:14px;font-weight:700;color:var(--text-1);margin-top:4px;">—</div>
+                        </div>
+                        <div style="background:var(--surface-2);padding:12px 16px;border-radius:var(--radius-sm);border:1px solid var(--border);">
+                            <div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.04em;">User dengan Tx Terendah</div>
+                            <div id="bottom-user" style="font-size:14px;font-weight:700;color:var(--text-1);margin-top:4px;">—</div>
+                        </div>
+                    </div>
+                    <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;" id="category-breakdown">
+                        <div style="background:var(--surface-2);padding:10px 14px;border-radius:var(--radius-sm);text-align:center;border:1px solid var(--border);">
+                            <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;">Makanan</div>
+                            <div id="cat-food" style="font-size:14px;font-weight:700;color:var(--income);">0</div>
+                        </div>
+                        <div style="background:var(--surface-2);padding:10px 14px;border-radius:var(--radius-sm);text-align:center;border:1px solid var(--border);">
+                            <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;">Transport</div>
+                            <div id="cat-transport" style="font-size:14px;font-weight:700;color:var(--warning);">0</div>
+                        </div>
+                        <div style="background:var(--surface-2);padding:10px 14px;border-radius:var(--radius-sm);text-align:center;border:1px solid var(--border);">
+                            <div style="font-size:9px;color:var(--text-3);text-transform:uppercase;">Lainnya</div>
+                            <div id="cat-other" style="font-size:14px;font-weight:700;color:var(--accent-light);">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card fade-in">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px;">
+                        <span style="font-weight:700;font-size:14px;color:var(--text-1);">🕐 Aktivitas Terbaru</span>
+                    </div>
+                    <div id="recent-activity" style="max-height:200px;overflow-y:auto;">
+                        <div style="text-align:center;padding:16px 0;color:var(--text-3);font-size:12px;">Belum ada aktivitas</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==========================================================
+            TAB: USERS
+            ========================================================== -->
+            <div id="tab-users" class="tab-content" style="display:none;">
+                <div class="card">
+                    <!-- Header -->
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span class="material-symbols-outlined" style="font-size:18px;color:var(--accent);">people</span>
+                            <span style="font-weight:700;font-size:14px;color:var(--text-1);">Daftar User</span>
+                            <span class="badge-count" id="user-count-badge">0</span>
+                        </div>
+                        <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                            <button class="btn btn-primary btn-sm" onclick="openAddUserModal()">
+                                <span class="material-symbols-outlined">add</span> Tambah User
+                            </button>
+                            <button class="btn btn-secondary btn-sm" onclick="exportCSV()">
+                                <span class="material-symbols-outlined">download</span> Export
+                            </button>
+                            <button class="btn btn-secondary btn-sm" onclick="loadUsers()">
+                                <span class="material-symbols-outlined">refresh</span> Refresh
+                            </button>
+                            <button class="btn btn-danger btn-sm" onclick="clearAllUsers()">
+                                <span class="material-symbols-outlined">delete_sweep</span> Hapus Semua
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Bulk Actions -->
+                    <div class="bulk-bar" id="bulk-bar">
+                        <span class="bulk-info"><strong id="bulk-count">0</strong> user dipilih</span>
+                        <button class="btn btn-danger btn-sm" onclick="bulkDeleteUsers()">
+                            <span class="material-symbols-outlined">delete</span> Hapus
+                        </button>
+                        <button class="btn btn-secondary btn-sm" onclick="bulkToggleStatus(true)">
+                            <span class="material-symbols-outlined">check_circle</span> Aktifkan
+                        </button>
+                        <button class="btn btn-secondary btn-sm" onclick="bulkToggleStatus(false)">
+                            <span class="material-symbols-outlined">block</span> Nonaktifkan
+                        </button>
+                        <button class="btn btn-ghost btn-sm" onclick="clearBulkSelection()">
+                            Batal
+                        </button>
+                    </div>
+
+                    <!-- Toolbar -->
+                    <div class="table-toolbar">
+                        <div class="search-wrap">
+                            <span class="material-symbols-outlined">search</span>
+                            <input id="search-input" type="text" placeholder="Cari User ID..." oninput="applyFilters()" />
+                        </div>
+                        <div class="filter-group">
+                            <select id="sort-select" onchange="applyFilters()">
+                                <option value="newest">Terbaru</option>
+                                <option value="oldest">Terlama</option>
+                                <option value="most-tx">Tx Terbanyak</option>
+                                <option value="least-tx">Tx Tersedikit</option>
+                            </select>
+                            <select id="status-filter" onchange="applyFilters()">
+                                <option value="all">Semua Status</option>
+                                <option value="active">Aktif</option>
+                                <option value="inactive">Nonaktif</option>
+                            </select>
+                            <div class="toggle-wrap">
+                                <span>Auto Refresh</span>
+                                <div class="toggle-switch active" id="auto-refresh-toggle" onclick="toggleAutoRefresh()"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Table -->
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="width:24px;"><input type="checkbox" id="select-all" class="checkbox-custom" onchange="toggleAllUsers()" /></th>
+                                    <th>#</th>
+                                    <th>User ID</th>
+                                    <th style="text-align:center;">Tx</th>
+                                    <th style="text-align:center;">Status</th>
+                                    <th style="text-align:center;">Registered</th>
+                                    <th style="text-align:center;">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="user-table-body">
+                                <tr><td colspan="7" style="text-align:center;padding:28px 0;color:var(--text-3);">
+                                        <span class="material-symbols-outlined" style="font-size:28px;display:block;margin-bottom:6px;">sync</span> Memuat data...
+                                </td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    <div class="pagination" id="pagination-container"></div>
+
+                    <!-- Footer -->
+                    <div class="footer-bar">
+                        <span><span class="material-symbols-outlined">security</span> Data tersimpan di Vercel KV</span>
+                        <span class="dot">•</span>
+                        <span id="last-refresh">Terakhir: —</span>
+                        <span class="dot">•</span>
+                        <span><span class="material-symbols-outlined">schedule</span> <span id="auto-refresh-status">Auto Refresh: Aktif</span></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==========================================================
+            TAB: ALL TRANSACTIONS
+            ========================================================== -->
+            <div id="tab-transactions" class="tab-content" style="display:none;">
+                <div class="card">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span class="material-symbols-outlined" style="font-size:18px;color:var(--accent);">receipt_long</span>
+                            <span style="font-weight:700;font-size:14px;color:var(--text-1);">Semua Transaksi</span>
+                            <span class="badge-count" id="tx-count-badge">0</span>
+                        </div>
+                        <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                            <button class="btn btn-primary btn-sm" onclick="openAddTxModal()">
+                                <span class="material-symbols-outlined">add</span> Tambah Transaksi
+                            </button>
+                            <button class="btn btn-secondary btn-sm" onclick="exportTxCSV()">
+                                <span class="material-symbols-outlined">download</span> Export
+                            </button>
+                            <button class="btn btn-secondary btn-sm" onclick="loadAllTransactions()">
+                                <span class="material-symbols-outlined">refresh</span> Refresh
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Filters -->
+                    <div class="table-toolbar">
+                        <div class="search-wrap">
+                            <span class="material-symbols-outlined">search</span>
+                            <input id="tx-search-input" type="text" placeholder="Cari user ID atau note..." oninput="applyTxFilters()" />
+                        </div>
+                        <div class="filter-group">
+                            <select id="tx-type-filter" onchange="applyTxFilters()">
+                                <option value="all">Semua Tipe</option>
+                                <option value="income">Pemasukan</option>
+                                <option value="expense">Pengeluaran</option>
+                            </select>
+                            <input type="date" id="tx-date-from" style="background:var(--surface-0);border:1.5px solid var(--border);color:var(--text-1);padding:5px 10px;border-radius:var(--radius-sm);font-size:11px;outline:none;" onchange="applyTxFilters()" />
+                            <span style="font-size:11px;color:var(--text-3);">s/d</span>
+                            <input type="date" id="tx-date-to" style="background:var(--surface-0);border:1.5px solid var(--border);color:var(--text-1);padding:5px 10px;border-radius:var(--radius-sm);font-size:11px;outline:none;" onchange="applyTxFilters()" />
+                        </div>
+                    </div>
+
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>User ID</th>
+                                    <th>Tanggal</th>
+                                    <th>Kategori</th>
+                                    <th>Note</th>
+                                    <th style="text-align:right;">Jumlah</th>
+                                    <th style="text-align:center;">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tx-table-body">
+                                <tr><td colspan="7" style="text-align:center;padding:28px 0;color:var(--text-3);">
+                                        <span class="material-symbols-outlined" style="font-size:28px;display:block;margin-bottom:6px;">sync</span> Memuat transaksi...
+                                </td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="pagination" id="tx-pagination-container"></div>
+                </div>
+            </div>
+
+            <!-- ==========================================================
+            TAB: ACTIVITY LOG
+            ========================================================== -->
+            <div id="tab-activity" class="tab-content" style="display:none;">
+                <div class="card">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span class="material-symbols-outlined" style="font-size:18px;color:var(--accent);">history</span>
+                            <span style="font-weight:700;font-size:14px;color:var(--text-1);">Log Aktivitas Admin</span>
+                            <span class="badge-count" id="log-count-badge">0</span>
+                        </div>
+                        <div style="display:flex;gap:4px;">
+                            <button class="btn btn-secondary btn-sm" onclick="clearLogs()">
+                                <span class="material-symbols-outlined">delete_sweep</span> Hapus Log
+                            </button>
+                            <button class="btn btn-secondary btn-sm" onclick="exportLogsCSV()">
+                                <span class="material-symbols-outlined">download</span> Export
+                            </button>
+                        </div>
+                    </div>
+                    <div id="log-list" style="max-height:400px;overflow-y:auto;">
+                        <div style="text-align:center;padding:24px 0;color:var(--text-3);font-size:12px;">Belum ada log aktivitas</div>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- /content-panel -->
+    </div><!-- /main-wrap -->
+
+    <!-- ============================================================
+    LOGIN OVERLAY
+    ============================================================ -->
+    <div class="login-overlay" id="login-overlay">
+        <div class="login-box">
+            <div class="login-icon"><span class="material-symbols-outlined">lock</span></div>
+            <h2>Autentikasi Admin</h2>
+            <p class="sub">Masukkan token admin untuk mengakses panel</p>
+            <div class="token-input">
+                <input id="admin-token" type="password" placeholder="Masukkan token admin..." onkeydown="if(event.key==='Enter') loginAdmin()" />
+                <button class="btn btn-primary" onclick="loginAdmin()"><span class="material-symbols-outlined">login</span> Login</button>
+            </div>
+            <div id="login-status" class="status-text"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--text-3);"></span> Siap untuk login</div>
+            <div class="hint"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">info</span> Token admin diatur di environment variable <code>ADMIN_TOKEN</code></div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+    MODAL: USER DETAIL
+    ============================================================ -->
+    <div id="detail-modal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h2><span class="material-symbols-outlined">person</span> <span id="modal-user-title">Detail User</span></h2>
+                <button class="close-modal" onclick="closeDetailModal()">✕</button>
+            </div>
+            <div class="modal-body" id="modal-body-content">
+                <div style="text-align:center;padding:24px 0;color:var(--text-3);">
+                    <span class="material-symbols-outlined" style="font-size:32px;display:block;margin-bottom:8px;">sync</span> Memuat...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+    MODAL: ADD / EDIT USER
+    ============================================================ -->
+    <div id="user-modal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h2><span class="material-symbols-outlined">person_add</span> <span id="user-modal-title">Tambah User</span></h2>
+                <button class="close-modal" onclick="closeUserModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <form id="user-form" onsubmit="submitUserForm(event)">
+                    <input type="hidden" id="user-form-id" value="" />
+                    <div class="form-group">
+                        <label>User ID</label>
+                        <input type="text" id="user-form-userid" placeholder="Masukkan User ID..." required />
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select id="user-form-status">
+                            <option value="active">Aktif</option>
+                            <option value="inactive">Nonaktif</option>
+                        </select>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeUserModal()">Batal</button>
+                        <button type="submit" class="btn btn-primary"><span class="material-symbols-outlined">save</span> Simpan</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+    MODAL: ADD / EDIT TRANSACTION
+    ============================================================ -->
+    <div id="tx-modal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h2><span class="material-symbols-outlined">receipt_long</span> <span id="tx-modal-title">Tambah Transaksi</span></h2>
+                <button class="close-modal" onclick="closeTxModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <form id="tx-form" onsubmit="submitTxForm(event)">
+                    <input type="hidden" id="tx-form-id" value="" />
+                    <div class="form-group">
+                        <label>User ID</label>
+                        <input type="text" id="tx-form-userid" placeholder="Masukkan User ID..." required list="user-list-datalist" />
+                        <datalist id="user-list-datalist"></datalist>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Tipe</label>
+                            <select id="tx-form-type" required>
+                                <option value="income">Pemasukan</option>
+                                <option value="expense">Pengeluaran</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Jumlah (Rp)</label>
+                            <input type="number" id="tx-form-amount" placeholder="0" min="0" required />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Kategori</label>
+                        <select id="tx-form-category">
+                            <option value="Makanan">Makanan</option>
+                            <option value="Transport">Transport</option>
+                            <option value="Belanja">Belanja</option>
+                            <option value="Tagihan">Tagihan</option>
+                            <option value="Hiburan">Hiburan</option>
+                            <option value="Kesehatan">Kesehatan</option>
+                            <option value="Pendidikan">Pendidikan</option>
+                            <option value="Lainnya">Lainnya</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Tanggal</label>
+                        <input type="date" id="tx-form-date" required />
+                    </div>
+                    <div class="form-group">
+                        <label>Catatan</label>
+                        <textarea id="tx-form-note" placeholder="Catatan tambahan..."></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeTxModal()">Batal</button>
+                        <button type="submit" class="btn btn-primary"><span class="material-symbols-outlined">save</span> Simpan</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+    MODAL: IMPORT DATA
+    ============================================================ -->
+    <div id="import-modal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h2><span class="material-symbols-outlined">upload_file</span> Import Data</h2>
+                <button class="close-modal" onclick="closeImportModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size:12px;color:var(--text-2);margin-bottom:12px;">Upload file CSV dengan format: <strong>userId,type,amount,category,note,date</strong></p>
+                <div class="form-group">
+                    <label>Pilih File CSV</label>
+                    <input type="file" id="import-file" accept=".csv" style="padding:8px;background:var(--surface-0);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text-1);width:100%;" />
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeImportModal()">Batal</button>
+                    <button type="button" class="btn btn-primary" onclick="importCSV()"><span class="material-symbols-outlined">upload</span> Import</button>
+                </div>
+                <div id="import-status" style="margin-top:10px;font-size:12px;color:var(--text-2);"></div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ============================================================
+    JAVASCRIPT — FULL FEATURES (dengan tambahan Export PDF)
+    ============================================================ -->
+    <script>
+        // ============================================================
+        // CONFIG & STATE
+        // ============================================================
+        const API_BASE = window.location.origin;
+        let adminToken = '';
+        let allUsers = [];
+        let filteredUsers = [];
+        let currentPage = 1;
+        const pageSize = 10;
+        let autoRefreshInterval = null;
+        let isAutoRefresh = true;
+
+        // Transaction state
+        let allTransactions = [];
+        let filteredTx = [];
+        let txPage = 1;
+        const txPageSize = 15;
+
+        // Activity log
+        let activityLogs = [];
+        let selectedUsers = new Set();
+
+        // ============================================================
+        // TOAST
+        // ============================================================
+        function showToast(msg) {
+            const el = document.getElementById('toast');
+            el.textContent = msg;
+            el.classList.add('show');
+            clearTimeout(window.toastTimeout);
+            window.toastTimeout = setTimeout(() => el.classList.remove('show'), 3000);
+        }
+
+        // ============================================================
+        // SIDEBAR
+        // ============================================================
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+            document.getElementById('sidebar-overlay').classList.toggle('active');
+        }
+
+        function closeSidebar() {
+            document.getElementById('sidebar').classList.remove('open');
+            document.getElementById('sidebar-overlay').classList.remove('active');
+        }
+
+        // ============================================================
+        // LOGIN — dengan penanganan error lebih baik
+        // ============================================================
+        function setStatus(msg, type = '') {
+            const el = document.getElementById('login-status');
+            el.innerHTML = msg;
+            el.className = 'status-text ' + type;
+        }
+
+        function loginAdmin() {
+            const input = document.getElementById('admin-token');
+            const token = input.value.trim();
+            if (!token) {
+                showToast('⚠️ Masukkan token admin');
+                setStatus('⚠️ Masukkan token admin', 'error');
+                return;
+            }
+            adminToken = token;
+            setStatus('⏳ Memverifikasi...', 'loading');
+            
+            fetch(`${API_BASE}/api/admin/users`, {
+                headers: { 'x-admin-token': adminToken }
+            })
+            .then(async res => {
+                if (!res.ok) {
+                    let errorMsg = 'Gagal verifikasi';
+                    try {
+                        const data = await res.json();
+                        if (data.error) errorMsg = data.error;
+                    } catch (e) {}
+                    throw new Error(errorMsg);
+                }
+                return res.json();
+            })
+            .then(data => {
+                sessionStorage.setItem('admin_token', adminToken);
+                setStatus('✅ Login berhasil!', 'success');
+                document.getElementById('login-overlay').classList.add('hidden');
+                document.getElementById('tabs-bar').style.display = 'flex';
+                document.getElementById('content-panel').style.display = 'block';
+                document.getElementById('header-actions').style.display = 'flex';
+                allUsers = data.users || [];
+                applyFilters();
+                updateStats(allUsers);
+                loadAllTransactions();
+                loadActivityLog();
+                showToast('✅ Selamat datang, Admin!');
+                document.getElementById('last-refresh').textContent = 'Terakhir: ' + new Date().toLocaleTimeString('id-ID');
+                document.getElementById('auto-refresh-status').textContent = 'Auto Refresh: Aktif';
+                if (isAutoRefresh) startAutoRefresh();
+                closeSidebar();
+                switchTab('dashboard');
+                addLog('login', 'Admin login');
+            })
+            .catch(err => {
+                setStatus('❌ ' + err.message, 'error');
+                adminToken = '';
+                input.focus();
+                showToast('❌ ' + err.message);
+            });
+        }
+
+        function logoutAdmin() {
+            stopAutoRefresh();
+            sessionStorage.removeItem('admin_token');
+            adminToken = '';
+            document.getElementById('content-panel').style.display = 'none';
+            document.getElementById('tabs-bar').style.display = 'none';
+            document.getElementById('header-actions').style.display = 'none';
+            document.getElementById('login-overlay').classList.remove('hidden');
+            setStatus('👋 Sesi berakhir, login kembali.', '');
+            document.getElementById('admin-token').value = '';
+            document.getElementById('admin-token').focus();
+            showToast('👋 Logout berhasil');
+            closeSidebar();
+            addLog('logout', 'Admin logout');
+        }
+
+        // ============================================================
+        // TAB SWITCHING
+        // ============================================================
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.tabs-bar .tab').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.sidebar .menu-item').forEach(el => el.classList.remove('active'));
+
+            const tabMap = {
+                'dashboard': 'tab-dashboard',
+                'users': 'tab-users',
+                'transactions': 'tab-transactions',
+                'activity': 'tab-activity'
+            };
+            const content = document.getElementById(tabMap[tab]);
+            if (content) content.style.display = 'block';
+
+            document.querySelectorAll(`.tabs-bar .tab[data-tab="${tab}"]`).forEach(el => el.classList.add('active'));
+            document.querySelectorAll(`.sidebar .menu-item[data-tab="${tab}"]`).forEach(el => el.classList.add('active'));
+
+            const titles = { 'dashboard': 'Dashboard', 'users': 'User Management', 'transactions': 'All Transactions',
+                'activity': 'Activity Log' };
+            document.getElementById('page-title').innerHTML = titles[tab] + ' <span class="accent">Panel</span>';
+
+            if (tab === 'transactions') renderTxPage();
+            if (tab === 'activity') renderLogs();
+            closeSidebar();
+        }
+
+        // ============================================================
+        // AUTO REFRESH
+        // ============================================================
+        function toggleAutoRefresh() {
+            const toggle = document.getElementById('auto-refresh-toggle');
+            isAutoRefresh = toggle.classList.toggle('active');
+            if (isAutoRefresh) { startAutoRefresh();
+                document.getElementById('auto-refresh-status').textContent = 'Auto Refresh: Aktif';
+                showToast('🔄 Auto Refresh diaktifkan'); } else { stopAutoRefresh();
+                document.getElementById('auto-refresh-status').textContent = 'Auto Refresh: Nonaktif';
+                showToast('⏸️ Auto Refresh dinonaktifkan'); }
+        }
+
+        function startAutoRefresh() { stopAutoRefresh(); if (!adminToken) return;
+            autoRefreshInterval = setInterval(() => { if (document.getElementById('content-panel').style.display ===
+                    'block') { loadUsersSilent();
+                    loadAllTransactionsSilent(); } }, 30000); }
+
+        function stopAutoRefresh() { if (autoRefreshInterval) { clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null; } }
+
+        // ============================================================
+        // LOAD USERS
+        // ============================================================
+        async function loadUsers() { if (!adminToken) { showToast('⚠️ Login terlebih dahulu'); return; } await fetchUsers(
+            true); }
+
+        async function loadUsersSilent() { await fetchUsers(false); }
+
+        async function fetchUsers(showLoading = true) {
+            const tbody = document.getElementById('user-table-body');
+            if (showLoading) {
+                tbody.innerHTML =
+                    `<tr><td colspan="7" style="text-align:center;padding:28px 0;color:var(--text-3);"><span class="material-symbols-outlined" style="font-size:28px;display:block;margin-bottom:6px;">sync</span> Memuat data...</td></tr>`;
+            }
+            try {
+                const res = await fetch(`${API_BASE}/api/admin/users`, { headers: { 'x-admin-token': adminToken } });
+                if (!res.ok) { if (res.status === 401) { showToast('❌ Token tidak valid, login ulang');
+                        logoutAdmin(); return; } throw new Error('Gagal memuat'); }
+                const data = await res.json();
+                allUsers = data.users || [];
+                applyFilters();
+                updateStats(allUsers);
+                document.getElementById('last-refresh').textContent = 'Terakhir: ' + new Date().toLocaleTimeString(
+                'id-ID');
+                if (showLoading) showToast('✅ Data diperbarui');
+            } catch (e) {
+                if (showLoading) {
+                    tbody.innerHTML =
+                        `<tr><td colspan="7" style="text-align:center;padding:28px 0;color:var(--expense);"><span class="material-symbols-outlined" style="font-size:28px;display:block;margin-bottom:6px;">error</span> Error: ${e.message}</td></tr>`;
+                }
+                showToast('❌ ' + e.message);
+            }
+        }
+
+        // ============================================================
+        // FILTERS & PAGINATION (Users)
+        // ============================================================
+        function applyFilters() {
+            const search = document.getElementById('search-input').value.toLowerCase().trim();
+            const sort = document.getElementById('sort-select').value;
+            const statusFilter = document.getElementById('status-filter').value;
+            filteredUsers = allUsers.filter(u => {
+                const matchSearch = u.userId.includes(search);
+                const matchStatus = statusFilter === 'all' ||
+                    (statusFilter === 'active' && u.isActive !== false) ||
+                    (statusFilter === 'inactive' && u.isActive === false);
+                return matchSearch && matchStatus;
+            });
+            filteredUsers.sort((a, b) => {
+                const aTx = a.transactionCount || 0,
+                    bTx = b.transactionCount || 0;
+                const aDate = new Date(a.registeredAt || 0),
+                    bDate = new Date(b.registeredAt || 0);
+                switch (sort) {
+                    case 'newest':
+                        return bDate - aDate;
+                    case 'oldest':
+                        return aDate - bDate;
+                    case 'most-tx':
+                        return bTx - aTx;
+                    case 'least-tx':
+                        return aTx - bTx;
+                    default:
+                        return 0;
+                }
+            });
+            currentPage = 1;
+            renderUserPage();
+        }
+
+        function renderUserPage() {
+            const totalPages = Math.ceil(filteredUsers.length / pageSize);
+            const start = (currentPage - 1) * pageSize;
+            const end = start + pageSize;
+            const pageUsers = filteredUsers.slice(start, end);
+            renderUserRows(pageUsers);
+            renderPagination(totalPages);
+            document.getElementById('user-count-badge').textContent = filteredUsers.length;
+            document.getElementById('sidebar-user-count').textContent = allUsers.length;
+            document.getElementById('sidebar-user-count2').textContent = allUsers.length;
+            document.getElementById('header-user-count').textContent = allUsers.length;
+        }
+
+        function goToPage(page) { const totalPages = Math.ceil(filteredUsers.length / pageSize); if (page < 1 || page >
+                totalPages) return;
+            currentPage = page;
+            renderUserPage(); }
+
+        function renderPagination(totalPages) {
+            const container = document.getElementById('pagination-container');
+            if (totalPages <= 1) { container.innerHTML = ''; return; }
+            let html =
+                `<button class="page-btn ${currentPage===1?'disabled':''}" onclick="goToPage(${currentPage-1})">‹</button>`;
+            const maxVisible = 5;
+            let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+            let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+            if (endPage - startPage < maxVisible - 1) startPage = Math.max(1, endPage - maxVisible + 1);
+            if (startPage > 1) { html += `<button class="page-btn" onclick="goToPage(1)">1</button>`;
+                if (startPage > 2) html += `<button class="page-btn disabled">…</button>`; }
+            for (let i = startPage; i <= endPage; i++) { html +=
+                    `<button class="page-btn ${i===currentPage?'active':''}" onclick="goToPage(${i})">${i}</button>`; }
+            if (endPage < totalPages) { if (endPage < totalPages - 1) html += `<button class="page-btn disabled">…</button>`;
+                html += `<button class="page-btn" onclick="goToPage(${totalPages})">${totalPages}</button>`; }
+            html +=
+                `<button class="page-btn ${currentPage===totalPages?'disabled':''}" onclick="goToPage(${currentPage+1})">›</button>`;
+            container.innerHTML = html;
+        }
+
+        function renderUserRows(users) {
+            const tbody = document.getElementById('user-table-body');
+            if (!users || users.length === 0) {
+                tbody.innerHTML =
+                    `<tr><td colspan="7" style="text-align:center;padding:32px 0;color:var(--text-3);"><span class="material-symbols-outlined" style="font-size:32px;display:block;margin-bottom:6px;">person_off</span> ${filteredUsers.length===0&&allUsers.length>0?'Tidak ada user yang cocok':'Belum ada user terdaftar'}</td></tr>`;
+                return;
+            }
+            const startIdx = (currentPage - 1) * pageSize;
+            tbody.innerHTML = users.map((u, i) => {
+                const isActive = u.isActive !== false;
+                const dateStr = u.registeredAt ? new Date(u.registeredAt).toLocaleDateString('id-ID', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric'
+                }) : '-';
+                const checked = selectedUsers.has(u.userId) ? 'checked' : '';
+                return `<tr class="fade-in" style="animation-delay:${(i%10)*0.03}s;">
+                            <td><input type="checkbox" class="checkbox-custom user-checkbox" data-userid="${u.userId}" ${checked} onchange="toggleUser('${u.userId}')" /></td>
+                            <td style="color:var(--text-3);font-size:11px;">${startIdx+i+1}</td>
+                            <td><span class="user-id-cell">${u.userId}</span></td>
+                            <td style="text-align:center;font-weight:600;color:var(--text-1);">${u.transactionCount||0}</td>
+                            <td style="text-align:center;"><span class="status-badge ${isActive?'active':'inactive'}">${isActive?'AKTIF':'NONAKTIF'}</span></td>
+                            <td style="text-align:center;font-size:10px;color:var(--text-3);">${dateStr}</td>
+                            <td style="text-align:center;">
+                                <div style="display:flex;gap:3px;justify-content:center;flex-wrap:wrap;">
+                                    <button class="btn btn-secondary btn-sm" onclick="viewUserDetail('${u.userId}')" data-tooltip="Detail"><span class="material-symbols-outlined" style="font-size:13px;">visibility</span></button>
+                                    <button class="btn btn-secondary btn-sm" onclick="openEditUserModal('${u.userId}')" data-tooltip="Edit"><span class="material-symbols-outlined" style="font-size:13px;">edit</span></button>
+                                    <button class="btn btn-danger btn-sm" onclick="deleteUser('${u.userId}')" data-tooltip="Hapus"><span class="material-symbols-outlined" style="font-size:13px;">delete</span></button>
+                                </div>
+                            </td>
+                        </tr>`;
+            }).join('');
+            updateBulkBar();
+        }
+
+        // ============================================================
+        // BULK SELECTION
+        // ============================================================
+        function toggleUser(userId) {
+            if (selectedUsers.has(userId)) selectedUsers.delete(userId);
+            else selectedUsers.add(userId);
+            updateBulkBar();
+            document.querySelectorAll('.user-checkbox').forEach(cb => {
+                if (cb.dataset.userid === userId) cb.checked = selectedUsers.has(userId);
+            });
+            document.getElementById('select-all').checked = selectedUsers.size === filteredUsers.length && filteredUsers
+                .length > 0;
+        }
+
+        function toggleAllUsers() {
+            const checked = document.getElementById('select-all').checked;
+            if (checked) {
+                filteredUsers.forEach(u => selectedUsers.add(u.userId));
+            } else {
+                selectedUsers.clear();
+            }
+            document.querySelectorAll('.user-checkbox').forEach(cb => cb.checked = checked);
+            updateBulkBar();
+        }
+
+        function updateBulkBar() {
+            const bar = document.getElementById('bulk-bar');
+            const count = document.getElementById('bulk-count');
+            if (selectedUsers.size > 0) {
+                bar.classList.add('active');
+                count.textContent = selectedUsers.size;
+            } else {
+                bar.classList.remove('active');
+            }
+        }
+
+        function clearBulkSelection() { selectedUsers.clear();
+            document.querySelectorAll('.user-checkbox').forEach(cb => cb.checked = false);
+            document.getElementById('select-all').checked = false;
+            updateBulkBar(); }
+
+        async function bulkDeleteUsers() {
+            if (selectedUsers.size === 0) { showToast('⚠️ Pilih user terlebih dahulu'); return; }
+            if (!confirm(`Hapus ${selectedUsers.size} user yang dipilih?`)) return;
+            let deleted = 0;
+            for (const userId of selectedUsers) {
+                try {
+                    const res = await fetch(`${API_BASE}/api/admin/users/${userId}`, { method: 'DELETE', headers: {
+                            'x-admin-token': adminToken } });
+                    if (res.ok) deleted++;
+                } catch (e) {}
+            }
+            showToast(`✅ ${deleted} user berhasil dihapus`);
+            selectedUsers.clear();
+            clearBulkSelection();
+            await fetchUsers(true);
+            addLog('bulk_delete', `Menghapus ${deleted} user secara massal`);
+        }
+
+        async function bulkToggleStatus(active) {
+            if (selectedUsers.size === 0) { showToast('⚠️ Pilih user terlebih dahulu'); return; }
+            let updated = 0;
+            for (const userId of selectedUsers) {
+                try {
+                    const res = await fetch(`${API_BASE}/api/admin/users/${userId}`, {
+                        method: 'PUT',
+                        headers: { 'x-admin-token': adminToken, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ isActive: active })
+                    });
+                    if (res.ok) updated++;
+                } catch (e) {}
+            }
+            showToast(`✅ ${updated} user di${active?'aktifkan':'nonaktifkan'}`);
+            selectedUsers.clear();
+            clearBulkSelection();
+            await fetchUsers(true);
+            addLog('bulk_status', `${updated} user di${active?'aktifkan':'nonaktifkan'} secara massal`);
+        }
+
+        // ============================================================
+        // UPDATE STATS
+        // ============================================================
+        function updateStats(users) {
+            if (!users) return;
+            const total = users.length;
+            const active = users.filter(u => u.isActive !== false).length;
+            const totalTx = users.reduce((sum, u) => sum + (u.transactionCount || 0), 0);
+            const avg = total > 0 ? Math.round(totalTx / total) : 0;
+            document.getElementById('stat-users').textContent = total;
+            document.getElementById('stat-active').textContent = active;
+            document.getElementById('stat-transactions').textContent = totalTx.toLocaleString('id-ID');
+            document.getElementById('stat-avg').textContent = avg.toLocaleString('id-ID');
+            document.getElementById('header-user-count').textContent = total;
+            document.getElementById('sidebar-user-count').textContent = total;
+            document.getElementById('sidebar-user-count2').textContent = total;
+
+            // Top/bottom user
+            const sorted = [...users].sort((a, b) => (b.transactionCount || 0) - (a.transactionCount || 0));
+            document.getElementById('top-user').textContent = sorted.length > 0 ? `${sorted[0].userId} (${sorted[0].transactionCount||0} tx)` :
+                '—';
+            document.getElementById('bottom-user').textContent = sorted.length > 0 ?
+                `${sorted[sorted.length-1].userId} (${sorted[sorted.length-1].transactionCount||0} tx)` : '—';
+        }
+
+        // ============================================================
+        // USER CRUD
+        // ============================================================
+        function openAddUserModal() {
+            document.getElementById('user-modal-title').textContent = 'Tambah User';
+            document.getElementById('user-form-id').value = '';
+            document.getElementById('user-form-userid').value = '';
+            document.getElementById('user-form-status').value = 'active';
+            document.getElementById('user-modal').classList.add('active');
+        }
+
+        function openEditUserModal(userId) {
+            const user = allUsers.find(u => u.userId === userId);
+            if (!user) { showToast('⚠️ User tidak ditemukan'); return; }
+            document.getElementById('user-modal-title').textContent = 'Edit User';
+            document.getElementById('user-form-id').value = userId;
+            document.getElementById('user-form-userid').value = userId;
+            document.getElementById('user-form-userid').disabled = true;
+            document.getElementById('user-form-status').value = user.isActive !== false ? 'active' : 'inactive';
+            document.getElementById('user-modal').classList.add('active');
+        }
+
+        function closeUserModal() {
+            document.getElementById('user-modal').classList.remove('active');
+            document.getElementById('user-form-userid').disabled = false;
+        }
+
+        async function submitUserForm(e) {
+            e.preventDefault();
+            const userId = document.getElementById('user-form-id').value;
+            const newUserId = document.getElementById('user-form-userid').value.trim();
+            const status = document.getElementById('user-form-status').value;
+            const isActive = status === 'active';
+
+            if (!newUserId) { showToast('⚠️ User ID wajib diisi'); return; }
+
+            try {
+                if (userId) {
+                    // Edit
+                    const res = await fetch(`${API_BASE}/api/admin/users/${userId}`, {
+                        method: 'PUT',
+                        headers: { 'x-admin-token': adminToken, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ isActive })
+                    });
+                    if (!res.ok) throw new Error('Gagal update user');
+                    showToast(`✅ User ${userId} berhasil diupdate`);
+                    addLog('edit_user', `Mengedit user ${userId}`);
+                } else {
+                    // Add new user
+                    const res = await fetch(`${API_BASE}/api/admin/users`, {
+                        method: 'POST',
+                        headers: { 'x-admin-token': adminToken, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId: newUserId, isActive })
+                    });
+                    if (!res.ok) throw new Error('Gagal tambah user');
+                    showToast(`✅ User ${newUserId} berhasil ditambahkan`);
+                    addLog('add_user', `Menambahkan user ${newUserId}`);
+                }
+                closeUserModal();
+                await fetchUsers(true);
+                loadAllTransactionsSilent();
+            } catch (e) { showToast('❌ ' + e.message); }
+        }
+
+        async function deleteUser(userId) {
+            if (!confirm(`⚠️ Hapus semua data user ${userId}?`)) return;
+            try {
+                const res = await fetch(`${API_BASE}/api/admin/users/${userId}`, { method: 'DELETE', headers: {
+                        'x-admin-token': adminToken } });
+                if (!res.ok) { if (res.status === 401) { showToast('❌ Token tidak valid');
+                        logoutAdmin(); return; } throw new Error('Gagal hapus'); }
+                showToast(`✅ Data user ${userId} berhasil dihapus`);
+                addLog('delete_user', `Menghapus user ${userId}`);
+                await fetchUsers(true);
+                loadAllTransactionsSilent();
+            } catch (e) { showToast(`❌ ${e.message}`); }
+        }
+
+        async function clearAllUsers() {
+            if (!confirm('⚠️ Hapus SEMUA data user?')) return;
+            if (!confirm('✅ Konfirmasi kedua: Hapus semua data pengguna?')) return;
+            try {
+                const res = await fetch(`${API_BASE}/api/admin/users`, { headers: { 'x-admin-token': adminToken } });
+                if (!res.ok) throw new Error('Gagal mengambil daftar user');
+                const data = await res.json();
+                let deleted = 0;
+                for (const user of data.users) {
+                    const delRes = await fetch(`${API_BASE}/api/admin/users/${user.userId}`, { method: 'DELETE',
+                        headers: { 'x-admin-token': adminToken } });
+                    if (delRes.ok) deleted++;
+                }
+                showToast(`✅ ${deleted} user berhasil dihapus`);
+                addLog('clear_all', `Menghapus semua ${deleted} user`);
+                await fetchUsers(true);
+                loadAllTransactionsSilent();
+            } catch (e) { showToast(`❌ ${e.message}`); }
+        }
+
+        // ============================================================
+        // USER DETAIL (Modal) — dengan tombol Export PDF
+        // ============================================================
+        async function viewUserDetail(userId) {
+            const modal = document.getElementById('detail-modal');
+            document.getElementById('modal-user-title').textContent = `Detail User: ${userId}`;
+            const body = document.getElementById('modal-body-content');
+            body.innerHTML =
+                `<div style="text-align:center;padding:24px 0;color:var(--text-3);"><span class="material-symbols-outlined" style="font-size:32px;display:block;margin-bottom:8px;">sync</span> Memuat transaksi...</div>`;
+            modal.classList.add('active');
+            try {
+                const res = await fetch(`${API_BASE}/api/transactions/${userId}`, { headers: { 'x-admin-token': adminToken } });
+                if (!res.ok) throw new Error('Gagal memuat transaksi');
+                const txs = await res.json();
+                const sorted = txs.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+                const totalIncome = txs.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
+                const totalExpense = txs.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
+                
+                // ---- TAMBAHAN: tombol Export PDF ----
+                let html =
+                    `<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+                        <button class="btn btn-primary btn-sm" onclick="exportPDF('${userId}')">
+                            <span class="material-symbols-outlined">picture_as_pdf</span> Export PDF
+                        </button>
+                    </div>
+                    <div class="summary-grid"><div class="sum-item"><div class="sum-label">Total Transaksi</div><div class="sum-value accent">${sorted.length}</div></div><div class="sum-item"><div class="sum-label">Pemasukan</div><div class="sum-value income">Rp ${totalIncome.toLocaleString('id-ID')}</div></div><div class="sum-item"><div class="sum-label">Pengeluaran</div><div class="sum-value expense">Rp ${totalExpense.toLocaleString('id-ID')}</div></div></div>`;
+                // ------------------------------------
+
+                if (sorted.length === 0) {
+                    html +=
+                        `<div class="tx-empty"><span class="material-symbols-outlined">inbox</span> Belum ada transaksi.</div>`;
+                } else {
+                    html += `<div style="max-height:300px;overflow-y:auto;padding-right:4px;">`;
+                    sorted.slice(0, 50).forEach(t => {
+                        const isIncome = t.type === 'income';
+                        const amtClass = isIncome ? 'income' : 'expense';
+                        const sign = isIncome ? '+' : '−';
+                        html +=
+                            `<div class="tx-item"><span style="font-weight:500;color:var(--text-1);font-size:11px;">${t.date||'-'}</span><span style="flex:1;margin:0 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-2);font-size:12px;">${t.note||t.category||'-'}</span><span class="tx-amount ${amtClass}">${sign}Rp ${Number(t.amount).toLocaleString('id-ID')}</span>
+                                    <div class="tx-actions"><button class="btn btn-secondary btn-sm" onclick="editTxFromDetail('${t.id}','${userId}')" style="padding:2px 6px;"><span class="material-symbols-outlined" style="font-size:12px;">edit</span></button>
+                                    <button class="btn btn-danger btn-sm" onclick="deleteTx('${t.id}')" style="padding:2px 6px;"><span class="material-symbols-outlined" style="font-size:12px;">delete</span></button></div></div>`;
+                    });
+                    if (sorted.length > 50) html +=
+                        `<div style="text-align:center;padding:8px;color:var(--text-3);font-size:11px;border-top:1px solid var(--border);">... dan ${sorted.length-50} transaksi lainnya</div>`;
+                    html += `</div>`;
+                }
+                body.innerHTML = html;
+            } catch (e) {
+                body.innerHTML =
+                    `<div style="text-align:center;padding:24px 0;color:var(--expense);"><span class="material-symbols-outlined" style="font-size:32px;display:block;margin-bottom:8px;">error</span> Gagal: ${e.message}</div>`;
+            }
+        }
+
+        // ============================================================
+        // EXPORT PDF — fungsi baru
+        // ============================================================
+        function exportPDF(userId) {
+            if (!adminToken) { showToast('⚠️ Login terlebih dahulu'); return; }
+            // Buka PDF di tab baru dengan header token (query param tidak aman, tapi untuk demo cukup)
+            window.open(`${API_BASE}/api/export-pdf/${userId}?x-admin-token=${adminToken}`, '_blank');
+        }
+
+        function closeDetailModal() { document.getElementById('detail-modal').classList.remove('active'); }
+
+        // ============================================================
+        // TRANSACTIONS CRUD
+        // ============================================================
+        let allTxData = [];
+
+        async function loadAllTransactions() { if (!adminToken) return; await fetchAllTransactions(true); }
+
+        async function loadAllTransactionsSilent() { await fetchAllTransactions(false); }
+
+        async function fetchAllTransactions(showLoading = true) {
+            const tbody = document.getElementById('tx-table-body');
+            if (showLoading) {
+                tbody.innerHTML =
+                    `<tr><td colspan="7" style="text-align:center;padding:28px 0;color:var(--text-3);"><span class="material-symbols-outlined" style="font-size:28px;display:block;margin-bottom:6px;">sync</span> Memuat transaksi...</td></tr>`;
+            }
+            try {
+                const res = await fetch(`${API_BASE}/api/admin/users`, { headers: { 'x-admin-token': adminToken } });
+                if (!res.ok) throw new Error('Gagal memuat user');
+                const data = await res.json();
+                const users = data.users || [];
+                let allTx = [];
+                for (const user of users) {
+                    try {
+                        const txRes = await fetch(`${API_BASE}/api/transactions/${user.userId}`, { headers: {
+                                'x-admin-token': adminToken } });
+                        if (txRes.ok) {
+                            const txs = await txRes.json();
+                            txs.forEach(t => { t.userId = user.userId; });
+                            allTx = allTx.concat(txs);
+                        }
+                    } catch (e) {}
+                }
+                allTxData = allTx;
+                applyTxFilters();
+                document.getElementById('tx-count-badge').textContent = allTxData.length;
+                if (showLoading) showToast('✅ Transaksi dimuat');
+            } catch (e) {
+                if (showLoading) {
+                    tbody.innerHTML =
+                        `<tr><td colspan="7" style="text-align:center;padding:28px 0;color:var(--expense);"><span class="material-symbols-outlined" style="font-size:28px;display:block;margin-bottom:6px;">error</span> Error: ${e.message}</td></tr>`;
+                }
+                showToast('❌ ' + e.message);
+            }
+        }
+
+        function applyTxFilters() {
+            const search = document.getElementById('tx-search-input').value.toLowerCase().trim();
+            const type = document.getElementById('tx-type-filter').value;
+            const from = document.getElementById('tx-date-from').value;
+            const to = document.getElementById('tx-date-to').value;
+
+            filteredTx = allTxData.filter(t => {
+                const matchSearch = t.userId.includes(search) || (t.note || '').toLowerCase().includes(search);
+                const matchType = type === 'all' || t.type === type;
+                let matchDate = true;
+                if (from) { const d = t.date || ''; if (d < from) matchDate = false; }
+                if (to) { const d = t.date || ''; if (d > to) matchDate = false; }
+                return matchSearch && matchType && matchDate;
+            });
+            filteredTx.sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.id - a.id);
+            txPage = 1;
+            renderTxPage();
+            document.getElementById('tx-count-badge').textContent = filteredTx.length;
+        }
+
+        function renderTxPage() {
+            const tbody = document.getElementById('tx-table-body');
+            const totalPages = Math.ceil(filteredTx.length / txPageSize);
+            const start = (txPage - 1) * txPageSize;
+            const end = start + txPageSize;
+            const pageTx = filteredTx.slice(start, end);
+
+            if (!pageTx || pageTx.length === 0) {
+                tbody.innerHTML =
+                    `<tr><td colspan="7" style="text-align:center;padding:32px 0;color:var(--text-3);"><span class="material-symbols-outlined" style="font-size:32px;display:block;margin-bottom:6px;">receipt</span> ${allTxData.length===0?'Belum ada transaksi':'Tidak ada transaksi yang cocok'}</td></tr>`;
+            } else {
+                tbody.innerHTML = pageTx.map((t, i) => {
+                    const isIncome = t.type === 'income';
+                    const amtClass = isIncome ? 'income' : 'expense';
+                    const sign = isIncome ? '+' : '−';
+                    return `<tr class="fade-in" style="animation-delay:${(i%10)*0.03}s;">
+                                <td style="color:var(--text-3);font-size:11px;">${start+i+1}</td>
+                                <td><span class="user-id-cell">${t.userId}</span></td>
+                                <td style="font-size:11px;color:var(--text-2);">${t.date||'-'}</td>
+                                <td style="font-size:11px;color:var(--text-2);">${t.category||'-'}</td>
+                                <td style="font-size:12px;color:var(--text-2);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${t.note||'-'}</td>
+                                <td style="text-align:right;font-weight:600;${isIncome?'color:var(--income)':'color:var(--expense)'};">${sign}Rp ${Number(t.amount).toLocaleString('id-ID')}</td>
+                                <td style="text-align:center;">
+                                    <div style="display:flex;gap:3px;justify-content:center;">
+                                        <button class="btn btn-secondary btn-sm" onclick="editTx('${t.id}','${t.userId}')" style="padding:2px 6px;"><span class="material-symbols-outlined" style="font-size:12px;">edit</span></button>
+                                        <button class="btn btn-danger btn-sm" onclick="deleteTx('${t.id}')" style="padding:2px 6px;"><span class="material-symbols-outlined" style="font-size:12px;">delete</span></button>
+                                    </div>
+                                </td>
+                            </tr>`;
+                }).join('');
+            }
+
+            const container = document.getElementById('tx-pagination-container');
+            if (totalPages <= 1) { container.innerHTML = ''; return; }
+            let html =
+                `<button class="page-btn ${txPage===1?'disabled':''}" onclick="goToTxPage(${txPage-1})">‹</button>`;
+            const maxVisible = 5;
+            let startPage = Math.max(1, txPage - Math.floor(maxVisible / 2));
+            let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+            if (endPage - startPage < maxVisible - 1) startPage = Math.max(1, endPage - maxVisible + 1);
+            if (startPage > 1) { html += `<button class="page-btn" onclick="goToTxPage(1)">1</button>`;
+                if (startPage > 2) html += `<button class="page-btn disabled">…</button>`; }
+            for (let i = startPage; i <= endPage; i++) { html +=
+                    `<button class="page-btn ${i===txPage?'active':''}" onclick="goToTxPage(${i})">${i}</button>`; }
+            if (endPage < totalPages) { if (endPage < totalPages - 1) html += `<button class="page-btn disabled">…</button>`;
+                html += `<button class="page-btn" onclick="goToTxPage(${totalPages})">${totalPages}</button>`; }
+            html +=
+                `<button class="page-btn ${txPage===totalPages?'disabled':''}" onclick="goToTxPage(${txPage+1})">›</button>`;
+            container.innerHTML = html;
+        }
+
+        function goToTxPage(page) { const totalPages = Math.ceil(filteredTx.length / txPageSize); if (page < 1 || page >
+                totalPages) return;
+            txPage = page;
+            renderTxPage(); }
+
+        function openAddTxModal() {
+            document.getElementById('tx-modal-title').textContent = 'Tambah Transaksi';
+            document.getElementById('tx-form-id').value = '';
+            document.getElementById('tx-form-userid').value = '';
+            document.getElementById('tx-form-type').value = 'income';
+            document.getElementById('tx-form-amount').value = '';
+            document.getElementById('tx-form-category').value = 'Makanan';
+            document.getElementById('tx-form-date').value = new Date().toISOString().slice(0, 10);
+            document.getElementById('tx-form-note').value = '';
+            const datalist = document.getElementById('user-list-datalist');
+            datalist.innerHTML = allUsers.map(u => `<option value="${u.userId}">`).join('');
+            document.getElementById('tx-modal').classList.add('active');
+        }
+
+        function editTx(txId, userId) {
+            const tx = allTxData.find(t => t.id === txId);
+            if (!tx) { showToast('⚠️ Transaksi tidak ditemukan'); return; }
+            document.getElementById('tx-modal-title').textContent = 'Edit Transaksi';
+            document.getElementById('tx-form-id').value = txId;
+            document.getElementById('tx-form-userid').value = userId;
+            document.getElementById('tx-form-type').value = tx.type || 'income';
+            document.getElementById('tx-form-amount').value = tx.amount || 0;
+            document.getElementById('tx-form-category').value = tx.category || 'Makanan';
+            document.getElementById('tx-form-date').value = tx.date || new Date().toISOString().slice(0, 10);
+            document.getElementById('tx-form-note').value = tx.note || '';
+            const datalist = document.getElementById('user-list-datalist');
+            datalist.innerHTML = allUsers.map(u => `<option value="${u.userId}">`).join('');
+            document.getElementById('tx-modal').classList.add('active');
+        }
+
+        function editTxFromDetail(txId, userId) { editTx(txId, userId);
+            closeDetailModal(); }
+
+        function closeTxModal() { document.getElementById('tx-modal').classList.remove('active'); }
+
+        async function submitTxForm(e) {
+            e.preventDefault();
+            const id = document.getElementById('tx-form-id').value;
+            const userId = document.getElementById('tx-form-userid').value.trim();
+            const type = document.getElementById('tx-form-type').value;
+            const amount = parseFloat(document.getElementById('tx-form-amount').value);
+            const category = document.getElementById('tx-form-category').value;
+            const date = document.getElementById('tx-form-date').value;
+            const note = document.getElementById('tx-form-note').value.trim();
+
+            if (!userId) { showToast('⚠️ User ID wajib diisi'); return; }
+            if (!amount || amount <= 0) { showToast('⚠️ Jumlah harus lebih dari 0'); return; }
+            if (!date) { showToast('⚠️ Tanggal wajib diisi'); return; }
+
+            if (!allUsers.find(u => u.userId === userId)) {
+                showToast('⚠️ User ID tidak ditemukan, tambahkan user terlebih dahulu');
+                return;
+            }
+
+            try {
+                if (id) {
+                    const res = await fetch(`${API_BASE}/api/transactions/${id}`, {
+                        method: 'PUT',
+                        headers: { 'x-admin-token': adminToken, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId, type, amount, category, date, note })
+                    });
+                    if (!res.ok) throw new Error('Gagal update transaksi');
+                    showToast('✅ Transaksi berhasil diupdate');
+                    addLog('edit_tx', `Mengedit transaksi ${id} untuk user ${userId}`);
+                } else {
+                    const res = await fetch(`${API_BASE}/api/transactions`, {
+                        method: 'POST',
+                        headers: { 'x-admin-token': adminToken, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId, type, amount, category, date, note })
+                    });
+                    if (!res.ok) throw new Error('Gagal tambah transaksi');
+                    showToast('✅ Transaksi berhasil ditambahkan');
+                    addLog('add_tx', `Menambahkan transaksi untuk user ${userId} (${type})`);
+                }
+                closeTxModal();
+                await fetchUsers(true);
+                await loadAllTransactionsSilent();
+            } catch (e) { showToast('❌ ' + e.message); }
+        }
+
+        async function deleteTx(txId) {
+            if (!confirm('⚠️ Hapus transaksi ini?')) return;
+            try {
+                const res = await fetch(`${API_BASE}/api/transactions/${txId}`, { method: 'DELETE', headers: {
+                        'x-admin-token': adminToken } });
+                if (!res.ok) throw new Error('Gagal hapus transaksi');
+                showToast('✅ Transaksi berhasil dihapus');
+                addLog('delete_tx', `Menghapus transaksi ${txId}`);
+                await loadAllTransactionsSilent();
+                await fetchUsers(true);
+                closeDetailModal();
+            } catch (e) { showToast('❌ ' + e.message); }
+        }
+
+        // ============================================================
+        // EXPORT
+        // ============================================================
+        function exportCSV() {
+            if (!allUsers || allUsers.length === 0) { showToast('⚠️ Tidak ada data user'); return; }
+            let csv = 'User ID,Registered At,Is Active,Transaction Count\n';
+            allUsers.forEach(u => {
+                const date = u.registeredAt ? new Date(u.registeredAt).toLocaleDateString('id-ID') : '';
+                csv += `${u.userId},${date},${u.isActive!==false?'Yes':'No'},${u.transactionCount||0}\n`;
+            });
+            downloadCSV(csv, `users_${new Date().toISOString().slice(0,10)}.csv`);
+            showToast('✅ CSV user berhasil di-export');
+            addLog('export', 'Export data user ke CSV');
+        }
+
+        function exportTxCSV() {
+            if (!allTxData || allTxData.length === 0) { showToast('⚠️ Tidak ada data transaksi'); return; }
+            let csv = 'User ID,Date,Type,Category,Amount,Note\n';
+            allTxData.forEach(t => {
+                csv +=
+                    `${t.userId},${t.date||''},${t.type||''},${t.category||''},${t.amount||0},"${(t.note||'').replace(/"/g,'""')}"\n`;
+            });
+            downloadCSV(csv, `transactions_${new Date().toISOString().slice(0,10)}.csv`);
+            showToast('✅ CSV transaksi berhasil di-export');
+            addLog('export', 'Export data transaksi ke CSV');
+        }
+
+        function downloadCSV(csv, filename) {
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            link.click();
+            URL.revokeObjectURL(link.href);
+        }
+
+        // ============================================================
+        // IMPORT CSV
+        // ============================================================
+        function openImportModal() { document.getElementById('import-modal').classList.add('active');
+            document.getElementById('import-status').textContent = ''; }
+
+        function closeImportModal() { document.getElementById('import-modal').classList.remove('active'); }
+
+        async function importCSV() {
+            const fileInput = document.getElementById('import-file');
+            const status = document.getElementById('import-status');
+            if (!fileInput.files || fileInput.files.length === 0) { status.textContent = '⚠️ Pilih file CSV terlebih dahulu';
+                return; }
+            const file = fileInput.files[0];
+            try {
+                const text = await file.text();
+                const lines = text.split('\n').filter(l => l.trim());
+                if (lines.length < 2) { status.textContent = '⚠️ File kosong atau format tidak valid'; return; }
+                const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+                const idxUserId = headers.findIndex(h => h.includes('user') || h.includes('userid'));
+                const idxType = headers.findIndex(h => h.includes('type'));
+                const idxAmount = headers.findIndex(h => h.includes('amount') || h.includes('nominal'));
+                const idxCategory = headers.findIndex(h => h.includes('category') || h.includes('kategori'));
+                const idxNote = headers.findIndex(h => h.includes('note') || h.includes('catatan') || h.includes('keterangan'));
+                const idxDate = headers.findIndex(h => h.includes('date') || h.includes('tanggal'));
+
+                if (idxUserId === -1 || idxAmount === -1) { status.textContent =
+                        '⚠️ Format CSV harus memiliki kolom: userId, amount (dan type opsional)'; return; }
+
+                let added = 0;
+                for (let i = 1; i < lines.length; i++) {
+                    const cols = lines[i].split(',').map(c => c.trim());
+                    const userId = cols[idxUserId] || '';
+                    const type = idxType !== -1 ? (cols[idxType] || 'income') : 'income';
+                    const amount = parseFloat(cols[idxAmount]) || 0;
+                    const category = idxCategory !== -1 ? (cols[idxCategory] || 'Lainnya') : 'Lainnya';
+                    const note = idxNote !== -1 ? (cols[idxNote] || '') : '';
+                    const date = idxDate !== -1 ? (cols[idxDate] || new Date().toISOString().slice(0, 10)) : new Date()
+                        .toISOString().slice(0, 10);
+
+                    if (!userId || amount <= 0) continue;
+                    let userExists = allUsers.find(u => u.userId === userId);
+                    if (!userExists) {
+                        await fetch(`${API_BASE}/api/admin/users`, {
+                            method: 'POST',
+                            headers: { 'x-admin-token': adminToken, 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ userId, isActive: true })
+                        });
+                        userExists = { userId };
+                        added++;
+                    }
+                    await fetch(`${API_BASE}/api/transactions`, {
+                        method: 'POST',
+                        headers: { 'x-admin-token': adminToken, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId, type, amount, category, date, note })
+                    });
+                }
+                status.textContent = `✅ Berhasil import ${added} user dan transaksi`;
+                showToast(`✅ Import selesai: ${added} user`);
+                addLog('import', `Import data dari CSV (${added} user)`);
+                await fetchUsers(true);
+                await loadAllTransactionsSilent();
+                closeImportModal();
+            } catch (e) { status.textContent = '❌ ' + e.message;
+                showToast('❌ ' + e.message); }
+        }
+
+        // ============================================================
+        // ACTIVITY LOG
+        // ============================================================
+        function addLog(action, detail) {
+            const log = { id: Date.now(), time: new Date().toISOString(), action, detail };
+            let logs = JSON.parse(localStorage.getItem('admin_activity_log') || '[]');
+            logs.unshift(log);
+            if (logs.length > 200) logs = logs.slice(0, 200);
+            localStorage.setItem('admin_activity_log', JSON.stringify(logs));
+            activityLogs = logs;
+            renderLogs();
+        }
+
+        function loadActivityLog() {
+            activityLogs = JSON.parse(localStorage.getItem('admin_activity_log') || '[]');
+            renderLogs();
+        }
+
+        function renderLogs() {
+            const container = document.getElementById('log-list');
+            document.getElementById('log-count-badge').textContent = activityLogs.length;
+            if (activityLogs.length === 0) {
+                container.innerHTML =
+                    `<div style="text-align:center;padding:24px 0;color:var(--text-3);font-size:12px;">Belum ada log aktivitas</div>`;
+                return;
+            }
+            const icons = {
+                'add_user': 'person_add',
+                'edit_user': 'edit',
+                'delete_user': 'delete',
+                'bulk_delete': 'delete_sweep',
+                'bulk_status': 'check_circle',
+                'add_tx': 'receipt_long',
+                'edit_tx': 'edit_note',
+                'delete_tx': 'delete',
+                'export': 'download',
+                'import': 'upload_file',
+                'clear_all': 'delete_sweep',
+                'login': 'login',
+                'logout': 'logout'
+            };
+            const badges = {
+                'add_user': 'success',
+                'edit_user': 'info',
+                'delete_user': 'danger',
+                'bulk_delete': 'danger',
+                'bulk_status': 'warning',
+                'add_tx': 'success',
+                'edit_tx': 'info',
+                'delete_tx': 'danger',
+                'export': 'info',
+                'import': 'success',
+                'clear_all': 'danger',
+                'login': 'success',
+                'logout': 'warning'
+            };
+            container.innerHTML = activityLogs.slice(0, 100).map(log => {
+                const icon = icons[log.action] || 'info';
+                const badge = badges[log.action] || 'info';
+                const time = new Date(log.time).toLocaleString('id-ID');
+                return `<div class="log-item">
+                            <span class="log-time">${time}</span>
+                            <span class="log-icon material-symbols-outlined">${icon}</span>
+                            <span class="log-text"><strong>${log.action.replace('_',' ').toUpperCase()}</strong> — ${log.detail}</span>
+                            <span class="log-badge ${badge}">${badge}</span>
+                        </div>`;
+            }).join('');
+        }
+
+        function clearLogs() {
+            if (!confirm('Hapus semua log aktivitas?')) return;
+            localStorage.removeItem('admin_activity_log');
+            activityLogs = [];
+            renderLogs();
+            showToast('✅ Log berhasil dihapus');
+        }
+
+        function exportLogsCSV() {
+            if (activityLogs.length === 0) { showToast('⚠️ Tidak ada log'); return; }
+            let csv = 'Time,Action,Detail\n';
+            activityLogs.forEach(l => {
+                csv += `${l.time},${l.action},"${l.detail.replace(/"/g,'""')}"\n`;
+            });
+            downloadCSV(csv, `activity_log_${new Date().toISOString().slice(0,10)}.csv`);
+            showToast('✅ Log berhasil di-export');
+        }
+
+        // ============================================================
+        // CLOSE MODALS ON OVERLAY CLICK
+        // ============================================================
+        document.querySelectorAll('.modal-overlay').forEach(el => {
+            el.addEventListener('click', function(e) { if (e.target === this) { this.classList.remove('active'); } });
+        });
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                document.querySelectorAll('.modal-overlay.active').forEach(el => el.classList.remove('active'));
+                closeSidebar();
+            }
+        });
+
+        // ============================================================
+        // CHECK SESSION
+        // ============================================================
+        (function checkSession() {
+            const savedToken = sessionStorage.getItem('admin_token');
+            if (savedToken) {
+                adminToken = savedToken;
+                fetch(`${API_BASE}/api/admin/users`, { headers: { 'x-admin-token': adminToken } })
+                    .then(res => { if (!res.ok) throw new Error('Token tidak valid'); return res.json(); })
+                    .then(data => {
+                        document.getElementById('login-overlay').classList.add('hidden');
+                        document.getElementById('tabs-bar').style.display = 'flex';
+                        document.getElementById('content-panel').style.display = 'block';
+                        document.getElementById('header-actions').style.display = 'flex';
+                        setStatus('✅ Sesi aktif', 'success');
+                        allUsers = data.users || [];
+                        applyFilters();
+                        updateStats(allUsers);
+                        loadAllTransactionsSilent();
+                        loadActivityLog();
+                        showToast('👋 Selamat datang kembali, Admin!');
+                        document.getElementById('last-refresh').textContent = 'Terakhir: ' + new Date()
+                            .toLocaleTimeString('id-ID');
+                        document.getElementById('auto-refresh-status').textContent = 'Auto Refresh: Aktif';
+                        if (isAutoRefresh) startAutoRefresh();
+                        switchTab('dashboard');
+                        addLog('login', 'Admin login (auto)');
+                    })
+                    .catch(() => { sessionStorage.removeItem('admin_token');
+                        adminToken = '';
+                        setStatus('🔓 Login untuk mengakses', ''); });
+            } else { setStatus('🔓 Login untuk mengakses', ''); }
+        })();
+    </script>
+
+</body>
+</html>
