@@ -3,10 +3,10 @@ const cors = require('cors');
 const { Telegraf } = require('telegraf');
 const { kv } = require('@vercel/kv');
 const axios = require('axios');
+const PDFDocument = require('pdfkit');
 
-// SEMENTARA: comment out PDFKit dan OCR untuk test login
-// const PDFDocument = require('pdfkit');
-// const { ocrStrukWithPuter } = require('./puter-ocr');
+// Import OCR
+const { ocrStrukWithPuter } = require('./puter-ocr');
 
 const app = express();
 app.use(cors());
@@ -980,13 +980,120 @@ bot.action(/cancel_(.+)/, async (ctx) => {
 });
 
 // ============================================================
-// HANDLER: FOTO — OCR + EDIT (SEMENTARA DINONAKTIFKAN)
+// HANDLER: FOTO — OCR + EDIT (LENGKAP)
 // ============================================================
 bot.on('photo', async (ctx) => {
-  await ctx.reply(
-    '⚠️ *Fitur OCR sedang dalam perbaikan.*\n\nSilakan catat manual:\n`-5000 deskripsi` untuk pengeluaran\n`+50000 deskripsi` untuk pemasukan',
+  const processingMsg = await ctx.reply(
+    '🤖 *AI sedang menganalisis foto struk...* Mohon tunggu beberapa saat.',
     { parse_mode: 'Markdown' }
   );
+
+  try {
+    const userId = ctx.from.id.toString();
+
+    const registered = await isUserRegistered(userId);
+    if (!registered) {
+      await ctx.telegram.editMessageText(
+        processingMsg.chat.id,
+        processingMsg.message_id,
+        null,
+        `⚠️ *Anda belum login!*\n\nSilakan login terlebih dahulu.`,
+        {
+          parse_mode: 'Markdown',
+          reply_markup: miniAppKeyboard([
+            [{ text: '🔑 Login ke CatatanKu', path: '/login.html' }]
+          ])
+        }
+      );
+      return;
+    }
+
+    delete drafts[userId];
+
+    const photo = ctx.message.photo[ctx.message.photo.length - 1];
+    const fileLink = await ctx.telegram.getFileLink(photo.file_id);
+    console.log('📸 File link:', fileLink);
+
+    const response = await axios.get(fileLink, { responseType: 'arraybuffer' });
+    const imageBuffer = Buffer.from(response.data, 'binary');
+
+    let ocrResult;
+    try {
+      ocrResult = await ocrStrukWithPuter(imageBuffer);
+    } catch (ocrError) {
+      console.error('❌ OCR error:', ocrError.message);
+      await ctx.telegram.editMessageText(
+        processingMsg.chat.id,
+        processingMsg.message_id,
+        null,
+        `❌ *Gagal membaca gambar:* ${ocrError.message}\n\nSilakan catat manual:\n\`-5000 deskripsi\` untuk pengeluaran\n\`+50000 deskripsi\` untuk pemasukan`,
+        { parse_mode: 'Markdown' }
+      );
+      return;
+    }
+
+    if (!ocrResult || !ocrResult.amount) {
+      await ctx.telegram.editMessageText(
+        processingMsg.chat.id,
+        processingMsg.message_id,
+        null,
+        `⚠️ *Tidak dapat mendeteksi jumlah transaksi.*\n\nSilakan catat manual:\n\`-5000 deskripsi\` untuk pengeluaran\n\`+50000 deskripsi\` untuk pemasukan`,
+        { parse_mode: 'Markdown' }
+      );
+      return;
+    }
+
+    const finalAmount = ocrResult.grandTotal || ocrResult.amount;
+    const category = ocrResult.category || 'other';
+    const date = ocrResult.date || new Date().toISOString().slice(0, 10);
+    const note = ocrResult.merchant || 'Struk';
+
+    drafts[userId] = {
+      amount: finalAmount,
+      category: category,
+      date: date,
+      note: note,
+      waitingFor: null
+    };
+
+    const previewMsg = 
+      `📝 *Hasil OCR — Periksa sebelum simpan*\n\n` +
+      `💰 *Jumlah:* Rp ${finalAmount.toLocaleString('id-ID')}\n` +
+      `📂 *Kategori:* ${getCategoryLabel(category)}\n` +
+      `📝 *Catatan:* ${note}\n` +
+      `📅 *Tanggal:* ${date}\n\n` +
+      `Jika ada kesalahan, klik "✏️ Edit" untuk mengubah.`;
+
+    await ctx.telegram.editMessageText(
+      processingMsg.chat.id,
+      processingMsg.message_id,
+      null,
+      previewMsg,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '✏️ Edit', callback_data: `edit_${userId}` },
+              { text: '✅ Simpan', callback_data: `save_${userId}` }
+            ],
+            [
+              { text: '❌ Batal', callback_data: `cancel_${userId}` }
+            ]
+          ]
+        }
+      }
+    );
+
+  } catch (e) {
+    console.error('❌ Error di handler photo:', e.message);
+    await ctx.telegram.editMessageText(
+      processingMsg.chat.id,
+      processingMsg.message_id,
+      null,
+      `❌ Gagal memproses foto: ${e.message || 'Coba lagi nanti.'}`
+    );
+  }
 });
 
 // ============================================================
@@ -1207,7 +1314,6 @@ app.get('/api/admin/users', async (req, res) => {
       console.log(`🔑 Ditemukan ${keys.length} key user`);
     } catch (kvError) {
       console.error('❌ Gagal mengakses KV:', kvError.message);
-      // Jika KV gagal, return array kosong agar tidak error
       return res.json({ users: [] });
     }
 
@@ -1360,10 +1466,61 @@ app.delete('/api/transactions/:txId', async (req, res) => {
 });
 
 // ============================================================
-// EXPORT PDF (SEMENTARA DINONAKTIFKAN)
+// EXPORT PDF
 // ============================================================
 app.get('/api/export-pdf/:userId', async (req, res) => {
-  res.status(501).json({ error: 'Fitur PDF sedang dalam perbaikan' });
+  const token = req.headers['x-admin-token'];
+  if (token !== ADMIN_TOKEN) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  try {
+    const userId = req.params.userId;
+    const txs = await getTransactions(userId);
+
+    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=transactions_${userId}_${Date.now()}.pdf`);
+    doc.pipe(res);
+
+    doc.fontSize(18).text('CatatanKu - Laporan Transaksi', { align: 'center' });
+    doc.fontSize(12).text(`User ID: ${userId}`, { align: 'center' });
+    doc.text(`Tanggal cetak: ${new Date().toLocaleDateString('id-ID')}`, { align: 'center' });
+    doc.moveDown();
+
+    const totalIncome = txs.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
+    const totalExpense = txs.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
+    doc.fontSize(12).text(`Total Pemasukan: Rp ${totalIncome.toLocaleString('id-ID')}`);
+    doc.text(`Total Pengeluaran: Rp ${totalExpense.toLocaleString('id-ID')}`);
+    doc.text(`Saldo: Rp ${(totalIncome - totalExpense).toLocaleString('id-ID')}`);
+    doc.moveDown();
+
+    const tableTop = doc.y;
+    doc.fontSize(10).text('Tanggal', 40, tableTop, { width: 90 });
+    doc.text('Kategori', 130, tableTop, { width: 80 });
+    doc.text('Catatan', 210, tableTop, { width: 150 });
+    doc.text('Jumlah', 360, tableTop, { width: 80, align: 'right' });
+    doc.moveDown();
+
+    let y = doc.y;
+    for (const tx of txs) {
+      const amt = Number(tx.amount);
+      const isIncome = tx.type === 'income';
+      doc.fontSize(9);
+      doc.text(tx.date || '-', 40, y, { width: 90 });
+      doc.text(tx.category || '-', 130, y, { width: 80 });
+      doc.text(tx.note || '-', 210, y, { width: 150 });
+      doc.text(
+        `${isIncome ? '+' : '-'} Rp ${amt.toLocaleString('id-ID')}`,
+        360, y, { width: 80, align: 'right' }
+      );
+      y += 20;
+      if (y > 700) { doc.addPage(); y = 40; }
+    }
+
+    doc.end();
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ============================================================
