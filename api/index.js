@@ -276,7 +276,7 @@ async function clearAllTransactions(userId) {
 }
 
 // ============================================================
-// FITUR PENGINGAT (REMINDER)
+// FITUR PENGINGAT (REMINDER) - DIPERBAIKI
 // ============================================================
 const REMINDER_KEY = 'catatanku_reminders';
 
@@ -312,14 +312,20 @@ async function addReminder(userId, reminder) {
   };
   reminders.push(newReminder);
   await saveReminders(userId, reminders);
+  console.log(`✅ Reminder ditambahkan untuk user ${userId}: ${newReminder.id}`);
   return newReminder;
 }
 
 async function removeReminder(userId, reminderId) {
   let reminders = await getReminders(userId);
+  const before = reminders.length;
   reminders = reminders.filter(r => r.id !== reminderId);
+  if (reminders.length === before) {
+    return false; // tidak ditemukan
+  }
   await saveReminders(userId, reminders);
-  return reminders;
+  console.log(`✅ Reminder ${reminderId} dihapus untuk user ${userId}`);
+  return true;
 }
 
 // ============================================================
@@ -327,19 +333,14 @@ async function removeReminder(userId, reminderId) {
 // ============================================================
 let bot = null;
 
-// ============================================================
-// PERBAIKAN URL: gunakan environment variable yang benar
-// ============================================================
+// Tentukan URL aplikasi
 const appUrl = (() => {
-  // Prioritas: gunakan VERCEL_PROJECT_PRODUCTION_URL (domain produksi)
   if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
     return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
   }
-  // Jika tidak ada, gunakan VERCEL_URL (branch preview atau custom)
   if (process.env.VERCEL_URL) {
     return `https://${process.env.VERCEL_URL}`;
   }
-  // Fallback terakhir (jika lokal)
   return 'https://catatan-ku-silk.vercel.app';
 })();
 
@@ -432,13 +433,13 @@ if (BOT_TOKEN && Telegraf) {
     });
 
     // ============================================================
-    // COMMAND: /remind
+    // COMMAND: /remind (DIPERBAIKI)
     // ============================================================
     bot.command('remind', async (ctx) => {
       const userId = ctx.from.id.toString();
       const text = ctx.message.text;
       const args = text.replace('/remind', '').trim();
-      
+
       if (!args) {
         return ctx.reply(
           `⏰ *Cara pakai /remind:*\n\n` +
@@ -453,7 +454,8 @@ if (BOT_TOKEN && Telegraf) {
       let remindAt = null;
       let message = '';
 
-      const relMatch = args.match(/^(\d+)([smhd])\s+(.+)$/);
+      // Coba format relatif: 1h "pesan"
+      const relMatch = args.match(/^(\d+)([smhd])\s+"([^"]+)"$/);
       if (relMatch) {
         const num = parseInt(relMatch[1]);
         const unit = relMatch[2];
@@ -467,6 +469,7 @@ if (BOT_TOKEN && Telegraf) {
         remindAt = new Date(now.getTime() + seconds * 1000);
         message = msg;
       } else {
+        // Coba format absolut: "YYYY-MM-DD HH:MM" "pesan"
         const absMatch = args.match(/^"([^"]+)"\s+"([^"]+)"$/);
         if (absMatch) {
           const dateStr = absMatch[1];
@@ -481,6 +484,7 @@ if (BOT_TOKEN && Telegraf) {
           remindAt = d;
           message = msg;
         } else {
+          // Coba tanpa tanda kutip: 1h Pesan (tanpa kutip)
           const simpleMatch = args.match(/^(\d+)([smhd])\s+(.+)$/);
           if (simpleMatch) {
             const num = parseInt(simpleMatch[1]);
@@ -510,6 +514,11 @@ if (BOT_TOKEN && Telegraf) {
         return ctx.reply('❌ Gagal memproses pengingat. Coba format yang benar.');
       }
 
+      // Pastikan waktu di masa depan (sudah dicek untuk absolut, tapi relatif pasti)
+      if (remindAt <= new Date()) {
+        return ctx.reply('❌ Waktu pengingat harus di masa depan.');
+      }
+
       const reminder = {
         title: 'Pengingat',
         message: message,
@@ -517,13 +526,13 @@ if (BOT_TOKEN && Telegraf) {
       };
 
       try {
-        await addReminder(userId, reminder);
+        const newReminder = await addReminder(userId, reminder);
         const formattedDate = remindAt.toLocaleString('id-ID');
         await ctx.reply(
           `✅ *Pengingat berhasil dibuat!*\n\n` +
           `📝 *Pesan:* ${message}\n` +
           `⏰ *Waktu:* ${formattedDate}\n\n` +
-          `🆔 ID: \`${reminder.id}\``,
+          `🆔 ID: \`${newReminder.id}\``,
           { parse_mode: 'Markdown' }
         );
       } catch (e) {
@@ -533,7 +542,7 @@ if (BOT_TOKEN && Telegraf) {
     });
 
     // ============================================================
-    // COMMAND: /reminders
+    // COMMAND: /reminders (DIPERBAIKI)
     // ============================================================
     bot.command('reminders', async (ctx) => {
       const userId = ctx.from.id.toString();
@@ -562,7 +571,7 @@ if (BOT_TOKEN && Telegraf) {
     });
 
     // ============================================================
-    // COMMAND: /remindcancel
+    // COMMAND: /remindcancel (DIPERBAIKI)
     // ============================================================
     bot.command('remindcancel', async (ctx) => {
       const userId = ctx.from.id.toString();
@@ -573,8 +582,12 @@ if (BOT_TOKEN && Telegraf) {
       }
 
       try {
-        await removeReminder(userId, args);
-        await ctx.reply(`✅ Pengingat dengan ID \`${args}\` berhasil dibatalkan.`, { parse_mode: 'Markdown' });
+        const deleted = await removeReminder(userId, args);
+        if (deleted) {
+          await ctx.reply(`✅ Pengingat dengan ID \`${args}\` berhasil dibatalkan.`, { parse_mode: 'Markdown' });
+        } else {
+          await ctx.reply(`❌ Pengingat dengan ID \`${args}\` tidak ditemukan.`, { parse_mode: 'Markdown' });
+        }
       } catch (e) {
         console.error('❌ Error canceling reminder:', e.message);
         await ctx.reply('❌ Gagal membatalkan pengingat. Pastikan ID benar.');
@@ -785,7 +798,6 @@ if (BOT_TOKEN && Telegraf) {
             const response = await axios.get(fileLink, { responseType: 'arraybuffer' });
             imageBuffer = Buffer.from(response.data, 'binary');
           } else {
-            // Fallback menggunakan fetch (Node 18+)
             const resp = await fetch(fileLink);
             const arrayBuffer = await resp.arrayBuffer();
             imageBuffer = Buffer.from(arrayBuffer);
@@ -870,7 +882,6 @@ if (BOT_TOKEN && Telegraf) {
         }
       });
     } else {
-      // Fallback jika OCR tidak tersedia
       bot.on('photo', async (ctx) => {
         await ctx.reply(
           '⚠️ *Fitur OCR tidak tersedia.*\n\n' +
@@ -1244,8 +1255,8 @@ app.delete('/api/reminders/:userId/:reminderId', async (req, res) => {
     if (!registered) {
       return res.status(401).json({ error: 'User tidak terdaftar' });
     }
-    await removeReminder(userId, reminderId);
-    res.json({ success: true });
+    const deleted = await removeReminder(userId, reminderId);
+    res.json({ success: deleted });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
