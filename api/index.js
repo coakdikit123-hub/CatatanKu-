@@ -1519,31 +1519,39 @@ app.get('/api/test', (req, res) => {
 });
 
 // ============================================================
-// EKSPOR KE GOOGLE SHEETS
+// EKSPOR KE GOOGLE SHEETS (DENGAN LOGGING LENGKAP)
 // ============================================================
 if (exportToGoogleSheets) {
   app.get('/api/export-sheets/:userId', async (req, res) => {
     try {
       const userId = req.params.userId;
+      console.log(`📥 Export sheets request for user: ${userId}`);
+
       const registered = await isUserRegistered(userId);
       if (!registered) {
+        console.log(`❌ User ${userId} tidak terdaftar`);
         return res.status(401).json({ error: 'User tidak terdaftar' });
       }
 
       const txs = await getTransactions(userId);
+      console.log(`📊 User ${userId} has ${txs.length} transactions`);
+
       if (!txs || txs.length === 0) {
         return res.status(400).json({ error: 'Tidak ada transaksi untuk diekspor.' });
       }
 
       const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID;
+      console.log(`🔑 GOOGLE_SPREADSHEET_ID: ${spreadsheetId}`);
       if (!spreadsheetId) {
         return res.status(500).json({ error: 'Spreadsheet ID tidak dikonfigurasi.' });
       }
 
       const sheetUrl = await exportToGoogleSheets(userId, txs, spreadsheetId);
+      console.log(`✅ Export success for user ${userId}`);
       res.json({ success: true, url: sheetUrl });
     } catch (e) {
       console.error('❌ Error export sheets:', e.message);
+      console.error('Stack:', e.stack);
       res.status(500).json({ error: e.message });
     }
   });
