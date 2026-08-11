@@ -130,7 +130,6 @@ async function saveCustomCategories(userId, categories) {
 }
 
 async function addCustomCategory(userId, categoryName) {
-  // Validasi: minimal 2 karakter, tidak mengandung karakter aneh
   const clean = categoryName.trim().toLowerCase();
   if (clean.length < 2) {
     return { success: false, message: '❌ Nama kategori minimal 2 karakter.' };
@@ -139,7 +138,6 @@ async function addCustomCategory(userId, categoryName) {
     return { success: false, message: '❌ Nama kategori hanya boleh huruf, angka, dan spasi.' };
   }
   
-  // Cek apakah sudah ada di default
   if (DEFAULT_CATEGORIES.includes(clean)) {
     return { success: false, message: `❌ "${clean}" adalah kategori default. Tidak perlu ditambahkan.` };
   }
@@ -174,11 +172,9 @@ async function getAllCategories(userId) {
 async function getCategoryId(userId, label) {
   const lower = label.toLowerCase().trim();
   
-  // Cek di default dulu
   const defaultId = getDefaultCategoryId(lower);
   if (defaultId) return defaultId;
   
-  // Cek di custom
   const custom = await getCustomCategories(userId);
   if (custom.includes(lower)) return lower;
   
@@ -251,11 +247,9 @@ async function parseTransaction(text, userId) {
   let category = 'other';
   if (words.length > 0) {
     const firstWord = words[0].toLowerCase();
-    // Coba cocokkan dengan kategori yang ada (default atau custom)
-    category = await getCategoryId(userId, firstWord);
-    // Jika kategori cocok, hapus kata pertama dari note
-    if (category !== 'other' || DEFAULT_CATEGORIES.includes(firstWord)) {
-      // Note tanpa kata pertama
+    const catId = await getCategoryId(userId, firstWord);
+    if (catId !== 'other' || DEFAULT_CATEGORIES.includes(firstWord)) {
+      category = catId;
       const remaining = words.slice(1).join(' ');
       note = remaining || (type === 'income' ? 'Pemasukan' : 'Pengeluaran');
     }
@@ -648,7 +642,6 @@ if (BOT_TOKEN && Telegraf) {
         );
       }
 
-      // Ambil teks di dalam tanda kutip
       const match = args.match(/^"([^"]+)"$/);
       if (!match) {
         return ctx.reply('❌ Format salah. Gunakan: `/addcategory "Nama Kategori"`', { parse_mode: 'Markdown' });
@@ -978,7 +971,6 @@ if (BOT_TOKEN && Telegraf) {
 
           // Gunakan kategori dari OCR, atau default ke 'other'
           let category = ocrResult.category || 'other';
-          // Coba validasi kategori
           const allCats = await getAllCategories(userId);
           if (!allCats.includes(category)) {
             category = 'other';
@@ -1385,6 +1377,106 @@ app.get('/api/categories/:userId', async (req, res) => {
     };
     res.json(categories);
   } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ============================================================
+// ENDPOINT: DATA CHART UNTUK GRAFIK
+// ============================================================
+app.get('/api/chart/:userId', async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const registered = await isUserRegistered(userId);
+    if (!registered) {
+      return res.status(401).json({ error: 'User tidak terdaftar' });
+    }
+
+    const txs = await getTransactions(userId);
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+
+    // ===== 1. KATEGORI (PENGELUARAN) =====
+    const expenseTxs = txs.filter(t => t.type === 'expense');
+    const categoryMap = {};
+    for (const tx of expenseTxs) {
+      const cat = tx.category || 'other';
+      categoryMap[cat] = (categoryMap[cat] || 0) + Number(tx.amount);
+    }
+
+    const categoryLabels = [];
+    const categoryValues = [];
+    const categoryColors = [
+      '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#FF6384', '#C9CBCF'
+    ];
+    let colorIndex = 0;
+    for (const [cat, total] of Object.entries(categoryMap)) {
+      categoryLabels.push(getCategoryLabel(cat));
+      categoryValues.push(total);
+      colorIndex++;
+    }
+
+    // ===== 2. TREN BULAN INI (per hari) =====
+    const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+    const dailyIncome = {};
+    const dailyExpense = {};
+
+    // Inisialisasi semua hari
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      dailyIncome[dateStr] = 0;
+      dailyExpense[dateStr] = 0;
+    }
+
+    // Isi data transaksi
+    for (const tx of txs) {
+      const dateStr = tx.date;
+      if (dateStr && dateStr.startsWith(`${currentYear}-${String(currentMonth).padStart(2, '0')}`)) {
+        if (tx.type === 'income') {
+          dailyIncome[dateStr] = (dailyIncome[dateStr] || 0) + Number(tx.amount);
+        } else {
+          dailyExpense[dateStr] = (dailyExpense[dateStr] || 0) + Number(tx.amount);
+        }
+      }
+    }
+
+    // Siapkan array untuk chart
+    const dayLabels = [];
+    const incomeData = [];
+    const expenseData = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      dayLabels.push(`${d}`);
+      incomeData.push(dailyIncome[dateStr] || 0);
+      expenseData.push(dailyExpense[dateStr] || 0);
+    }
+
+    // ===== 3. TOTAL SUMMARY =====
+    const totalIncome = txs.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
+    const totalExpense = txs.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
+    const balance = totalIncome - totalExpense;
+
+    res.json({
+      summary: {
+        totalIncome,
+        totalExpense,
+        balance
+      },
+      categories: {
+        labels: categoryLabels,
+        values: categoryValues,
+        colors: categoryColors.slice(0, categoryLabels.length)
+      },
+      monthlyTrend: {
+        labels: dayLabels,
+        income: incomeData,
+        expense: expenseData
+      }
+    });
+
+  } catch (e) {
+    console.error('❌ Error chart data:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
