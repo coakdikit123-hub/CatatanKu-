@@ -1940,7 +1940,7 @@
         }
 
         // ============================================================
-        // LOGIN
+        // LOGIN — dengan penanganan error lebih baik
         // ============================================================
         function setStatus(msg, type = '') {
             const el = document.getElementById('login-status');
@@ -1951,37 +1951,54 @@
         function loginAdmin() {
             const input = document.getElementById('admin-token');
             const token = input.value.trim();
-            if (!token) { showToast('⚠️ Masukkan token admin');
-                setStatus('⚠️ Masukkan token admin', 'error'); return; }
+            if (!token) {
+                showToast('⚠️ Masukkan token admin');
+                setStatus('⚠️ Masukkan token admin', 'error');
+                return;
+            }
             adminToken = token;
             setStatus('⏳ Memverifikasi...', 'loading');
-            fetch(`${API_BASE}/api/admin/users`, { headers: { 'x-admin-token': adminToken } })
-                .then(res => { if (!res.ok) { if (res.status === 401) throw new Error('Token tidak valid'); throw new Error(
-                            'Gagal verifikasi'); } return res.json(); })
-                .then(data => {
-                    sessionStorage.setItem('admin_token', adminToken);
-                    setStatus('✅ Login berhasil!', 'success');
-                    document.getElementById('login-overlay').classList.add('hidden');
-                    document.getElementById('tabs-bar').style.display = 'flex';
-                    document.getElementById('content-panel').style.display = 'block';
-                    document.getElementById('header-actions').style.display = 'flex';
-                    allUsers = data.users || [];
-                    applyFilters();
-                    updateStats(allUsers);
-                    loadAllTransactions();
-                    loadActivityLog();
-                    showToast('✅ Selamat datang, Admin!');
-                    document.getElementById('last-refresh').textContent = 'Terakhir: ' + new Date().toLocaleTimeString(
-                    'id-ID');
-                    document.getElementById('auto-refresh-status').textContent = 'Auto Refresh: Aktif';
-                    if (isAutoRefresh) startAutoRefresh();
-                    closeSidebar();
-                    switchTab('dashboard');
-                })
-                .catch(err => { setStatus('❌ ' + err.message, 'error');
-                    adminToken = '';
-                    input.focus();
-                    showToast('❌ ' + err.message); });
+            
+            fetch(`${API_BASE}/api/admin/users`, {
+                headers: { 'x-admin-token': adminToken }
+            })
+            .then(async res => {
+                if (!res.ok) {
+                    let errorMsg = 'Gagal verifikasi';
+                    try {
+                        const data = await res.json();
+                        if (data.error) errorMsg = data.error;
+                    } catch (e) {}
+                    throw new Error(errorMsg);
+                }
+                return res.json();
+            })
+            .then(data => {
+                sessionStorage.setItem('admin_token', adminToken);
+                setStatus('✅ Login berhasil!', 'success');
+                document.getElementById('login-overlay').classList.add('hidden');
+                document.getElementById('tabs-bar').style.display = 'flex';
+                document.getElementById('content-panel').style.display = 'block';
+                document.getElementById('header-actions').style.display = 'flex';
+                allUsers = data.users || [];
+                applyFilters();
+                updateStats(allUsers);
+                loadAllTransactions();
+                loadActivityLog();
+                showToast('✅ Selamat datang, Admin!');
+                document.getElementById('last-refresh').textContent = 'Terakhir: ' + new Date().toLocaleTimeString('id-ID');
+                document.getElementById('auto-refresh-status').textContent = 'Auto Refresh: Aktif';
+                if (isAutoRefresh) startAutoRefresh();
+                closeSidebar();
+                switchTab('dashboard');
+                addLog('login', 'Admin login');
+            })
+            .catch(err => {
+                setStatus('❌ ' + err.message, 'error');
+                adminToken = '';
+                input.focus();
+                showToast('❌ ' + err.message);
+            });
         }
 
         function logoutAdmin() {
@@ -1997,6 +2014,7 @@
             document.getElementById('admin-token').focus();
             showToast('👋 Logout berhasil');
             closeSidebar();
+            addLog('logout', 'Admin logout');
         }
 
         // ============================================================
@@ -2902,7 +2920,7 @@
                         document.getElementById('auto-refresh-status').textContent = 'Auto Refresh: Aktif';
                         if (isAutoRefresh) startAutoRefresh();
                         switchTab('dashboard');
-                        addLog('login', 'Admin login');
+                        addLog('login', 'Admin login (auto)');
                     })
                     .catch(() => { sessionStorage.removeItem('admin_token');
                         adminToken = '';
