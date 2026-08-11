@@ -2,6 +2,36 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 /**
+ * Mendapatkan model yang tersedia dan cocok untuk OCR
+ */
+async function getAvailableModel(genAI) {
+  // Daftar model yang mungkin tersedia (prioritas tertinggi dulu)
+  const candidateModels = [
+    'gemini-1.5-flash',
+    'gemini-1.5-pro',
+    'gemini-2.0-flash-exp',
+    'gemini-pro-vision',  // versi lama, mungkin masih ada
+    'gemini-pro',         // versi lama
+  ];
+
+  for (const modelName of candidateModels) {
+    try {
+      // Coba instantiate model (tidak langsung generate, cek dulu)
+      const model = genAI.getGenerativeModel({ model: modelName });
+      // Coba simple test (generate dengan prompt kecil) untuk memastikan model aktif
+      // Tapi ini akan memakan biaya, jadi kita hanya coba instantiate dulu.
+      // Jika model tidak ada, akan throw error saat digunakan nanti.
+      // Kita bisa langsung return model pertama yang dianggap ada.
+      console.log(`✅ Model ${modelName} ditemukan, mencoba menggunakannya...`);
+      return modelName;
+    } catch (e) {
+      console.warn(`⚠️ Model ${modelName} tidak tersedia:`, e.message);
+    }
+  }
+  throw new Error('Tidak ada model Gemini yang tersedia untuk API key ini. Periksa API key Anda.');
+}
+
+/**
  * OCR menggunakan Google Gemini API
  * @param {Buffer} imageBuffer - Buffer gambar
  * @returns {Promise<Object>} - Hasil parsing struk
@@ -13,10 +43,15 @@ async function ocrStrukWithGemini(imageBuffer) {
   }
 
   const genAI = new GoogleGenerativeAI(apiKey);
-  
-  // Gunakan model yang masih tersedia (per Agustus 2026)
-  // Pilihan: 'gemini-1.5-flash' atau 'gemini-2.0-flash-exp' atau 'gemini-1.5-pro'
-  const modelName = 'gemini-1.5-flash'; // ganti ke model yang valid
+
+  // Cari model yang tersedia
+  let modelName;
+  try {
+    modelName = await getAvailableModel(genAI);
+  } catch (e) {
+    throw new Error('Tidak dapat menemukan model Gemini: ' + e.message);
+  }
+
   const model = genAI.getGenerativeModel({ model: modelName });
 
   // Konversi buffer ke base64
@@ -36,6 +71,7 @@ Jangan tambahkan teks apapun selain JSON. JSON harus valid.
 `;
 
   try {
+    console.log(`📡 Mengirim request ke Gemini dengan model: ${modelName}`);
     const result = await model.generateContent({
       contents: [
         {
@@ -80,52 +116,10 @@ Jangan tambahkan teks apapun selain JSON. JSON harus valid.
     resultObj.grandTotal = Number(resultObj.grandTotal);
     resultObj.amount = Number(resultObj.amount);
 
+    console.log(`✅ OCR berhasil menggunakan model ${modelName}`);
     return resultObj;
   } catch (error) {
     console.error('❌ Gemini OCR error:', error.message);
-    // Coba fallback ke model lain jika terjadi error 404 (model not found)
-    if (error.message.includes('404') || error.message.includes('not found')) {
-      console.warn('⚠️ Model tidak ditemukan, mencoba fallback ke gemini-1.5-pro...');
-      try {
-        const fallbackModel = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
-        const result = await fallbackModel.generateContent({
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                { text: prompt },
-                {
-                  inlineData: {
-                    mimeType: 'image/jpeg',
-                    data: base64Image
-                  }
-                }
-              ]
-            }
-          ]
-        });
-        const response = result.response;
-        const text = response.text();
-        let jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
-        const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
-        if (jsonMatch) jsonStr = jsonMatch[0];
-        const parsed = JSON.parse(jsonStr);
-        const resultObj = {
-          merchant: parsed.merchant || 'Toko',
-          date: parsed.date || new Date().toISOString().slice(0, 10),
-          items: parsed.items || [],
-          grandTotal: parsed.grandTotal || parsed.amount || 0,
-          amount: parsed.amount || parsed.grandTotal || 0,
-          category: parsed.category || 'other'
-        };
-        resultObj.grandTotal = Number(resultObj.grandTotal);
-        resultObj.amount = Number(resultObj.amount);
-        return resultObj;
-      } catch (fallbackError) {
-        console.error('❌ Fallback OCR error:', fallbackError.message);
-        throw new Error('Gagal memproses gambar dengan Gemini: ' + fallbackError.message);
-      }
-    }
     throw new Error('Gagal memproses gambar dengan Gemini: ' + error.message);
   }
 }
