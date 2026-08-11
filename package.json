@@ -1,13 +1,14 @@
 {
   "name": "catatan-ku",
   "version": "1.0.0",
-  "description": "Bot Telegram + Mini App CatatanKu dengan OCR.space",
+  "description": "Bot Telegram + Mini App CatatanKu dengan Gemini OCR",
   "main": "api/index.js",
   "scripts": {
     "start": "vercel dev",
     "build": "echo 'No build required'"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.21.0",
     "@vercel/kv": "^1.0.0",
     "axios": "^1.6.2",
     "cors": "^2.8.5",
