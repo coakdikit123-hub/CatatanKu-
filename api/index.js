@@ -276,94 +276,6 @@ async function clearAllTransactions(userId) {
 }
 
 // ============================================================
-// FITUR REMINDER (PENGINGAT)
-// ============================================================
-const REMINDER_KEY = 'catatanku_reminders';
-
-async function getReminders(userId) {
-  const key = `${REMINDER_KEY}:${userId}`;
-  try {
-    const data = await kv.get(key);
-    return data || [];
-  } catch (e) {
-    console.error('❌ Gagal baca reminder:', e.message);
-    return [];
-  }
-}
-
-async function saveReminders(userId, reminders) {
-  const key = `${REMINDER_KEY}:${userId}`;
-  try {
-    await kv.set(key, reminders);
-    return true;
-  } catch (e) {
-    console.error('❌ Gagal simpan reminder:', e.message);
-    return false;
-  }
-}
-
-async function addReminder(userId, reminder) {
-  const reminders = await getReminders(userId);
-  const newReminder = {
-    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-    ...reminder,
-    created_at: new Date().toISOString(),
-    is_active: true
-  };
-  reminders.push(newReminder);
-  await saveReminders(userId, reminders);
-  console.log(`✅ Reminder ditambahkan untuk user ${userId}: ${newReminder.id}`);
-  return newReminder;
-}
-
-async function removeReminder(userId, reminderId) {
-  let reminders = await getReminders(userId);
-  const before = reminders.length;
-  reminders = reminders.filter(r => r.id !== reminderId);
-  if (reminders.length === before) {
-    return false;
-  }
-  await saveReminders(userId, reminders);
-  console.log(`✅ Reminder ${reminderId} dihapus untuk user ${userId}`);
-  return true;
-}
-
-// ============================================================
-// FUNGSI PENGECEKAN REMINDER (DIPANGGIL OLEH CRON & MIDDLEWARE)
-// ============================================================
-async function checkPendingReminders(userId, bot) {
-  try {
-    const reminders = await getReminders(userId);
-    const now = new Date();
-    let changed = false;
-
-    for (const reminder of reminders) {
-      if (!reminder.is_active) continue;
-      const remindAt = new Date(reminder.remind_at);
-      if (remindAt <= now) {
-        // Kirim notifikasi
-        const msg = 
-          `⏰ *Pengingat!*\n\n` +
-          `📝 *${reminder.title || 'Pengingat'}*\n` +
-          `${reminder.message || ''}\n\n` +
-          `📅 *Waktu:* ${new Date(reminder.remind_at).toLocaleString('id-ID')}`;
-
-        await bot.telegram.sendMessage(userId, msg, { parse_mode: 'Markdown' });
-        reminder.is_active = false;
-        changed = true;
-        console.log(`✅ Reminder ${reminder.id} dikirim ke user ${userId}`);
-      }
-    }
-
-    if (changed) {
-      await saveReminders(userId, reminders);
-    }
-  } catch (e) {
-    console.error('❌ Error checking reminders:', e.message);
-  }
-}
-
-// ============================================================
 // BUDGET MANAGEMENT
 // ============================================================
 const BUDGET_LIMIT_KEY = 'catatanku_budget_limit';
@@ -455,40 +367,7 @@ async function generateMonthlyReport(userId, month, year) {
 }
 
 // ============================================================
-// CRON: CEK REMINDER (setiap 1 menit)
-// ============================================================
-app.get('/api/cron/check-reminders', async (req, res) => {
-  const cronSecret = process.env.CRON_SECRET || 'default-secret';
-  if (req.query.secret !== cronSecret) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  console.log('⏰ Cron job: checking reminders...');
-
-  try {
-    const userKeys = await kv.keys('user:*');
-    let totalSent = 0;
-
-    for (const key of userKeys) {
-      const userId = key.replace('user:', '');
-      const userData = await getUser(userId);
-      if (!userData || userData.isActive === false) continue;
-
-      await checkPendingReminders(userId, bot);
-      // Kita tidak tahu berapa yang dikirim, tapi fungsi di atas sudah handle.
-      // Kita bisa hitung ulang dengan melihat reminder yang aktif? Kita skip untuk simpel.
-    }
-
-    console.log(`✅ Cron reminder selesai`);
-    res.json({ success: true });
-  } catch (e) {
-    console.error('❌ Cron reminder error:', e.message);
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// ============================================================
-// CRON: LAPORAN BULANAN (setiap tanggal 1)
+// CRON: LAPORAN BULANAN OTOMATIS (setiap tanggal 1)
 // ============================================================
 app.get('/api/cron/monthly-report', async (req, res) => {
   const cronSecret = process.env.CRON_SECRET || 'default-secret';
@@ -497,6 +376,11 @@ app.get('/api/cron/monthly-report', async (req, res) => {
   }
 
   console.log('📊 Cron job: generating monthly reports...');
+
+  if (!bot) {
+    console.error('❌ Cron: Bot not initialized');
+    return res.status(500).json({ error: 'Bot not initialized' });
+  }
 
   try {
     const userKeys = await kv.keys('user:*');
@@ -579,20 +463,11 @@ if (BOT_TOKEN && Telegraf) {
     bot = new Telegraf(BOT_TOKEN, { handlerTimeout: 90000 });
 
     // ============================================================
-    // MIDDLEWARE: cek login & pending reminders (real-time)
+    // MIDDLEWARE: cek login
     // ============================================================
     bot.use(async (ctx, next) => {
       if (!ctx.from) return next();
       const userId = ctx.from.id.toString();
-
-      // Cek reminder pending (kecuali command /start)
-      if (!ctx.message?.text?.startsWith('/start')) {
-        try {
-          await checkPendingReminders(userId, bot);
-        } catch (e) {
-          console.error('❌ Error checking reminders in middleware:', e.message);
-        }
-      }
 
       if (ctx.message?.text?.startsWith('/start')) {
         return next();
@@ -629,12 +504,6 @@ if (BOT_TOKEN && Telegraf) {
           `➜ \`+20000 makan siang\` → pemasukan Rp 20.000\n` +
           `➜ \`-15000 transport\` → pengeluaran transportasi\n\n` +
           `📸 Kirim *foto struk* untuk scan otomatis!\n\n` +
-          `⏰ *Fitur Pengingat:*\n` +
-          `➜ /remind 1h "Catat pengeluaran" → pengingat 1 jam\n` +
-          `➜ /remind 30m "Bayar tagihan" → pengingat 30 menit\n` +
-          `➜ /remind "2026-12-31 23:59" "Tahun baru" → pengingat tanggal spesifik\n` +
-          `➜ /reminders → lihat daftar pengingat\n` +
-          `➜ /remindcancel <id> → batalkan pengingat\n\n` +
           `💰 /budget 3000000 → set budget bulanan Rp 3.000.000\n` +
           `📊 /report → laporan keuangan bulan ini`,
           {
@@ -656,164 +525,6 @@ if (BOT_TOKEN && Telegraf) {
             ])
           }
         );
-      }
-    });
-
-    // ============================================================
-    // COMMAND: /remind
-    // ============================================================
-    bot.command('remind', async (ctx) => {
-      const userId = ctx.from.id.toString();
-      const text = ctx.message.text;
-      const args = text.replace('/remind', '').trim();
-
-      if (!args) {
-        return ctx.reply(
-          `⏰ *Cara pakai /remind:*\n\n` +
-          `➜ /remind 1h "Catat pengeluaran"\n` +
-          `➜ /remind 30m "Bayar tagihan"\n` +
-          `➜ /remind "2026-12-31 23:59" "Tahun baru"\n\n` +
-          `Satuan waktu: \`s\` (detik), \`m\` (menit), \`h\` (jam), \`d\` (hari)`,
-          { parse_mode: 'Markdown' }
-        );
-      }
-
-      let remindAt = null;
-      let message = '';
-
-      const relMatch = args.match(/^(\d+)([smhd])\s+"([^"]+)"$/);
-      if (relMatch) {
-        const num = parseInt(relMatch[1]);
-        const unit = relMatch[2];
-        const msg = relMatch[3];
-        const now = new Date();
-        let seconds = 0;
-        if (unit === 's') seconds = num;
-        else if (unit === 'm') seconds = num * 60;
-        else if (unit === 'h') seconds = num * 3600;
-        else if (unit === 'd') seconds = num * 86400;
-        remindAt = new Date(now.getTime() + seconds * 1000);
-        message = msg;
-      } else {
-        const absMatch = args.match(/^"([^"]+)"\s+"([^"]+)"$/);
-        if (absMatch) {
-          const dateStr = absMatch[1];
-          const msg = absMatch[2];
-          const d = new Date(dateStr);
-          if (isNaN(d.getTime())) {
-            return ctx.reply('❌ Format tanggal tidak valid. Gunakan: `"YYYY-MM-DD HH:MM"`', { parse_mode: 'Markdown' });
-          }
-          if (d <= new Date()) {
-            return ctx.reply('❌ Tanggal harus di masa depan.');
-          }
-          remindAt = d;
-          message = msg;
-        } else {
-          const simpleMatch = args.match(/^(\d+)([smhd])\s+(.+)$/);
-          if (simpleMatch) {
-            const num = parseInt(simpleMatch[1]);
-            const unit = simpleMatch[2];
-            const msg = simpleMatch[3];
-            const now = new Date();
-            let seconds = 0;
-            if (unit === 's') seconds = num;
-            else if (unit === 'm') seconds = num * 60;
-            else if (unit === 'h') seconds = num * 3600;
-            else if (unit === 'd') seconds = num * 86400;
-            remindAt = new Date(now.getTime() + seconds * 1000);
-            message = msg;
-          } else {
-            return ctx.reply(
-              `❌ Format tidak dikenali.\n\n` +
-              `Contoh:\n` +
-              `/remind 1h "Catat pengeluaran"\n` +
-              `/remind "2026-12-31 23:59" "Tahun baru"`,
-              { parse_mode: 'Markdown' }
-            );
-          }
-        }
-      }
-
-      if (!remindAt || !message) {
-        return ctx.reply('❌ Gagal memproses pengingat. Coba format yang benar.');
-      }
-
-      if (remindAt <= new Date()) {
-        return ctx.reply('❌ Waktu pengingat harus di masa depan.');
-      }
-
-      const reminder = {
-        title: 'Pengingat',
-        message: message,
-        remind_at: remindAt.toISOString()
-      };
-
-      try {
-        const newReminder = await addReminder(userId, reminder);
-        const formattedDate = remindAt.toLocaleString('id-ID');
-        await ctx.reply(
-          `✅ *Pengingat berhasil dibuat!*\n\n` +
-          `📝 *Pesan:* ${message}\n` +
-          `⏰ *Waktu:* ${formattedDate}\n\n` +
-          `🆔 ID: \`${newReminder.id}\``,
-          { parse_mode: 'Markdown' }
-        );
-      } catch (e) {
-        console.error('❌ Error saving reminder:', e.message);
-        await ctx.reply('❌ Gagal menyimpan pengingat. Coba lagi nanti.');
-      }
-    });
-
-    // ============================================================
-    // COMMAND: /reminders
-    // ============================================================
-    bot.command('reminders', async (ctx) => {
-      const userId = ctx.from.id.toString();
-      try {
-        const reminders = await getReminders(userId);
-        const active = reminders.filter(r => r.is_active !== false);
-
-        if (active.length === 0) {
-          return ctx.reply('📭 *Tidak ada pengingat aktif.*', { parse_mode: 'Markdown' });
-        }
-
-        let msg = `⏰ *Daftar Pengingat Aktif:*\n\n`;
-        for (const r of active) {
-          const date = new Date(r.remind_at).toLocaleString('id-ID');
-          msg += `🆔 \`${r.id}\`\n`;
-          msg += `📝 *${r.title || 'Pengingat'}*: ${r.message}\n`;
-          msg += `⏰ ${date}\n\n`;
-        }
-        msg += `Gunakan /remindcancel <id> untuk membatalkan.`;
-
-        await ctx.reply(msg, { parse_mode: 'Markdown' });
-      } catch (e) {
-        console.error('❌ Error getting reminders:', e.message);
-        await ctx.reply('❌ Gagal mengambil daftar pengingat.');
-      }
-    });
-
-    // ============================================================
-    // COMMAND: /remindcancel
-    // ============================================================
-    bot.command('remindcancel', async (ctx) => {
-      const userId = ctx.from.id.toString();
-      const args = ctx.message.text.replace('/remindcancel', '').trim();
-
-      if (!args) {
-        return ctx.reply('❌ Masukkan ID pengingat. Contoh: `/remindcancel abc123`', { parse_mode: 'Markdown' });
-      }
-
-      try {
-        const deleted = await removeReminder(userId, args);
-        if (deleted) {
-          await ctx.reply(`✅ Pengingat dengan ID \`${args}\` berhasil dibatalkan.`, { parse_mode: 'Markdown' });
-        } else {
-          await ctx.reply(`❌ Pengingat dengan ID \`${args}\` tidak ditemukan.`, { parse_mode: 'Markdown' });
-        }
-      } catch (e) {
-        console.error('❌ Error canceling reminder:', e.message);
-        await ctx.reply('❌ Gagal membatalkan pengingat. Pastikan ID benar.');
       }
     });
 
@@ -1468,52 +1179,6 @@ app.get('/api/summary/:userId', async (req, res) => {
   }
 });
 
-app.get('/api/reminders/:userId', async (req, res) => {
-  try {
-    const userId = req.params.userId;
-    const registered = await isUserRegistered(userId);
-    if (!registered) {
-      return res.status(401).json({ error: 'User tidak terdaftar' });
-    }
-    const reminders = await getReminders(userId);
-    res.json(reminders);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-app.post('/api/reminders/:userId', async (req, res) => {
-  try {
-    const userId = req.params.userId;
-    const { reminder } = req.body;
-    if (!reminder || !reminder.remind_at) {
-      return res.status(400).json({ error: 'Data reminder tidak lengkap' });
-    }
-    const registered = await isUserRegistered(userId);
-    if (!registered) {
-      return res.status(401).json({ error: 'User tidak terdaftar' });
-    }
-    const newReminder = await addReminder(userId, reminder);
-    res.json({ success: true, reminder: newReminder });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-app.delete('/api/reminders/:userId/:reminderId', async (req, res) => {
-  try {
-    const { userId, reminderId } = req.params;
-    const registered = await isUserRegistered(userId);
-    if (!registered) {
-      return res.status(401).json({ error: 'User tidak terdaftar' });
-    }
-    const deleted = await removeReminder(userId, reminderId);
-    res.json({ success: deleted });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'ok', 
@@ -1610,7 +1275,6 @@ app.delete('/api/admin/users/:userId', async (req, res) => {
     const userId = req.params.userId;
     await kv.del(`user:${userId}`);
     await kv.del(`transactions:${userId}`);
-    await kv.del(`${REMINDER_KEY}:${userId}`);
     await kv.del(`${BUDGET_LIMIT_KEY}:${userId}`);
     res.json({ success: true });
   } catch (e) {
