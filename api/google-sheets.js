@@ -9,8 +9,13 @@ const { google } = require('googleapis');
  * @returns {Promise<string>} - URL spreadsheet
  */
 async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
-  // Decode credentials dari environment variable
+  console.log('📤 exportToGoogleSheets called for user:', userId);
+  console.log('📊 Jumlah transaksi:', transactions.length);
+  console.log('🔑 spreadsheetId:', spreadsheetId);
+
+  // Ambil credentials dari environment
   const credentialsBase64 = process.env.GOOGLE_SERVICE_ACCOUNT_CREDENTIALS;
+  console.log('🔐 credentialsBase64 exists?', !!credentialsBase64);
   if (!credentialsBase64) {
     throw new Error('GOOGLE_SERVICE_ACCOUNT_CREDENTIALS tidak ditemukan');
   }
@@ -19,7 +24,10 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
   try {
     const jsonStr = Buffer.from(credentialsBase64, 'base64').toString('utf-8');
     credentials = JSON.parse(jsonStr);
+    console.log('✅ Credentials parsed successfully');
+    console.log('📧 client_email:', credentials.client_email);
   } catch (e) {
+    console.error('❌ Gagal memproses kredensial Google:', e.message);
     throw new Error('Gagal memproses kredensial Google: ' + e.message);
   }
 
@@ -31,41 +39,47 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
   const sheets = google.sheets({ version: 'v4', auth });
   const drive = google.drive({ version: 'v3', auth });
 
-  // Nama sheet: "Transaksi [User ID]"
   const sheetName = `Transaksi ${userId}`;
 
-  // Cek apakah sheet dengan nama itu sudah ada, jika tidak buat baru
+  // Cek apakah sheet dengan nama itu sudah ada
   let sheetExists = false;
   try {
     const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
-    const sheetsList = spreadsheet.data.sheets;
+    const sheetsList = spreadsheet.data.sheets || [];
     for (const s of sheetsList) {
-      if (s.properties.title === sheetName) {
+      if (s.properties && s.properties.title === sheetName) {
         sheetExists = true;
         break;
       }
     }
+    console.log(`📄 Sheet "${sheetName}" exists? ${sheetExists}`);
   } catch (e) {
+    console.error('❌ Gagal mengakses spreadsheet:', e.message);
     throw new Error('Gagal mengakses spreadsheet: ' + e.message);
   }
 
   if (!sheetExists) {
-    // Tambahkan sheet baru
-    await sheets.spreadsheets.batchUpdate({
-      spreadsheetId,
-      requestBody: {
-        requests: [
-          {
-            addSheet: {
-              properties: {
-                title: sheetName,
-                gridProperties: { rowCount: 1, columnCount: 6 },
+    try {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          requests: [
+            {
+              addSheet: {
+                properties: {
+                  title: sheetName,
+                  gridProperties: { rowCount: 1, columnCount: 6 },
+                },
               },
             },
-          },
-        ],
-      },
-    });
+          ],
+        },
+      });
+      console.log(`✅ Sheet "${sheetName}" berhasil dibuat`);
+    } catch (e) {
+      console.error('❌ Gagal membuat sheet baru:', e.message);
+      throw new Error('Gagal membuat sheet baru: ' + e.message);
+    }
   }
 
   // Siapkan data
@@ -80,17 +94,25 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
   ]);
 
   const values = [headers, ...rows];
+  console.log(`📝 Data siap: ${values.length} baris`);
 
-  // Tulis data ke sheet (mulai dari cell A1)
-  await sheets.spreadsheets.values.update({
-    spreadsheetId,
-    range: `${sheetName}!A1`,
-    valueInputOption: 'RAW',
-    requestBody: { values },
-  });
+  // Tulis data ke sheet
+  try {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `${sheetName}!A1`,
+      valueInputOption: 'RAW',
+      requestBody: { values },
+    });
+    console.log('✅ Data berhasil ditulis ke sheet');
+  } catch (e) {
+    console.error('❌ Gagal menulis data:', e.message);
+    throw new Error('Gagal menulis data ke sheet: ' + e.message);
+  }
 
-  // Kembalikan URL sheet yang bisa diakses user
-  return `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit#gid=0`;
+  const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit#gid=0`;
+  console.log('🔗 URL:', url);
+  return url;
 }
 
 module.exports = { exportToGoogleSheets };
