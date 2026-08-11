@@ -27,5 +27,11 @@
       "src": "/(.*)",
       "dest": "/public/$1"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/monthly-report",
+      "schedule": "0 0 1 * *"
+    }
   ]
 }
