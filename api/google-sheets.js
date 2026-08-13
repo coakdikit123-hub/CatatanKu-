@@ -31,6 +31,7 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     const sheet = spreadsheet.data.sheets.find(s => s.properties.title === sheetName);
     if (sheet) {
       sheetId = sheet.properties.sheetId;
+      // Kosongkan sheet
       await sheets.spreadsheets.values.clear({
         spreadsheetId,
         range: `${sheetName}!A1:Z1000`,
@@ -68,14 +69,16 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     Number(tx.amount) || 0,
   ]);
 
+  // Ringkasan
   const totalIncome = transactions.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
   const totalExpense = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
   const balance = totalIncome - totalExpense;
 
+  // === Gabungkan data (tanpa baris kosong berlebih) ===
   const dataRows = [
     headers,
     ...rows,
-    [],
+    [], // satu baris kosong sebelum ringkasan
     ['RINGKASAN KEUANGAN'],
     [`Total Pemasukan: Rp ${totalIncome.toLocaleString('id-ID')}`],
     [`Total Pengeluaran: Rp ${totalExpense.toLocaleString('id-ID')}`],
@@ -83,6 +86,7 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     [`Total Transaksi: ${transactions.length}`],
   ];
 
+  // === Tulis data ===
   await sheets.spreadsheets.values.update({
     spreadsheetId,
     range: `${sheetName}!A1`,
@@ -90,7 +94,7 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     requestBody: { values: dataRows },
   });
 
-  // === Formatting ===
+  // === Formatting (dengan struktur yang benar) ===
   const totalDataRows = rows.length;
   const totalCols = headers.length;
   const requests = [];
@@ -109,26 +113,20 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
         userEnteredFormat: {
           textFormat: { bold: true },
           backgroundColor: { red: 0.9, green: 0.9, blue: 0.9 },
-          borders: {
-            bottom: {
-              style: 'SOLID',
-              width: 1,
-              color: { red: 0.7, green: 0.7, blue: 0.7 },
-            },
-          },
         },
       },
-      fields: 'userEnteredFormat(textFormat,backgroundColor,borders)',
+      fields: 'userEnteredFormat.textFormat,userEnteredFormat.backgroundColor',
     },
   });
 
-  // 2. Border semua sel data (header + data)
+  // 2. Border seluruh data (header + data, tanpa ringkasan)
+  const dataEndRow = totalDataRows + 1; // +1 untuk header
   requests.push({
     repeatCell: {
       range: {
         sheetId: sheetId,
         startRowIndex: 0,
-        endRowIndex: totalDataRows + 1,
+        endRowIndex: dataEndRow,
         startColumnIndex: 0,
         endColumnIndex: totalCols,
       },
@@ -146,7 +144,7 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     },
   });
 
-  // 3. Format angka kolom Jumlah
+  // 3. Format angka kolom Jumlah (kolom F, index 5)
   requests.push({
     repeatCell: {
       range: {
@@ -190,14 +188,14 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     });
   }
 
-  // 6. Filter dropdown
+  // 6. Filter dropdown di header
   requests.push({
     addFilterView: {
       filter: {
         range: {
           sheetId: sheetId,
           startRowIndex: 0,
-          endRowIndex: totalDataRows + 1,
+          endRowIndex: dataEndRow,
           startColumnIndex: 0,
           endColumnIndex: totalCols,
         },
@@ -206,7 +204,7 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
   });
 
   // 7. Background ringkasan (light blue)
-  const summaryStartRow = totalDataRows + 2;
+  const summaryStartRow = totalDataRows + 2; // baris kosong
   const summaryEndRow = dataRows.length;
   if (summaryStartRow < summaryEndRow) {
     requests.push({
@@ -247,16 +245,15 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     },
   });
 
-  // Kirim semua request formatting
-  if (requests.length > 0) {
+  if (requests.length) {
     try {
       await sheets.spreadsheets.batchUpdate({
         spreadsheetId,
         requestBody: { requests },
       });
     } catch (err) {
-      console.error('❌ Error formatting sheet:', err.message);
-      // Tidak throw karena data sudah terkirim, hanya formatting yang gagal
+      console.error('❌ Formatting error:', err.message);
+      // Formatting gagal, tapi data tetap tersimpan
     }
   }
 
