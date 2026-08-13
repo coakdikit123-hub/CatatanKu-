@@ -26,13 +26,11 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
   const sheetName = `Transaksi ${userId}`;
   let sheetId = null;
 
-  // Buat atau dapatkan sheet
   try {
     const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
     const sheet = spreadsheet.data.sheets.find(s => s.properties.title === sheetName);
     if (sheet) {
       sheetId = sheet.properties.sheetId;
-      // Kosongkan sheet sebelum menulis ulang
       await sheets.spreadsheets.values.clear({
         spreadsheetId,
         range: `${sheetName}!A1:Z1000`,
@@ -59,9 +57,8 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     throw new Error('Gagal mengakses spreadsheet: ' + e.message);
   }
 
-  // === 1. Siapkan data transaksi ===
+  // === Siapkan data ===
   const headers = ['Tanggal', 'Jenis', 'Kategori', 'Catatan', 'Akun', 'Jumlah (Rp)'];
-
   const rows = transactions.map(tx => [
     tx.date || '-',
     tx.type === 'income' ? 'Pemasukan' : 'Pengeluaran',
@@ -71,17 +68,14 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     Number(tx.amount) || 0,
   ]);
 
-  // === 2. Hitung ringkasan ===
   const totalIncome = transactions.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
   const totalExpense = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
   const balance = totalIncome - totalExpense;
 
-  // === 3. Gabungkan semua data ===
-  // [header, ...rows, [], ['RINGKASAN KEUANGAN'], ['Total Pemasukan: ...'], ...]
   const dataRows = [
     headers,
     ...rows,
-    [], // baris kosong
+    [],
     ['RINGKASAN KEUANGAN'],
     [`Total Pemasukan: Rp ${totalIncome.toLocaleString('id-ID')}`],
     [`Total Pengeluaran: Rp ${totalExpense.toLocaleString('id-ID')}`],
@@ -89,7 +83,6 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     [`Total Transaksi: ${transactions.length}`],
   ];
 
-  // === 4. Tulis data ke sheet ===
   await sheets.spreadsheets.values.update({
     spreadsheetId,
     range: `${sheetName}!A1`,
@@ -97,16 +90,16 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     requestBody: { values: dataRows },
   });
 
-  // === 5. Formatting ===
+  // === Formatting ===
   const totalDataRows = rows.length;
   const totalCols = headers.length;
   const requests = [];
 
-  // 5a. Header: abu-abu terang, bold, border bawah
+  // 1. Header: abu-abu terang, bold, border bawah
   requests.push({
     repeatCell: {
       range: {
-        sheetId,
+        sheetId: sheetId,
         startRowIndex: 0,
         endRowIndex: 1,
         startColumnIndex: 0,
@@ -117,7 +110,11 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
           textFormat: { bold: true },
           backgroundColor: { red: 0.9, green: 0.9, blue: 0.9 },
           borders: {
-            bottom: { style: 'SOLID', width: 1, color: { red: 0.7, green: 0.7, blue: 0.7 } },
+            bottom: {
+              style: 'SOLID',
+              width: 1,
+              color: { red: 0.7, green: 0.7, blue: 0.7 },
+            },
           },
         },
       },
@@ -125,14 +122,13 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     },
   });
 
-  // 5b. Border seluruh area data (header + data, tidak termasuk ringkasan)
-  const dataEndRow = totalDataRows + 1; // +1 untuk header
+  // 2. Border semua sel data (header + data)
   requests.push({
     repeatCell: {
       range: {
-        sheetId,
+        sheetId: sheetId,
         startRowIndex: 0,
-        endRowIndex: dataEndRow,
+        endRowIndex: totalDataRows + 1,
         startColumnIndex: 0,
         endColumnIndex: totalCols,
       },
@@ -150,11 +146,11 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     },
   });
 
-  // 5c. Format angka kolom Jumlah (kolom F, index 5) dengan pemisah ribuan (titik)
+  // 3. Format angka kolom Jumlah
   requests.push({
     repeatCell: {
       range: {
-        sheetId,
+        sheetId: sheetId,
         startRowIndex: 1,
         endRowIndex: totalDataRows + 1,
         startColumnIndex: 5,
@@ -169,23 +165,23 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     },
   });
 
-  // 5d. Freeze header row
+  // 4. Freeze header
   requests.push({
     updateSheetProperties: {
       properties: {
-        sheetId,
+        sheetId: sheetId,
         gridProperties: { frozenRowCount: 1 },
       },
       fields: 'gridProperties.frozenRowCount',
     },
   });
 
-  // 5e. Auto resize kolom A-F
+  // 5. Auto resize kolom
   for (let col = 0; col < totalCols; col++) {
     requests.push({
       autoResizeDimensions: {
         dimensions: {
-          sheetId,
+          sheetId: sheetId,
           dimension: 'COLUMNS',
           startIndex: col,
           endIndex: col + 1,
@@ -194,12 +190,12 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     });
   }
 
-  // 5f. Filter dropdown di header
+  // 6. Filter dropdown
   requests.push({
     addFilterView: {
       filter: {
         range: {
-          sheetId,
+          sheetId: sheetId,
           startRowIndex: 0,
           endRowIndex: totalDataRows + 1,
           startColumnIndex: 0,
@@ -209,14 +205,14 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     },
   });
 
-  // 5g. Background ringkasan (light blue)
-  const summaryStartRow = totalDataRows + 2; // baris kosong setelah data
+  // 7. Background ringkasan (light blue)
+  const summaryStartRow = totalDataRows + 2;
   const summaryEndRow = dataRows.length;
   if (summaryStartRow < summaryEndRow) {
     requests.push({
       repeatCell: {
         range: {
-          sheetId,
+          sheetId: sheetId,
           startRowIndex: summaryStartRow,
           endRowIndex: summaryEndRow,
           startColumnIndex: 0,
@@ -232,11 +228,11 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     });
   }
 
-  // 5h. Bold untuk "RINGKASAN KEUANGAN"
+  // 8. Bold untuk "RINGKASAN KEUANGAN"
   requests.push({
     repeatCell: {
       range: {
-        sheetId,
+        sheetId: sheetId,
         startRowIndex: summaryStartRow,
         endRowIndex: summaryStartRow + 1,
         startColumnIndex: 0,
@@ -251,11 +247,17 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     },
   });
 
-  if (requests.length) {
-    await sheets.spreadsheets.batchUpdate({
-      spreadsheetId,
-      requestBody: { requests },
-    });
+  // Kirim semua request formatting
+  if (requests.length > 0) {
+    try {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: { requests },
+      });
+    } catch (err) {
+      console.error('❌ Error formatting sheet:', err.message);
+      // Tidak throw karena data sudah terkirim, hanya formatting yang gagal
+    }
   }
 
   const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit#gid=${sheetId}`;
