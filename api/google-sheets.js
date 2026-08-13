@@ -2,7 +2,7 @@
 const { google } = require('googleapis');
 
 /**
- * Ekspor transaksi ke Google Sheets dengan format menarik
+ * Ekspor transaksi ke Google Sheets dengan formatting profesional
  * @param {string} userId - ID user
  * @param {Array} transactions - Array transaksi
  * @param {string} spreadsheetId - ID Google Sheet (dari environment)
@@ -11,10 +11,9 @@ const { google } = require('googleapis');
 async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
   console.log('📤 exportToGoogleSheets called for user:', userId);
   console.log('📊 Jumlah transaksi:', transactions.length);
-  console.log('🔑 spreadsheetId:', spreadsheetId);
 
+  // Ambil credentials dari environment
   const credentialsBase64 = process.env.GOOGLE_SERVICE_ACCOUNT_CREDENTIALS;
-  console.log('🔐 credentialsBase64 exists?', !!credentialsBase64);
   if (!credentialsBase64) {
     throw new Error('GOOGLE_SERVICE_ACCOUNT_CREDENTIALS tidak ditemukan');
   }
@@ -23,10 +22,8 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
   try {
     const jsonStr = Buffer.from(credentialsBase64, 'base64').toString('utf-8');
     credentials = JSON.parse(jsonStr);
-    console.log('✅ Credentials parsed successfully');
-    console.log('📧 client_email:', credentials.client_email);
+    console.log('✅ Credentials parsed, client_email:', credentials.client_email);
   } catch (e) {
-    console.error('❌ Gagal memproses kredensial Google:', e.message);
     throw new Error('Gagal memproses kredensial Google: ' + e.message);
   }
 
@@ -36,32 +33,26 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
   });
 
   const sheets = google.sheets({ version: 'v4', auth });
-  const drive = google.drive({ version: 'v3', auth });
 
   const sheetName = `Transaksi ${userId}`;
 
-  // Cek apakah sheet dengan nama itu sudah ada
+  // --- 1. Buat sheet jika belum ada ---
   let sheetExists = false;
-  let sheetId = null;
   try {
     const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
     const sheetsList = spreadsheet.data.sheets || [];
     for (const s of sheetsList) {
       if (s.properties && s.properties.title === sheetName) {
         sheetExists = true;
-        sheetId = s.properties.sheetId;
         break;
       }
     }
-    console.log(`📄 Sheet "${sheetName}" exists? ${sheetExists}`);
   } catch (e) {
-    console.error('❌ Gagal mengakses spreadsheet:', e.message);
     throw new Error('Gagal mengakses spreadsheet: ' + e.message);
   }
 
   if (!sheetExists) {
-    // Tambahkan sheet baru
-    const addSheetResponse = await sheets.spreadsheets.batchUpdate({
+    await sheets.spreadsheets.batchUpdate({
       spreadsheetId,
       requestBody: {
         requests: [
@@ -69,119 +60,69 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
             addSheet: {
               properties: {
                 title: sheetName,
-                gridProperties: { rowCount: 1000, columnCount: 6 },
+                gridProperties: { rowCount: 1, columnCount: 6 },
               },
             },
           },
         ],
       },
     });
-    sheetId = addSheetResponse.data.replies[0].addSheet.properties.sheetId;
-    console.log(`✅ Sheet "${sheetName}" berhasil dibuat dengan ID: ${sheetId}`);
+    console.log(`✅ Sheet "${sheetName}" dibuat`);
   }
 
-  // Siapkan data
-  const headers = ['Tanggal', 'Jenis', 'Kategori', 'Catatan', 'Akun', 'Jumlah'];
+  // --- 2. Siapkan data (angka tanpa format) ---
+  const headers = ['Tanggal', 'Jenis', 'Kategori', 'Catatan', 'Akun', 'Jumlah (Rp)'];
   const rows = transactions.map(tx => [
     tx.date || '-',
     tx.type === 'income' ? 'Pemasukan' : 'Pengeluaran',
     tx.category || '-',
     tx.note || '-',
     tx.account || '-',
-    Number(tx.amount).toLocaleString('id-ID'),
+    Number(tx.amount), // angka murni, nanti akan diformat
   ]);
 
   const values = [headers, ...rows];
-  console.log(`📝 Data siap: ${values.length} baris`);
 
-  // Tulis data ke sheet (mulai dari cell A1)
+  // --- 3. Tulis data ---
   await sheets.spreadsheets.values.update({
     spreadsheetId,
     range: `${sheetName}!A1`,
-    valueInputOption: 'RAW',
+    valueInputOption: 'USER_ENTERED', // agar angka dikenali sebagai angka
     requestBody: { values },
   });
+  console.log(`✅ Data berhasil ditulis (${values.length} baris)`);
 
-  // ---- FORMAT TABEL ----
+  // --- 4. Formatting profesional ---
+  const totalRows = values.length;
+  const totalCols = headers.length;
+
   const requests = [];
 
-  // 1. Format header: bold, background biru tua, teks putih, center align
+  // 4a. Bold & background header (row 1)
   requests.push({
     repeatCell: {
       range: {
-        sheetId: sheetId,
+        sheetId: (await getSheetId(sheets, spreadsheetId, sheetName)),
         startRowIndex: 0,
         endRowIndex: 1,
         startColumnIndex: 0,
-        endColumnIndex: 6,
+        endColumnIndex: totalCols,
       },
       cell: {
         userEnteredFormat: {
-          backgroundColor: { red: 0.2, green: 0.3, blue: 0.6 },
-          textFormat: {
-            bold: true,
-            foregroundColor: { red: 1, green: 1, blue: 1 },
-            fontSize: 12,
-          },
-          horizontalAlignment: 'CENTER',
-          verticalAlignment: 'MIDDLE',
+          textFormat: { bold: true, foregroundColor: { red: 1, green: 1, blue: 1 } },
+          backgroundColor: { red: 0.2, green: 0.4, blue: 0.7 },
         },
       },
-      fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment)',
+      fields: 'userEnteredFormat(textFormat,backgroundColor)',
     },
   });
 
-  // 2. Format body: border, warna sel bergantian, center untuk kolom tertentu
-  const totalRows = values.length;
-  // Border untuk semua sel (kecuali header)
-  requests.push({
-    updateBorders: {
-      range: {
-        sheetId: sheetId,
-        startRowIndex: 0,
-        startColumnIndex: 0,
-        endRowIndex: totalRows,
-        endColumnIndex: 6,
-      },
-      top: { style: 'SOLID', width: 1, color: { red: 0.8, green: 0.8, blue: 0.8 } },
-      bottom: { style: 'SOLID', width: 1, color: { red: 0.8, green: 0.8, blue: 0.8 } },
-      left: { style: 'SOLID', width: 1, color: { red: 0.8, green: 0.8, blue: 0.8 } },
-      right: { style: 'SOLID', width: 1, color: { red: 0.8, green: 0.8, blue: 0.8 } },
-      innerHorizontal: { style: 'SOLID', width: 1, color: { red: 0.9, green: 0.9, blue: 0.9 } },
-      innerVertical: { style: 'SOLID', width: 1, color: { red: 0.9, green: 0.9, blue: 0.9 } },
-    },
-  });
-
-  // 3. Warna baris bergantian (zebra stripes) untuk baris data
-  for (let i = 1; i < totalRows; i++) {
-    const isEven = i % 2 === 0;
-    const backgroundColor = isEven 
-      ? { red: 0.98, green: 0.98, blue: 0.98 } 
-      : { red: 0.93, green: 0.95, blue: 0.97 };
-    requests.push({
-      repeatCell: {
-        range: {
-          sheetId: sheetId,
-          startRowIndex: i,
-          endRowIndex: i + 1,
-          startColumnIndex: 0,
-          endColumnIndex: 6,
-        },
-        cell: {
-          userEnteredFormat: {
-            backgroundColor: backgroundColor,
-          },
-        },
-        fields: 'userEnteredFormat.backgroundColor',
-      },
-    });
-  }
-
-  // 4. Format angka (kolom Jumlah, indeks 5) dengan pemisah ribuan
+  // 4b. Format angka kolom "Jumlah (Rp)" sebagai mata uang (pemisah ribuan)
   requests.push({
     repeatCell: {
       range: {
-        sheetId: sheetId,
+        sheetId: (await getSheetId(sheets, spreadsheetId, sheetName)),
         startRowIndex: 1,
         endRowIndex: totalRows,
         startColumnIndex: 5,
@@ -199,30 +140,91 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     },
   });
 
-  // 5. Auto-resize kolom agar muat konten
+  // 4c. Zebra stripes (warna baris bergantian)
+  for (let i = 1; i < totalRows; i++) {
+    const isEven = i % 2 === 0;
+    const bgColor = isEven
+      ? { red: 0.98, green: 0.98, blue: 1.0 }
+      : { red: 1, green: 1, blue: 1 };
+    requests.push({
+      repeatCell: {
+        range: {
+          sheetId: (await getSheetId(sheets, spreadsheetId, sheetName)),
+          startRowIndex: i,
+          endRowIndex: i + 1,
+          startColumnIndex: 0,
+          endColumnIndex: totalCols,
+        },
+        cell: {
+          userEnteredFormat: { backgroundColor: bgColor },
+        },
+        fields: 'userEnteredFormat.backgroundColor',
+      },
+    });
+  }
+
+  // 4d. Auto resize kolom A-F
+  for (let col = 0; col < totalCols; col++) {
+    requests.push({
+      autoResizeDimensions: {
+        dimensions: {
+          sheetId: (await getSheetId(sheets, spreadsheetId, sheetName)),
+          dimension: 'COLUMNS',
+          startIndex: col,
+          endIndex: col + 1,
+        },
+      },
+    });
+  }
+
+  // 4e. Freeze header row (agar tetap terlihat saat scroll)
   requests.push({
-    autoResizeDimensions: {
-      dimensions: {
-        sheetId: sheetId,
-        dimension: 'COLUMNS',
-        startIndex: 0,
-        endIndex: 6,
+    updateSheetProperties: {
+      properties: {
+        sheetId: (await getSheetId(sheets, spreadsheetId, sheetName)),
+        gridProperties: {
+          frozenRowCount: 1,
+        },
+      },
+      fields: 'gridProperties.frozenRowCount',
+    },
+  });
+
+  // 4f. Tambahkan filter (dropdown di header)
+  requests.push({
+    addFilterView: {
+      filter: {
+        range: {
+          sheetId: (await getSheetId(sheets, spreadsheetId, sheetName)),
+          startRowIndex: 0,
+          endRowIndex: totalRows,
+          startColumnIndex: 0,
+          endColumnIndex: totalCols,
+        },
       },
     },
   });
 
-  // Eksekusi semua permintaan formatting
+  // --- 5. Eksekusi semua permintaan formatting ---
   if (requests.length > 0) {
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId,
       requestBody: { requests },
     });
-    console.log('✅ Pemformatan tabel selesai');
+    console.log('✅ Formatting profesional berhasil diterapkan');
   }
 
-  const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit#gid=${sheetId}`;
+  const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit#gid=0`;
   console.log('🔗 URL:', url);
   return url;
+}
+
+// Helper: dapatkan sheetId dari nama sheet
+async function getSheetId(sheets, spreadsheetId, sheetName) {
+  const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
+  const sheet = spreadsheet.data.sheets.find(s => s.properties.title === sheetName);
+  if (!sheet) throw new Error('Sheet tidak ditemukan');
+  return sheet.properties.sheetId;
 }
 
 module.exports = { exportToGoogleSheets };
