@@ -5,6 +5,7 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
   console.log('📤 Export to Google Sheets for user:', userId);
   console.log('📊 Jumlah transaksi:', transactions.length);
 
+  // Ambil credentials
   const credentialsBase64 = process.env.GOOGLE_SERVICE_ACCOUNT_CREDENTIALS;
   if (!credentialsBase64) throw new Error('GOOGLE_SERVICE_ACCOUNT_CREDENTIALS tidak ditemukan');
 
@@ -23,20 +24,14 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
 
   const sheets = google.sheets({ version: 'v4', auth });
 
+  // Buat sheet jika belum ada
   const sheetName = `Transaksi ${userId}`;
   let sheetId = null;
-
-  // Buat atau dapatkan sheet
   try {
     const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
     const sheet = spreadsheet.data.sheets.find(s => s.properties.title === sheetName);
     if (sheet) {
       sheetId = sheet.properties.sheetId;
-      // Hapus semua data lama untuk refresh
-      await sheets.spreadsheets.values.clear({
-        spreadsheetId,
-        range: `${sheetName}!A1:Z1000`,
-      });
     } else {
       const addRes = await sheets.spreadsheets.batchUpdate({
         spreadsheetId,
@@ -59,10 +54,8 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     throw new Error('Gagal mengakses spreadsheet: ' + e.message);
   }
 
-  // === Siapkan data ===
+  // Siapkan data
   const headers = ['Tanggal', 'Jenis', 'Kategori', 'Catatan', 'Akun', 'Jumlah (Rp)'];
-
-  // Data transaksi
   const rows = transactions.map(tx => [
     tx.date || '-',
     tx.type === 'income' ? 'Pemasukan' : 'Pengeluaran',
@@ -77,33 +70,32 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
   const totalExpense = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
   const balance = totalIncome - totalExpense;
 
-  // === Gabungkan semua data ===
-  // [header, ...rows, [], ['RINGKASAN KEUANGAN'], ['Total Pemasukan: ...'], ...]
-  const dataRows = [
-    headers,
-    ...rows,
-    [], // baris kosong
-    ['RINGKASAN KEUANGAN'],
-    [`Total Pemasukan: Rp ${totalIncome.toLocaleString('id-ID')}`],
-    [`Total Pengeluaran: Rp ${totalExpense.toLocaleString('id-ID')}`],
-    [`Saldo: Rp ${balance.toLocaleString('id-ID')}`],
-    [`Total Transaksi: ${transactions.length}`],
+  const summaryRows = [
+    [],
+    ['📊 RINGKASAN KEUANGAN', '', '', '', '', ''],
+    [`💰 Total Pemasukan: Rp ${totalIncome.toLocaleString('id-ID')}`, '', '', '', '', ''],
+    [`💸 Total Pengeluaran: Rp ${totalExpense.toLocaleString('id-ID')}`, '', '', '', '', ''],
+    [`📈 Saldo: Rp ${balance.toLocaleString('id-ID')}`, '', '', '', '', ''],
+    [`📌 Total Transaksi: ${transactions.length}`, '', '', '', '', ''],
   ];
 
-  // === Tulis data ke sheet ===
+  const allRows = [headers, ...rows, ...summaryRows];
+
+  // Tulis data
   await sheets.spreadsheets.values.update({
     spreadsheetId,
     range: `${sheetName}!A1`,
     valueInputOption: 'USER_ENTERED',
-    requestBody: { values: dataRows },
+    requestBody: { values: allRows },
   });
 
-  // === Formatting ===
-  const totalDataRows = rows.length; // jumlah baris data
+  // Formatting profesional (warna biru, zebra stripes, border, dll.)
+  const totalRows = allRows.length;
   const totalCols = headers.length;
+
   const requests = [];
 
-  // 1. Header: abu-abu terang, bold, border bawah
+  // 1. Header: biru tua, teks putih, bold, border bawah
   requests.push({
     repeatCell: {
       range: {
@@ -115,10 +107,14 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
       },
       cell: {
         userEnteredFormat: {
-          textFormat: { bold: true },
-          backgroundColor: { red: 0.9, green: 0.9, blue: 0.9 },
+          textFormat: { bold: true, foregroundColor: { red: 1, green: 1, blue: 1 } },
+          backgroundColor: { red: 0.15, green: 0.35, blue: 0.65 },
           borders: {
-            bottom: { style: 'SOLID', width: 1, color: { red: 0.7, green: 0.7, blue: 0.7 } },
+            bottom: {
+              style: 'SOLID',
+              width: 1,
+              color: { red: 0.1, green: 0.25, blue: 0.55 },
+            },
           },
         },
       },
@@ -126,15 +122,37 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     },
   });
 
-  // 2. Border untuk seluruh area data (header + data, tidak termasuk ringkasan)
-  // Data berakhir di baris ke-(totalDataRows + 1), karena index dimulai dari 0
-  const dataEndRow = totalDataRows + 1; // +1 karena ada header
+  // 2. Zebra stripes untuk data (baris ganjil putih, genap biru muda)
+  const dataRowCount = rows.length;
+  for (let i = 1; i <= dataRowCount; i++) {
+    const isEven = i % 2 === 0;
+    const bgColor = isEven
+      ? { red: 0.97, green: 0.97, blue: 0.99 }
+      : { red: 1, green: 1, blue: 1 };
+    requests.push({
+      repeatCell: {
+        range: {
+          sheetId,
+          startRowIndex: i,
+          endRowIndex: i + 1,
+          startColumnIndex: 0,
+          endColumnIndex: totalCols,
+        },
+        cell: {
+          userEnteredFormat: { backgroundColor: bgColor },
+        },
+        fields: 'userEnteredFormat.backgroundColor',
+      },
+    });
+  }
+
+  // 3. Border seluruh sel data (termasuk header)
   requests.push({
     repeatCell: {
       range: {
         sheetId,
         startRowIndex: 0,
-        endRowIndex: dataEndRow,
+        endRowIndex: dataRowCount + 1,
         startColumnIndex: 0,
         endColumnIndex: totalCols,
       },
@@ -152,13 +170,13 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     },
   });
 
-  // 3. Format angka kolom Jumlah (kolom F, index 5) dengan pemisah ribuan
+  // 4. Format angka kolom Jumlah (kolom F, index 5)
   requests.push({
     repeatCell: {
       range: {
         sheetId,
         startRowIndex: 1,
-        endRowIndex: totalDataRows + 1,
+        endRowIndex: dataRowCount + 1,
         startColumnIndex: 5,
         endColumnIndex: 6,
       },
@@ -171,7 +189,7 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     },
   });
 
-  // 4. Freeze header
+  // 5. Freeze header
   requests.push({
     updateSheetProperties: {
       properties: {
@@ -182,7 +200,7 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     },
   });
 
-  // 5. Auto resize kolom A-F
+  // 6. Auto resize kolom
   for (let col = 0; col < totalCols; col++) {
     requests.push({
       autoResizeDimensions: {
@@ -196,14 +214,14 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     });
   }
 
-  // 6. Filter dropdown di header
+  // 7. Filter dropdown di header
   requests.push({
     addFilterView: {
       filter: {
         range: {
           sheetId,
           startRowIndex: 0,
-          endRowIndex: totalDataRows + 1,
+          endRowIndex: dataRowCount + 1,
           startColumnIndex: 0,
           endColumnIndex: totalCols,
         },
@@ -211,48 +229,27 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     },
   });
 
-  // 7. Background ringkasan (light blue)
-  const summaryStartRow = totalDataRows + 2; // baris kosong pertama setelah data
-  const summaryEndRow = dataRows.length;
-  if (summaryStartRow < summaryEndRow) {
-    requests.push({
-      repeatCell: {
-        range: {
-          sheetId,
-          startRowIndex: summaryStartRow,
-          endRowIndex: summaryEndRow,
-          startColumnIndex: 0,
-          endColumnIndex: totalCols,
-        },
-        cell: {
-          userEnteredFormat: {
-            backgroundColor: { red: 0.95, green: 0.96, blue: 0.99 },
-          },
-        },
-      },
-      fields: 'userEnteredFormat.backgroundColor',
-    });
-  }
-
-  // 8. Bold untuk "RINGKASAN KEUANGAN"
+  // 8. Background ringkasan (light blue)
+  const summaryStart = dataRowCount + 2;
   requests.push({
     repeatCell: {
       range: {
         sheetId,
-        startRowIndex: summaryStartRow,
-        endRowIndex: summaryStartRow + 1,
+        startRowIndex: summaryStart - 1,
+        endRowIndex: allRows.length,
         startColumnIndex: 0,
-        endColumnIndex: 1,
+        endColumnIndex: totalCols,
       },
       cell: {
         userEnteredFormat: {
-          textFormat: { bold: true },
+          backgroundColor: { red: 0.92, green: 0.94, blue: 0.98 },
         },
       },
-      fields: 'userEnteredFormat.textFormat',
+      fields: 'userEnteredFormat.backgroundColor',
     },
   });
 
+  // Eksekusi formatting
   if (requests.length) {
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId,
