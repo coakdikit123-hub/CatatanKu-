@@ -10,8 +10,6 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     .filter(tx => Number(tx.amount) > 0 && tx.date && tx.date !== '-')
     .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
 
-  console.log('📊 Data bersih:', cleanTransactions.length);
-
   if (cleanTransactions.length === 0) {
     throw new Error('Tidak ada transaksi yang valid untuk diekspor.');
   }
@@ -103,15 +101,15 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
   });
 
   // ============================================================
-  // FORMATTING (dengan fields yang benar)
+  // FORMATTING dengan pendekatan updateCells yang lebih aman
   // ============================================================
   const totalDataRows = rows.length;
   const totalCols = headers.length;
   const requests = [];
 
-  // 1. Header: abu-abu, bold, border bawah
+  // 1. Header: bold, background abu-abu, border bawah
   requests.push({
-    repeatCell: {
+    updateCells: {
       range: {
         sheetId,
         startRowIndex: 0,
@@ -119,27 +117,31 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
         startColumnIndex: 0,
         endColumnIndex: totalCols,
       },
-      cell: {
-        userEnteredFormat: {
-          textFormat: { bold: true },
-          backgroundColor: { red: 0.9, green: 0.9, blue: 0.9 },
-          borders: {
-            bottom: {
-              style: 'SOLID',
-              width: 1,
-              color: { red: 0.7, green: 0.7, blue: 0.7 },
+      rows: [
+        {
+          values: Array(totalCols).fill({
+            userEnteredFormat: {
+              textFormat: { bold: true },
+              backgroundColor: { red: 0.9, green: 0.9, blue: 0.9 },
+              borders: {
+                bottom: {
+                  style: 'SOLID',
+                  width: 1,
+                  color: { red: 0.7, green: 0.7, blue: 0.7 },
+                },
+              },
             },
-          },
+          }),
         },
-      },
-      fields: 'userEnteredFormat.textFormat,userEnteredFormat.backgroundColor,userEnteredFormat.borders',
+      ],
+      fields: 'userEnteredFormat',
     },
   });
 
-  // 2. Border seluruh data (header + data)
+  // 2. Border untuk seluruh data (header + data)
   const dataEndRow = totalDataRows + 1; // +1 untuk header
   requests.push({
-    repeatCell: {
+    updateCells: {
       range: {
         sheetId,
         startRowIndex: 0,
@@ -147,23 +149,27 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
         startColumnIndex: 0,
         endColumnIndex: totalCols,
       },
-      cell: {
-        userEnteredFormat: {
-          borders: {
-            top: { style: 'SOLID', width: 1, color: { red: 0.8, green: 0.8, blue: 0.8 } },
-            bottom: { style: 'SOLID', width: 1, color: { red: 0.8, green: 0.8, blue: 0.8 } },
-            left: { style: 'SOLID', width: 1, color: { red: 0.8, green: 0.8, blue: 0.8 } },
-            right: { style: 'SOLID', width: 1, color: { red: 0.8, green: 0.8, blue: 0.8 } },
-          },
+      rows: [
+        {
+          values: Array(totalCols).fill({
+            userEnteredFormat: {
+              borders: {
+                top: { style: 'SOLID', width: 1, color: { red: 0.8, green: 0.8, blue: 0.8 } },
+                bottom: { style: 'SOLID', width: 1, color: { red: 0.8, green: 0.8, blue: 0.8 } },
+                left: { style: 'SOLID', width: 1, color: { red: 0.8, green: 0.8, blue: 0.8 } },
+                right: { style: 'SOLID', width: 1, color: { red: 0.8, green: 0.8, blue: 0.8 } },
+              },
+            },
+          }),
         },
-      },
+      ],
       fields: 'userEnteredFormat.borders',
     },
   });
 
-  // 3. Format angka kolom Jumlah (kolom F, index 5) dengan pemisah ribuan
+  // 3. Format angka kolom Jumlah (kolom F, index 5) untuk data
   requests.push({
-    repeatCell: {
+    updateCells: {
       range: {
         sheetId,
         startRowIndex: 1,
@@ -171,11 +177,15 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
         startColumnIndex: 5,
         endColumnIndex: 6,
       },
-      cell: {
-        userEnteredFormat: {
-          numberFormat: { type: 'NUMBER', pattern: '#,##0' },
+      rows: [
+        {
+          values: Array(totalDataRows).fill({
+            userEnteredFormat: {
+              numberFormat: { type: 'NUMBER', pattern: '#,##0' },
+            },
+          }),
         },
-      },
+      ],
       fields: 'userEnteredFormat.numberFormat',
     },
   });
@@ -225,7 +235,7 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
   const summaryEndRow = dataRows.length;
   if (summaryStartRow < summaryEndRow) {
     requests.push({
-      repeatCell: {
+      updateCells: {
         range: {
           sheetId,
           startRowIndex: summaryStartRow,
@@ -233,19 +243,23 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
           startColumnIndex: 0,
           endColumnIndex: totalCols,
         },
-        cell: {
-          userEnteredFormat: {
-            backgroundColor: { red: 0.95, green: 0.96, blue: 0.99 },
+        rows: [
+          {
+            values: Array(totalCols).fill({
+              userEnteredFormat: {
+                backgroundColor: { red: 0.95, green: 0.96, blue: 0.99 },
+              },
+            }),
           },
-        },
+        ],
+        fields: 'userEnteredFormat.backgroundColor',
       },
-      fields: 'userEnteredFormat.backgroundColor',
     });
   }
 
   // 8. Bold untuk "RINGKASAN KEUANGAN"
   requests.push({
-    repeatCell: {
+    updateCells: {
       range: {
         sheetId,
         startRowIndex: summaryStartRow,
@@ -253,20 +267,25 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
         startColumnIndex: 0,
         endColumnIndex: 1,
       },
-      cell: {
-        userEnteredFormat: {
-          textFormat: { bold: true },
+      rows: [
+        {
+          values: [{ userEnteredFormat: { textFormat: { bold: true } } }],
         },
-      },
+      ],
       fields: 'userEnteredFormat.textFormat',
     },
   });
 
   if (requests.length) {
-    await sheets.spreadsheets.batchUpdate({
-      spreadsheetId,
-      requestBody: { requests },
-    });
+    try {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: { requests },
+      });
+    } catch (err) {
+      console.error('❌ Error formatting:', err.message);
+      // Tetap lanjutkan, data tetap tersimpan
+    }
   }
 
   const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit#gid=${sheetId}`;
