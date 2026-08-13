@@ -52,7 +52,7 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     throw new Error('Gagal mengakses spreadsheet: ' + e.message);
   }
 
-  // Data
+  // Siapkan data transaksi
   const headers = ['Tanggal', 'Jenis', 'Kategori', 'Catatan', 'Akun', 'Jumlah (Rp)'];
   const rows = transactions.map(tx => [
     tx.date || '-',
@@ -63,13 +63,14 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     Number(tx.amount) || 0,
   ]);
 
-  // Ringkasan (tanpa duplikasi)
+  // Hitung total (untuk ringkasan)
   const totalIncome = transactions.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
   const totalExpense = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
   const balance = totalIncome - totalExpense;
 
+  // Baris ringkasan (tanpa duplikasi)
   const summaryRows = [
-    [],
+    [], // baris kosong
     ['RINGKASAN KEUANGAN', '', '', '', '', ''],
     [`Total Pemasukan: Rp ${totalIncome.toLocaleString('id-ID')}`, '', '', '', '', ''],
     [`Total Pengeluaran: Rp ${totalExpense.toLocaleString('id-ID')}`, '', '', '', '', ''],
@@ -79,6 +80,7 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
 
   const allRows = [headers, ...rows, ...summaryRows];
 
+  // Tulis data ke sheet
   await sheets.spreadsheets.values.update({
     spreadsheetId,
     range: `${sheetName}!A1`,
@@ -86,12 +88,12 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     requestBody: { values: allRows },
   });
 
-  // Formatting
+  // --- Formatting profesional ---
   const totalDataRows = rows.length;
   const totalCols = headers.length;
   const requests = [];
 
-  // 1. Header: biru tua, teks putih, bold, border bawah
+  // 1. Header: biru tua, teks putih bold, border bawah
   requests.push({
     repeatCell: {
       range: {
@@ -114,7 +116,7 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     },
   });
 
-  // 2. Zebra stripes untuk data (putih dan biru muda)
+  // 2. Zebra stripes untuk data (putih dan biru muda bergantian)
   for (let i = 1; i <= totalDataRows; i++) {
     const isEven = i % 2 === 0;
     const bgColor = isEven
@@ -162,7 +164,7 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     },
   });
 
-  // 4. Format angka kolom Jumlah (pemisah ribuan)
+  // 4. Format angka kolom Jumlah (kolom F, index 5) dengan pemisah ribuan
   requests.push({
     repeatCell: {
       range: {
@@ -181,7 +183,7 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     },
   });
 
-  // 5. Freeze header
+  // 5. Freeze header row
   requests.push({
     updateSheetProperties: {
       properties: {
@@ -192,7 +194,7 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     },
   });
 
-  // 6. Auto resize kolom
+  // 6. Auto resize semua kolom (A–F)
   for (let col = 0; col < totalCols; col++) {
     requests.push({
       autoResizeDimensions: {
@@ -241,7 +243,7 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     },
   });
 
-  // 9. Bold untuk "RINGKASAN KEUANGAN"
+  // 9. Bold untuk baris "RINGKASAN KEUANGAN"
   requests.push({
     repeatCell: {
       range: {
@@ -260,6 +262,7 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     },
   });
 
+  // Eksekusi semua formatting
   if (requests.length) {
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId,
