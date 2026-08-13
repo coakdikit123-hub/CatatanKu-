@@ -165,9 +165,9 @@
         }
 
         /* ============================================================
-               GOOGLE EXPORT ICON BUTTON (IKON SAJA)
+               EKSPOR ICON BUTTON
             ============================================================ */
-        .google-export-icon {
+        .export-icon-btn {
             width: 40px !important;
             height: 40px !important;
             border-radius: 50% !important;
@@ -182,21 +182,14 @@
             color: var(--text-2);
             flex-shrink: 0;
         }
-        .google-export-icon:hover {
+        .export-icon-btn:hover {
             background: var(--surface-3);
             border-color: var(--border-hover);
             transform: scale(1.05);
+            color: var(--accent);
         }
-        .google-export-icon .google-icon-sm {
-            font-size: 18px;
-            font-weight: 700;
-            letter-spacing: -0.5px;
-            display: flex;
-            align-items: center;
-            gap: 0px;
-        }
-        .google-export-icon .google-icon-sm span {
-            display: inline-block;
+        .export-icon-btn .material-symbols-outlined {
+            font-size: 22px;
         }
 
         /* ============================================================
@@ -2467,7 +2460,7 @@
     </div>
 
     <!-- ============================================================
-    PAGE: HISTORY (dengan tombol Google ikon saja)
+    PAGE: HISTORY (dengan tombol ekspor ikon)
     ============================================================ -->
     <div id="page-history" class="page">
         <header class="app-header">
@@ -2476,16 +2469,9 @@
                 <h1>Riwayat</h1>
             </div>
             <div class="actions">
-                <!-- === TOMBOL EKSPOR GOOGLE SHEETS - IKON SAJA === -->
-                <button class="google-export-icon" onclick="exportToSheets()" title="Ekspor ke Google Sheets">
-                    <span class="google-icon-sm">
-                        <span style="color:#4285F4;">G</span>
-                        <span style="color:#EA4335;">o</span>
-                        <span style="color:#FBBC05;">o</span>
-                        <span style="color:#4285F4;">g</span>
-                        <span style="color:#34A853;">l</span>
-                        <span style="color:#EA4335;">e</span>
-                    </span>
+                <!-- === TOMBOL EKSPOR KE GOOGLE SHEETS (IKON EKSPOR) === -->
+                <button class="export-icon-btn" onclick="exportToSheets()" title="Ekspor ke Google Sheets">
+                    <span class="material-symbols-outlined">file_download</span>
                 </button>
                 <button class="icon-btn" onclick="clearAllData()" title="Hapus semua">
                     <span class="material-symbols-outlined" style="color:var(--expense);">delete</span>
