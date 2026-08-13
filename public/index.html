@@ -165,39 +165,29 @@
         }
 
         /* ============================================================
-               GOOGLE EXPORT BUTTON (TAMBAHAN BARU)
+               GOOGLE EXPORT ICON BUTTON (IKON SAJA)
             ============================================================ */
-        .btn-google-export {
+        .google-export-icon {
+            width: 40px !important;
+            height: 40px !important;
+            border-radius: 50% !important;
+            background: var(--surface-2);
+            border: 1.5px solid var(--border);
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 10px 18px;
-            border-radius: var(--radius-sm);
-            border: 1.5px solid rgba(66, 133, 244, 0.25);
-            background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
-            color: #3c4043;
-            font-weight: 600;
-            font-size: 13px;
+            justify-content: center;
+            transition: all 0.2s;
             cursor: pointer;
-            transition: all 0.25s ease;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-            font-family: 'Inter', sans-serif;
-            text-decoration: none;
-            white-space: nowrap;
+            padding: 0;
+            color: var(--text-2);
+            flex-shrink: 0;
         }
-
-        .btn-google-export:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 16px rgba(66, 133, 244, 0.20);
-            border-color: rgba(66, 133, 244, 0.40);
-            background: #ffffff;
+        .google-export-icon:hover {
+            background: var(--surface-3);
+            border-color: var(--border-hover);
+            transform: scale(1.05);
         }
-
-        .btn-google-export:active {
-            transform: scale(0.96);
-        }
-
-        .btn-google-export .google-icon {
+        .google-export-icon .google-icon-sm {
             font-size: 18px;
             font-weight: 700;
             letter-spacing: -0.5px;
@@ -205,38 +195,8 @@
             align-items: center;
             gap: 0px;
         }
-
-        .btn-google-export .google-icon span {
+        .google-export-icon .google-icon-sm span {
             display: inline-block;
-            transition: transform 0.15s;
-        }
-
-        .btn-google-export:hover .google-icon span {
-            transform: scale(1.05);
-        }
-
-        /* Dark mode adjustment */
-        @media (prefers-color-scheme: dark) {
-            .btn-google-export {
-                background: var(--surface-2);
-                color: var(--text-1);
-                border-color: var(--border);
-            }
-            .btn-google-export:hover {
-                background: var(--surface-3);
-                border-color: var(--border-hover);
-                box-shadow: 0 4px 16px rgba(66, 133, 244, 0.15);
-            }
-        }
-
-        @media (max-width: 480px) {
-            .btn-google-export {
-                padding: 8px 14px;
-                font-size: 12px;
-            }
-            .btn-google-export .google-icon {
-                font-size: 16px;
-            }
         }
 
         /* ============================================================
@@ -2507,7 +2467,7 @@
     </div>
 
     <!-- ============================================================
-    PAGE: HISTORY (dengan tombol Google yang lebih menarik)
+    PAGE: HISTORY (dengan tombol Google ikon saja)
     ============================================================ -->
     <div id="page-history" class="page">
         <header class="app-header">
@@ -2516,9 +2476,9 @@
                 <h1>Riwayat</h1>
             </div>
             <div class="actions">
-                <!-- === TOMBOL EKSPOR GOOGLE SHEETS - LEBIH MENARIK === -->
-                <button class="btn-google-export" onclick="exportToSheets()">
-                    <span class="google-icon">
+                <!-- === TOMBOL EKSPOR GOOGLE SHEETS - IKON SAJA === -->
+                <button class="google-export-icon" onclick="exportToSheets()" title="Ekspor ke Google Sheets">
+                    <span class="google-icon-sm">
                         <span style="color:#4285F4;">G</span>
                         <span style="color:#EA4335;">o</span>
                         <span style="color:#FBBC05;">o</span>
@@ -2526,7 +2486,6 @@
                         <span style="color:#34A853;">l</span>
                         <span style="color:#EA4335;">e</span>
                     </span>
-                    <span>Ekspor ke Sheets</span>
                 </button>
                 <button class="icon-btn" onclick="clearAllData()" title="Hapus semua">
                     <span class="material-symbols-outlined" style="color:var(--expense);">delete</span>
