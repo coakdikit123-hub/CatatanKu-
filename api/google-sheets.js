@@ -2,17 +2,13 @@
 const { google } = require('googleapis');
 
 /**
- * Ekspor transaksi ke Google Sheets dengan formatting profesional + summary
- * @param {string} userId - ID user
- * @param {Array} transactions - Array transaksi
- * @param {string} spreadsheetId - ID Google Sheet (dari environment)
- * @returns {Promise<string>} - URL spreadsheet
+ * Ekspor transaksi ke Google Sheets dengan format profesional + summary
  */
 async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
-  console.log('📤 exportToGoogleSheets called for user:', userId);
-  console.log('📊 Jumlah transaksi:', transactions.length);
+  console.log(`📤 Export to Google Sheets for user: ${userId}`);
+  console.log(`📊 Transactions: ${transactions.length}`);
 
-  // Ambil credentials dari environment
+  // 1. Load credentials
   const credentialsBase64 = process.env.GOOGLE_SERVICE_ACCOUNT_CREDENTIALS;
   if (!credentialsBase64) {
     throw new Error('GOOGLE_SERVICE_ACCOUNT_CREDENTIALS tidak ditemukan');
@@ -22,7 +18,6 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
   try {
     const jsonStr = Buffer.from(credentialsBase64, 'base64').toString('utf-8');
     credentials = JSON.parse(jsonStr);
-    console.log('✅ Credentials parsed, client_email:', credentials.client_email);
   } catch (e) {
     throw new Error('Gagal memproses kredensial Google: ' + e.message);
   }
@@ -36,7 +31,8 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
 
   const sheetName = `Transaksi ${userId}`;
 
-  // --- 1. Buat sheet jika belum ada ---
+  // --- 2. Cek / buat sheet ---
+  let sheetId = null;
   let sheetExists = false;
   try {
     const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
@@ -44,6 +40,7 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     for (const s of sheetsList) {
       if (s.properties && s.properties.title === sheetName) {
         sheetExists = true;
+        sheetId = s.properties.sheetId;
         break;
       }
     }
@@ -52,7 +49,8 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
   }
 
   if (!sheetExists) {
-    await sheets.spreadsheets.batchUpdate({
+    // Buat sheet baru
+    const addSheetRes = await sheets.spreadsheets.batchUpdate({
       spreadsheetId,
       requestBody: {
         requests: [
@@ -60,17 +58,50 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
             addSheet: {
               properties: {
                 title: sheetName,
-                gridProperties: { rowCount: 1, columnCount: 6 },
+                gridProperties: { rowCount: 1, columnCount: 10 },
               },
             },
           },
         ],
       },
     });
-    console.log(`✅ Sheet "${sheetName}" dibuat`);
+    sheetId = addSheetRes.data.replies[0].addSheet.properties.sheetId;
+    console.log(`✅ Sheet "${sheetName}" dibuat dengan ID: ${sheetId}`);
   }
 
-  // --- 2. Siapkan data transaksi ---
+  // --- 3. Clear seluruh sheet (agar data selalu fresh) ---
+  if (sheetId !== null) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [
+          {
+            updateCells: {
+              range: {
+                sheetId: sheetId,
+                startRowIndex: 0,
+                startColumnIndex: 0,
+              },
+              fields: '*',
+            },
+          },
+        ],
+      },
+    });
+    console.log('🧹 Sheet cleared');
+  }
+
+  // --- 4. Siapkan data ---
+  // Hitung total
+  const totalIncome = transactions
+    .filter(t => t.type === 'income')
+    .reduce((sum, t) => sum + Number(t.amount), 0);
+  const totalExpense = transactions
+    .filter(t => t.type === 'expense')
+    .reduce((sum, t) => sum + Number(t.amount), 0);
+  const balance = totalIncome - totalExpense;
+
+  // Header + data
   const headers = ['Tanggal', 'Jenis', 'Kategori', 'Catatan', 'Akun', 'Jumlah (Rp)'];
   const rows = transactions.map(tx => [
     tx.date || '-',
@@ -81,70 +112,92 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     Number(tx.amount),
   ]);
 
-  // --- 3. Hitung summary ---
-  const totalIncome = transactions.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
-  const totalExpense = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
-  const balance = totalIncome - totalExpense;
-  const totalTx = transactions.length;
+  // --- 5. Susun tabel utama + summary ---
+  // Kita akan letakkan summary di baris pertama (3 baris), lalu data di bawahnya
+  const summaryRows = [
+    ['📊 LAPORAN KEUANGAN', '', '', '', '', ''],
+    ['Total Pemasukan', totalIncome, '', '', '', ''],
+    ['Total Pengeluaran', totalExpense, '', '', '', ''],
+    ['Saldo', balance, '', '', '', ''],
+    ['Total Transaksi', transactions.length, '', '', '', ''],
+    [], // baris kosong
+  ];
 
-  // Kategori terbanyak (pengeluaran)
-  const catMap = {};
-  transactions.filter(t => t.type === 'expense').forEach(t => {
-    const cat = t.category || 'other';
-    catMap[cat] = (catMap[cat] || 0) + Number(t.amount);
-  });
-  let topCategory = null;
-  let topAmount = 0;
-  for (const [cat, amt] of Object.entries(catMap)) {
-    if (amt > topAmount) { topAmount = amt; topCategory = cat; }
-  }
-  const topCategoryLabel = topCategory ? (CATEGORY_LABELS?.[topCategory] || topCategory) : '—';
+  // Gabungkan summary + header + data
+  const allValues = [
+    ...summaryRows,
+    headers,
+    ...rows,
+  ];
 
-  // Budget (ambil dari environment atau default)
-  const budget = 2000000; // default, bisa diambil dari database jika ada
-
-  // --- 4. Gabungkan data transaksi + summary rows ---
-  const allRows = [...rows];
-  // Tambahkan 1 baris kosong setelah data
-  allRows.push(['', '', '', '', '', '']);
-  // Summary header
-  allRows.push(['📊 RINGKASAN KEUANGAN', '', '', '', '', '']);
-  allRows.push(['Total Pemasukan', '', '', '', '', totalIncome]);
-  allRows.push(['Total Pengeluaran', '', '', '', '', totalExpense]);
-  allRows.push(['Saldo', '', '', '', '', balance]);
-  allRows.push(['Jumlah Transaksi', '', '', '', '', totalTx]);
-  allRows.push(['Kategori Terbanyak', '', '', '', '', topCategoryLabel + (topAmount > 0 ? ` (Rp ${topAmount.toLocaleString('id-ID')})` : '')]);
-  allRows.push(['Budget Bulanan', '', '', '', '', budget]);
-  allRows.push(['Sisa Budget', '', '', '', '', budget - totalExpense]);
-
-  // --- 5. Tulis data ---
-  const values = [headers, ...allRows];
+  // Tulis data dari A1
   await sheets.spreadsheets.values.update({
     spreadsheetId,
     range: `${sheetName}!A1`,
     valueInputOption: 'USER_ENTERED',
-    requestBody: { values },
+    requestBody: { values: allValues },
   });
-  console.log(`✅ Data berhasil ditulis (${values.length} baris)`);
+  console.log(`✅ Data ditulis: ${allValues.length} baris`);
 
-  // --- 6. Dapatkan sheetId ---
-  const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
-  const sheet = spreadsheet.data.sheets.find(s => s.properties.title === sheetName);
-  if (!sheet) throw new Error('Sheet tidak ditemukan');
-  const sheetId = sheet.properties.sheetId;
-
-  const totalRows = values.length;
+  // --- 6. Formatting profesional ---
+  const totalRows = allValues.length;
   const totalCols = headers.length;
 
   const requests = [];
 
-  // 6a. Bold & background header
+  // Helper ambil sheetId
+  const getSheetId = async () => {
+    if (sheetId !== null) return sheetId;
+    const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
+    const sheet = spreadsheet.data.sheets.find(s => s.properties.title === sheetName);
+    if (!sheet) throw new Error('Sheet tidak ditemukan');
+    return sheet.properties.sheetId;
+  };
+
+  const sid = await getSheetId();
+
+  // 6a. Bold & background untuk baris summary (0-5)
+  for (let i = 0; i < 5; i++) {
+    const isHeaderRow = (i === 0);
+    const bgColor = isHeaderRow
+      ? { red: 0.2, green: 0.4, blue: 0.7 }
+      : { red: 0.95, green: 0.95, blue: 0.95 };
+    const textColor = isHeaderRow
+      ? { red: 1, green: 1, blue: 1 }
+      : { red: 0, green: 0, blue: 0 };
+    const isBold = isHeaderRow;
+
+    requests.push({
+      repeatCell: {
+        range: {
+          sheetId: sid,
+          startRowIndex: i,
+          endRowIndex: i + 1,
+          startColumnIndex: 0,
+          endColumnIndex: totalCols,
+        },
+        cell: {
+          userEnteredFormat: {
+            textFormat: {
+              bold: isBold,
+              foregroundColor: textColor,
+            },
+            backgroundColor: bgColor,
+          },
+        },
+        fields: 'userEnteredFormat(textFormat,backgroundColor)',
+      },
+    });
+  }
+
+  // 6b. Header data (baris ke-6) = bold + bg biru
+  const headerRowIndex = 6; // karena 5 baris summary + 1 baris kosong
   requests.push({
     repeatCell: {
       range: {
-        sheetId,
-        startRowIndex: 0,
-        endRowIndex: 1,
+        sheetId: sid,
+        startRowIndex: headerRowIndex,
+        endRowIndex: headerRowIndex + 1,
         startColumnIndex: 0,
         endColumnIndex: totalCols,
       },
@@ -158,12 +211,12 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     },
   });
 
-  // 6b. Format angka di kolom Jumlah (Rp) untuk seluruh baris (termasuk summary)
+  // 6c. Format angka kolom "Jumlah (Rp)" untuk semua data (mulai dari baris 7)
   requests.push({
     repeatCell: {
       range: {
-        sheetId,
-        startRowIndex: 1,
+        sheetId: sid,
+        startRowIndex: headerRowIndex + 1,
         endRowIndex: totalRows,
         startColumnIndex: 5,
         endColumnIndex: 6,
@@ -180,18 +233,16 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     },
   });
 
-  // 6c. Zebra stripes untuk data transaksi saja (baris 1 sampai totalRows - summary)
-  // Summary dimulai setelah baris data + 1 kosong
-  const dataEndRow = rows.length + 1; // index 0-based, jadi baris terakhir data = rows.length
-  for (let i = 1; i <= rows.length; i++) {
-    const isEven = i % 2 === 0;
+  // 6d. Zebra stripes untuk data (baris 7 - end)
+  for (let i = headerRowIndex + 1; i < totalRows; i++) {
+    const isEven = (i - headerRowIndex) % 2 === 0;
     const bgColor = isEven
       ? { red: 0.98, green: 0.98, blue: 1.0 }
       : { red: 1, green: 1, blue: 1 };
     requests.push({
       repeatCell: {
         range: {
-          sheetId,
+          sheetId: sid,
           startRowIndex: i,
           endRowIndex: i + 1,
           startColumnIndex: 0,
@@ -205,54 +256,12 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     });
   }
 
-  // 6d. Format summary rows (tebal untuk label, background abu-abu muda)
-  const summaryStartRow = rows.length + 2; // setelah data + 1 baris kosong
-  const summaryEndRow = totalRows;
-
-  // Background abu-abu muda untuk seluruh baris summary
-  for (let i = summaryStartRow; i < summaryEndRow; i++) {
-    requests.push({
-      repeatCell: {
-        range: {
-          sheetId,
-          startRowIndex: i,
-          endRowIndex: i + 1,
-          startColumnIndex: 0,
-          endColumnIndex: totalCols,
-        },
-        cell: {
-          userEnteredFormat: { backgroundColor: { red: 0.95, green: 0.95, blue: 0.95 } },
-        },
-        fields: 'userEnteredFormat.backgroundColor',
-      },
-    });
-  }
-
-  // 6e. Bold untuk label summary (kolom A)
-  requests.push({
-    repeatCell: {
-      range: {
-        sheetId,
-        startRowIndex: summaryStartRow,
-        endRowIndex: summaryEndRow,
-        startColumnIndex: 0,
-        endColumnIndex: 1,
-      },
-      cell: {
-        userEnteredFormat: {
-          textFormat: { bold: true },
-        },
-      },
-      fields: 'userEnteredFormat.textFormat.bold',
-    },
-  });
-
-  // 6f. Auto resize kolom A-F
+  // 6e. Auto resize kolom A-F
   for (let col = 0; col < totalCols; col++) {
     requests.push({
       autoResizeDimensions: {
         dimensions: {
-          sheetId,
+          sheetId: sid,
           dimension: 'COLUMNS',
           startIndex: col,
           endIndex: col + 1,
@@ -261,27 +270,27 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     });
   }
 
-  // 6g. Freeze header
+  // 6f. Freeze header data (baris ke-6)
   requests.push({
     updateSheetProperties: {
       properties: {
-        sheetId,
+        sheetId: sid,
         gridProperties: {
-          frozenRowCount: 1,
+          frozenRowCount: headerRowIndex + 1, // freeze sampai header data
         },
       },
       fields: 'gridProperties.frozenRowCount',
     },
   });
 
-  // 6h. Tambahkan filter
+  // 6g. Filter di header data
   requests.push({
     addFilterView: {
       filter: {
         range: {
-          sheetId,
-          startRowIndex: 0,
-          endRowIndex: rows.length + 1, // sampai data terakhir
+          sheetId: sid,
+          startRowIndex: headerRowIndex,
+          endRowIndex: totalRows,
           startColumnIndex: 0,
           endColumnIndex: totalCols,
         },
@@ -289,30 +298,18 @@ async function exportToGoogleSheets(userId, transactions, spreadsheetId) {
     },
   });
 
-  // --- 7. Eksekusi semua permintaan formatting ---
+  // --- 7. Eksekusi formatting ---
   if (requests.length > 0) {
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId,
       requestBody: { requests },
     });
-    console.log('✅ Formatting profesional selesai');
+    console.log('✅ Formatting diterapkan');
   }
 
-  const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit#gid=0`;
+  const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit#gid=${sid}`;
   console.log('🔗 URL:', url);
   return url;
 }
-
-// Map label kategori (jika tidak ada, gunakan nama asli)
-const CATEGORY_LABELS = {
-  dining: 'Makan',
-  shopping: 'Belanja',
-  transport: 'Transportasi',
-  bills: 'Tagihan',
-  fun: 'Hiburan',
-  health: 'Kesehatan',
-  gift: 'Hadiah',
-  other: 'Lainnya'
-};
 
 module.exports = { exportToGoogleSheets };
