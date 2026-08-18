@@ -28,7 +28,11 @@ async function parsePdfTransactions(buffer, getCategoryId) {
     throw new Error('GEMINI_API_KEY tidak ditemukan di environment variables.');
   }
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+  
+  // ============================================================
+  // PERBAIKAN: Gunakan model gemini-3.6-flash
+  // ============================================================
+  const model = genAI.getGenerativeModel({ model: 'gemini-3.6-flash' });
 
   const prompt = `
 Anda adalah AI yang membaca laporan keuangan dari bank (seperti MyBCA, BNI, Mandiri, dll). Dari teks di bawah ini, ekstrak semua transaksi. Setiap transaksi memiliki:
@@ -49,7 +53,16 @@ Kembalikan dalam format JSON array, setiap elemen memiliki field: date (string),
 Hanya JSON, tidak ada teks lain.
 `;
 
-  const result = await model.generateContent(prompt);
+  let result;
+  try {
+    result = await model.generateContent(prompt);
+  } catch (e) {
+    // Jika model gemini-3.6-flash gagal, coba fallback ke gemini-1.5-flash
+    console.warn('⚠️ Model gemini-3.6-flash gagal, mencoba fallback ke gemini-1.5-flash');
+    const fallbackModel = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    result = await fallbackModel.generateContent(prompt);
+  }
+
   const responseText = result.response.text();
 
   // Bersihkan response (kemungkinan ada markdown)
@@ -83,7 +96,8 @@ Hanya JSON, tidak ada teks lain.
       date: item.date || new Date().toISOString().slice(0, 10),
       account: 'Bank Import',
       note: item.description || 'Transaksi Bank',
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      user_id: null // akan diisi di endpoint
     };
   });
 
