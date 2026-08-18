@@ -520,12 +520,12 @@ if (BOT_TOKEN && Telegraf) {
 
       if (registered) {
         await ctx.reply(
-          `*Halo! Selamat datang kembali di CatatanKu!*\n\n` +
-    `*Cara pakai:*\n` +
+          `👋*Halo! Selamat datang kembali di CatatanKu!*\n\n` +
+    `📝 *Cara pakai:*\n` +
     `➜ \`-5000\` → pengeluaran Rp 5.000\n` +
     `➜ \`+20000 makan siang\` → pemasukan Rp 20.000\n` +
     `➜ \`-15000 transport\` → pengeluaran transportasi\n\n` +
-    `*Fitur Lainya:*\n` +
+    `🔗*Fitur Lainya:*\n` +
     `💰 /budget 3000000 → set budget bulanan Rp 3.000.000\n` +
     `📊 /report → laporan keuangan bulan ini\n\n` +
     `📸 Kirim *foto struk* untuk scan otomatis!`,
