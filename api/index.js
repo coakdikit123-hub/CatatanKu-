@@ -525,9 +525,10 @@ if (BOT_TOKEN && Telegraf) {
           `➜ \`-5000\` → pengeluaran Rp 5.000\n` +
           `➜ \`+20000 makan siang\` → pemasukan Rp 20.000\n` +
           `➜ \`-15000 transport\` → pengeluaran transportasi\n\n` +
-          `📸 Kirim *foto struk* untuk scan otomatis!\n\n` +
+          `🔗 *Fitur Lainya:*\n` +
           `💰 /budget 3000000 → set budget bulanan Rp 3.000.000\n` +
-          `📊 /report → laporan keuangan bulan ini`,
+          `📊 /report → laporan keuangan bulan ini\n\n`,
+          `📸 Kirim *foto struk* untuk scan otomatis!`,
           {
             parse_mode: 'Markdown',
             reply_markup: miniAppKeyboard([
