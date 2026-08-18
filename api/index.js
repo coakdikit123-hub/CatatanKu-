@@ -600,18 +600,18 @@ if (BOT_TOKEN && Telegraf) {
 
       if (registered) {
         await ctx.reply(
-          `👋 *Halo! Selamat datang kembali di CatatanKu!*\n\n` +
-          `📝 *Cara pakai:*\n` +
-          `➜ \`-5000\` → pengeluaran Rp 5.000\n` +
-          `➜ \`+20000 makan siang\` → pemasukan Rp 20.000\n` +
-          `➜ \`-15000 transport\` → pengeluaran transportasi\n\n` +
-          `🏷️ *Fitur Kategori Kustom:*\n` +
-          `➜ /addcategory "Investasi" → tambah kategori\n` +
-          `➜ /listcategories → lihat semua kategori\n` +
-          `➜ /removecategory "Investasi" → hapus kategori\n\n` +
-          `💰 /budget 3000000 → set budget bulanan Rp 3.000.000\n` +
-          `📊 /report → laporan keuangan bulan ini\n\n` +
-          `📸 Kirim *foto struk* untuk scan otomatis!`
+            `👋 *Halo! Selamat datang kembali di CatatanKu!*\n\n` +
+            `📝 *Cara pakai:*\n` +
+            `➜ \`-5000\` → pengeluaran Rp 5.000\n` +
+            `➜ \`+20000 makan siang\` → pemasukan Rp 20.000\n` +
+            `➜ \`-15000 transport\` → pengeluaran transportasi\n\n` +
+            `🏷️ *Fitur Kategori Kustom:*\n` +
+            `➜ /addcategory "Investasi" → tambah kategori\n` +
+            `➜ /listcategories → lihat semua kategori\n` +
+            `➜ /removecategory "Investasi" → hapus kategori\n\n` +
+            `💰 /budget 3000000 → set budget bulanan Rp 3.000.000\n` +
+            `📊 /report → laporan keuangan bulan ini\n\n` +
+            `📸 Kirim *foto struk* untuk scan otomatis!`, // <-- KOMA DI SINI
           {
             parse_mode: 'Markdown',
             reply_markup: miniAppKeyboard([
