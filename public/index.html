@@ -2460,7 +2460,7 @@
     </div>
 
     <!-- ============================================================
-    PAGE: HISTORY (dengan tombol ekspor ikon)
+    PAGE: HISTORY (dengan tombol Import PDF Bank)
     ============================================================ -->
     <div id="page-history" class="page">
         <header class="app-header">
@@ -2483,6 +2483,14 @@
         </header>
 
         <main class="page-content">
+
+            <!-- TOMBOL IMPORT PDF BANK -->
+            <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
+                <button class="btn-primary" style="flex:1;font-size:13px;padding:10px;min-width:120px;" onclick="document.getElementById('pdf-import-input').click()">
+                    📄 Import PDF Bank (MyBCA)
+                </button>
+                <input type="file" id="pdf-import-input" accept=".pdf" style="display:none;" onchange="importPdfFile(event)" />
+            </div>
 
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
                 <div class="search-wrap">
@@ -2606,7 +2614,7 @@
     </nav>
 
     <!-- ============================================================
-    JAVASCRIPT — DENGAN FITUR EKSPOR GOOGLE SHEETS
+    JAVASCRIPT — DENGAN FITUR IMPORT PDF BANK
     ============================================================ -->
     <script>
         // ============================================================
@@ -2879,6 +2887,41 @@
                 showToast('❌ ' + e.message);
                 console.error(e);
             }
+        }
+
+        // ============================================================
+        // IMPORT PDF BANK
+        // ============================================================
+        async function importPdfFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            if (file.type !== 'application/pdf') {
+                showToast('⚠️ Hanya file PDF yang didukung');
+                event.target.value = '';
+                return;
+            }
+            const formData = new FormData();
+            formData.append('file', file);
+            showToast('⏳ Memproses PDF dengan AI...');
+            try {
+                const res = await fetch(`/api/import-pdf/${USER_ID}`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(`✅ ${data.saved} transaksi berhasil diimport dari PDF`);
+                    await syncFromBackend(true);
+                    renderHistory();
+                    renderDashboard();
+                    renderReports();
+                } else {
+                    showToast('❌ ' + data.error);
+                }
+            } catch (e) {
+                showToast('❌ Gagal import PDF: ' + e.message);
+            }
+            event.target.value = '';
         }
 
         // ============================================================
