@@ -527,7 +527,7 @@ if (BOT_TOKEN && Telegraf) {
           `➜ \`-15000 transport\` → pengeluaran transportasi\n\n` +
           `🔗 *Fitur Lainya:*\n` +
           `💰 /budget 3000000 → set budget bulanan Rp 3.000.000\n` +
-          `📊 /report → laporan keuangan bulan ini\n\n`,
+          `📊 /report → laporan keuangan bulan ini\n\n`
           `📸 Kirim *foto struk* untuk scan otomatis!`,
           {
             parse_mode: 'Markdown',
