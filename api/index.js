@@ -1,8 +1,6 @@
 const express = require('express');
 const cors = require('cors');
 const { kv } = require('@vercel/kv');
-const multer = require('multer');
-const { parsePdfTransactions } = require('./pdf-import');
 
 // Import modul yang diperlukan
 let Telegraf, PDFDocument, axios, ocrStrukWithGemini;
@@ -58,6 +56,17 @@ try {
   exportToGoogleSheets = null;
 }
 
+// Import PDF parser
+let parsePdfTransactions = null;
+try {
+  const pdfModule = require('./pdf-import');
+  parsePdfTransactions = pdfModule.parsePdfTransactions;
+  console.log('✅ PDF Import module loaded');
+} catch (e) {
+  console.warn('⚠️ pdf-import.js tidak tersedia:', e.message);
+  parsePdfTransactions = null;
+}
+
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
@@ -70,6 +79,7 @@ console.log('🔍 ADMIN_TOKEN exists?', !!ADMIN_TOKEN);
 console.log('🔍 OCR available?', !!ocrFunction);
 console.log('🔍 PDFKit available?', !!PDFDocument);
 console.log('🔍 Google Sheets available?', !!exportToGoogleSheets);
+console.log('🔍 PDF Import available?', !!parsePdfTransactions);
 
 // ============================================================
 // STATE DRAFT UNTUK EDIT OCR
@@ -527,7 +537,7 @@ if (BOT_TOKEN && Telegraf) {
           `➜ \`-5000\` → pengeluaran Rp 5.000\n` +
           `➜ \`+20000 makan siang\` → pemasukan Rp 20.000\n` +
           `➜ \`-15000 transport\` → pengeluaran transportasi\n\n` +
-          `🔗 *Fitur Lainya:*\n` +
+          `🔗 *Fitur Lainnya:*\n` +
           `💰 /budget 3000000 → set budget bulanan Rp 3.000.000\n` +
           `📊 /report → laporan keuangan bulan ini\n\n` +
           `📸 Kirim *foto struk* untuk scan otomatis!`,
@@ -1313,6 +1323,7 @@ app.get('/api/health', (req, res) => {
     ocr_available: !!ocrFunction,
     pdf_available: !!PDFDocument,
     sheets_available: !!exportToGoogleSheets,
+    pdf_import_available: !!parsePdfTransactions,
     ocr_engine: 'Gemini'
   });
 });
@@ -1325,6 +1336,7 @@ app.get('/api/test', (req, res) => {
     ocr_engine: 'Gemini',
     pdf_available: !!PDFDocument,
     sheets_available: !!exportToGoogleSheets,
+    pdf_import_available: !!parsePdfTransactions,
     vercel_url: process.env.VERCEL_URL,
     app_url: appUrl
   });
@@ -1376,58 +1388,65 @@ if (exportToGoogleSheets) {
 // ============================================================
 // IMPORT PDF BANK (MyBCA, dll) dengan AI
 // ============================================================
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype === 'application/pdf') {
-      cb(null, true);
-    } else {
-      cb(new Error('Hanya file PDF yang diizinkan'));
-    }
-  }
-});
-
-app.post('/api/import-pdf/:userId', upload.single('file'), async (req, res) => {
-  try {
-    const userId = req.params.userId;
-    const registered = await isUserRegistered(userId);
-    if (!registered) {
-      return res.status(401).json({ error: 'User tidak terdaftar' });
-    }
-
-    if (!req.file) {
-      return res.status(400).json({ error: 'Tidak ada file PDF yang diupload' });
-    }
-
-    const buffer = req.file.buffer;
-    const transactions = await parsePdfTransactions(buffer, getCategoryId);
-
-    if (transactions.length === 0) {
-      return res.status(400).json({ error: 'Tidak ada transaksi yang ditemukan di PDF' });
-    }
-
-    let saved = 0;
-    for (const tx of transactions) {
-      try {
-        await addTransaction(userId, tx);
-        saved++;
-      } catch (e) {
-        console.error('❌ Gagal simpan transaksi:', e.message);
+if (parsePdfTransactions) {
+  const multer = require('multer');
+  const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max
+    fileFilter: (req, file, cb) => {
+      if (file.mimetype === 'application/pdf') {
+        cb(null, true);
+      } else {
+        cb(new Error('Hanya file PDF yang diizinkan'));
       }
     }
+  });
 
-    res.json({
-      success: true,
-      total: transactions.length,
-      saved,
-      message: `Berhasil mengimpor ${saved} dari ${transactions.length} transaksi`
-    });
-  } catch (e) {
-    console.error('❌ Error import PDF:', e.message);
-    res.status(500).json({ error: e.message });
-  }
-});
+  app.post('/api/import-pdf/:userId', upload.single('file'), async (req, res) => {
+    try {
+      const userId = req.params.userId;
+      const registered = await isUserRegistered(userId);
+      if (!registered) {
+        return res.status(401).json({ error: 'User tidak terdaftar' });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ error: 'Tidak ada file PDF yang diupload' });
+      }
+
+      const buffer = req.file.buffer;
+      const transactions = await parsePdfTransactions(buffer, getCategoryId);
+
+      if (transactions.length === 0) {
+        return res.status(400).json({ error: 'Tidak ada transaksi yang ditemukan di PDF' });
+      }
+
+      let saved = 0;
+      for (const tx of transactions) {
+        try {
+          await addTransaction(userId, tx);
+          saved++;
+        } catch (e) {
+          console.error('❌ Gagal simpan transaksi:', e.message);
+        }
+      }
+
+      res.json({
+        success: true,
+        total: transactions.length,
+        saved,
+        message: `Berhasil mengimpor ${saved} dari ${transactions.length} transaksi`
+      });
+    } catch (e) {
+      console.error('❌ Error import PDF:', e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
+} else {
+  app.post('/api/import-pdf/:userId', (req, res) => {
+    res.status(501).json({ error: 'Fitur Import PDF tidak tersedia (modul tidak terinstall)' });
+  });
+}
 
 // ============================================================
 // ADMIN ENDPOINTS
