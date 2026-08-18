@@ -609,6 +609,7 @@ if (BOT_TOKEN && Telegraf) {
             `➜ /addcategory "Investasi" → tambah kategori\n` +
             `➜ /listcategories → lihat semua kategori\n` +
             `➜ /removecategory "Investasi" → hapus kategori\n\n` +
+            `🔗 *Fitur Lainya:*\n` +
             `💰 /budget 3000000 → set budget bulanan Rp 3.000.000\n` +
             `📊 /report → laporan keuangan bulan ini\n\n` +
             `📸 Kirim *foto struk* untuk scan otomatis!`, // <-- KOMA DI SINI
