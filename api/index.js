@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const { kv } = require('@vercel/kv');
+const multer = require('multer');
+const { parsePdfTransactions } = require('./pdf-import');
 
 // Import modul yang diperlukan
 let Telegraf, PDFDocument, axios, ocrStrukWithGemini;
@@ -1370,6 +1372,62 @@ if (exportToGoogleSheets) {
     res.status(501).json({ error: 'Fitur Google Sheets tidak tersedia (modul tidak terinstall)' });
   });
 }
+
+// ============================================================
+// IMPORT PDF BANK (MyBCA, dll) dengan AI
+// ============================================================
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/pdf') {
+      cb(null, true);
+    } else {
+      cb(new Error('Hanya file PDF yang diizinkan'));
+    }
+  }
+});
+
+app.post('/api/import-pdf/:userId', upload.single('file'), async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const registered = await isUserRegistered(userId);
+    if (!registered) {
+      return res.status(401).json({ error: 'User tidak terdaftar' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'Tidak ada file PDF yang diupload' });
+    }
+
+    const buffer = req.file.buffer;
+    const transactions = await parsePdfTransactions(buffer, getCategoryId);
+
+    if (transactions.length === 0) {
+      return res.status(400).json({ error: 'Tidak ada transaksi yang ditemukan di PDF' });
+    }
+
+    let saved = 0;
+    for (const tx of transactions) {
+      try {
+        await addTransaction(userId, tx);
+        saved++;
+      } catch (e) {
+        console.error('❌ Gagal simpan transaksi:', e.message);
+      }
+    }
+
+    res.json({
+      success: true,
+      total: transactions.length,
+      saved,
+      message: `Berhasil mengimpor ${saved} dari ${transactions.length} transaksi`
+    });
+  } catch (e) {
+    console.error('❌ Error import PDF:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
 
 // ============================================================
 // ADMIN ENDPOINTS
