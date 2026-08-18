@@ -193,6 +193,34 @@
         }
 
         /* ============================================================
+               IMPORT ICON BUTTON
+            ============================================================ */
+        .import-icon-btn {
+            width: 40px !important;
+            height: 40px !important;
+            border-radius: 50% !important;
+            background: var(--surface-2);
+            border: 1.5px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            cursor: pointer;
+            padding: 0;
+            color: var(--text-2);
+            flex-shrink: 0;
+        }
+        .import-icon-btn:hover {
+            background: var(--surface-3);
+            border-color: var(--border-hover);
+            transform: scale(1.05);
+            color: var(--income);
+        }
+        .import-icon-btn .material-symbols-outlined {
+            font-size: 22px;
+        }
+
+        /* ============================================================
                BOTTOM NAV
             ============================================================ */
         .bottom-nav {
@@ -2460,7 +2488,7 @@
     </div>
 
     <!-- ============================================================
-    PAGE: HISTORY (dengan tombol Import PDF Bank)
+    PAGE: HISTORY (dengan tombol import PDF)
     ============================================================ -->
     <div id="page-history" class="page">
         <header class="app-header">
@@ -2469,10 +2497,17 @@
                 <h1>Riwayat</h1>
             </div>
             <div class="actions">
-                <!-- === TOMBOL EKSPOR KE GOOGLE SHEETS (IKON EKSPOR) === -->
+                <!-- === TOMBOL IMPORT PDF === -->
+                <button class="import-icon-btn" onclick="document.getElementById('pdf-import-input').click()" title="Import PDF Bank">
+                    <span class="material-symbols-outlined">upload_file</span>
+                </button>
+                <input type="file" id="pdf-import-input" accept=".pdf" style="display:none;" onchange="importPdfFile(event)" />
+
+                <!-- === TOMBOL EKSPOR GOOGLE SHEETS === -->
                 <button class="export-icon-btn" onclick="exportToSheets()" title="Ekspor ke Google Sheets">
                     <span class="material-symbols-outlined">file_download</span>
                 </button>
+
                 <button class="icon-btn" onclick="clearAllData()" title="Hapus semua">
                     <span class="material-symbols-outlined" style="color:var(--expense);">delete</span>
                 </button>
@@ -2483,14 +2518,6 @@
         </header>
 
         <main class="page-content">
-
-            <!-- TOMBOL IMPORT PDF BANK -->
-            <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
-                <button class="btn-primary" style="flex:1;font-size:13px;padding:10px;min-width:120px;" onclick="document.getElementById('pdf-import-input').click()">
-                    📄 Import PDF Bank (MyBCA)
-                </button>
-                <input type="file" id="pdf-import-input" accept=".pdf" style="display:none;" onchange="importPdfFile(event)" />
-            </div>
 
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
                 <div class="search-wrap">
@@ -2614,7 +2641,7 @@
     </nav>
 
     <!-- ============================================================
-    JAVASCRIPT — DENGAN FITUR IMPORT PDF BANK
+    JAVASCRIPT — DENGAN FITUR IMPORT PDF
     ============================================================ -->
     <script>
         // ============================================================
@@ -2862,34 +2889,6 @@
                 syncInterval = null; } }
 
         // ============================================================
-        // EKSPOR KE GOOGLE SHEETS
-        // ============================================================
-        async function exportToSheets() {
-            if (!USER_ID) {
-                showToast('⚠️ User ID tidak ditemukan');
-                return;
-            }
-            showToast('⏳ Menyiapkan ekspor...');
-            try {
-                const res = await fetch(`/api/export-sheets/${USER_ID}`);
-                if (!res.ok) {
-                    const err = await res.json();
-                    throw new Error(err.error || 'Gagal ekspor');
-                }
-                const data = await res.json();
-                if (data.url) {
-                    showToast('✅ Buka Google Sheets untuk melihat data');
-                    window.open(data.url, '_blank');
-                } else {
-                    showToast('⚠️ Tidak ada URL yang dikembalikan.');
-                }
-            } catch (e) {
-                showToast('❌ ' + e.message);
-                console.error(e);
-            }
-        }
-
-        // ============================================================
         // IMPORT PDF BANK
         // ============================================================
         async function importPdfFile(event) {
@@ -2916,12 +2915,40 @@
                     renderDashboard();
                     renderReports();
                 } else {
-                    showToast('❌ ' + data.error);
+                    showToast('❌ ' + (data.error || 'Gagal import PDF'));
                 }
             } catch (e) {
                 showToast('❌ Gagal import PDF: ' + e.message);
             }
             event.target.value = '';
+        }
+
+        // ============================================================
+        // EKSPOR KE GOOGLE SHEETS
+        // ============================================================
+        async function exportToSheets() {
+            if (!USER_ID) {
+                showToast('⚠️ User ID tidak ditemukan');
+                return;
+            }
+            showToast('⏳ Menyiapkan ekspor...');
+            try {
+                const res = await fetch(`/api/export-sheets/${USER_ID}`);
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.error || 'Gagal ekspor');
+                }
+                const data = await res.json();
+                if (data.url) {
+                    showToast('✅ Buka Google Sheets untuk melihat data');
+                    window.open(data.url, '_blank');
+                } else {
+                    showToast('⚠️ Tidak ada URL yang dikembalikan.');
+                }
+            } catch (e) {
+                showToast('❌ ' + e.message);
+                console.error(e);
+            }
         }
 
         // ============================================================
