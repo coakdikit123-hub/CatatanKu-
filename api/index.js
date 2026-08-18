@@ -107,90 +107,9 @@ function getCategoryLabel(id) {
   return CATEGORY_LABELS[id] || id;
 }
 
-function getDefaultCategoryId(label) {
+function getCategoryId(label) {
   const lower = label.toLowerCase();
-  if (CATEGORY_MAP[lower]) return CATEGORY_MAP[lower];
-  if (DEFAULT_CATEGORIES.includes(lower)) return lower;
-  return null;
-}
-
-// ============================================================
-// KATEGORI KUSTOM
-// ============================================================
-const CUSTOM_CATEGORY_KEY = 'custom_categories';
-
-async function getCustomCategories(userId) {
-  const key = `${CUSTOM_CATEGORY_KEY}:${userId}`;
-  try {
-    const data = await kv.get(key);
-    return data || [];
-  } catch (e) {
-    console.error('❌ Gagal baca custom categories:', e.message);
-    return [];
-  }
-}
-
-async function saveCustomCategories(userId, categories) {
-  const key = `${CUSTOM_CATEGORY_KEY}:${userId}`;
-  try {
-    await kv.set(key, categories);
-    return true;
-  } catch (e) {
-    console.error('❌ Gagal simpan custom categories:', e.message);
-    return false;
-  }
-}
-
-async function addCustomCategory(userId, categoryName) {
-  const clean = categoryName.trim().toLowerCase();
-  if (clean.length < 2) {
-    return { success: false, message: '❌ Nama kategori minimal 2 karakter.' };
-  }
-  if (!/^[a-z0-9\s]+$/.test(clean)) {
-    return { success: false, message: '❌ Nama kategori hanya boleh huruf, angka, dan spasi.' };
-  }
-  
-  if (DEFAULT_CATEGORIES.includes(clean)) {
-    return { success: false, message: `❌ "${clean}" adalah kategori default. Tidak perlu ditambahkan.` };
-  }
-  
-  const categories = await getCustomCategories(userId);
-  if (categories.includes(clean)) {
-    return { success: false, message: `❌ Kategori "${clean}" sudah ada.` };
-  }
-  
-  categories.push(clean);
-  await saveCustomCategories(userId, categories);
-  return { success: true, message: `✅ Kategori "${clean}" berhasil ditambahkan!` };
-}
-
-async function removeCustomCategory(userId, categoryName) {
-  const clean = categoryName.trim().toLowerCase();
-  const categories = await getCustomCategories(userId);
-  const index = categories.indexOf(clean);
-  if (index === -1) {
-    return { success: false, message: `❌ Kategori "${clean}" tidak ditemukan.` };
-  }
-  categories.splice(index, 1);
-  await saveCustomCategories(userId, categories);
-  return { success: true, message: `✅ Kategori "${clean}" berhasil dihapus.` };
-}
-
-async function getAllCategories(userId) {
-  const custom = await getCustomCategories(userId);
-  return [...DEFAULT_CATEGORIES, ...custom];
-}
-
-async function getCategoryId(userId, label) {
-  const lower = label.toLowerCase().trim();
-  
-  const defaultId = getDefaultCategoryId(lower);
-  if (defaultId) return defaultId;
-  
-  const custom = await getCustomCategories(userId);
-  if (custom.includes(lower)) return lower;
-  
-  return 'other';
+  return CATEGORY_MAP[lower] || 'other';
 }
 
 // ============================================================
@@ -232,9 +151,9 @@ async function isUserRegistered(userId) {
 }
 
 // ============================================================
-// FUNGSI PARSING PESAN TEKS (dengan kategori kustom)
+// FUNGSI PARSING PESAN TEKS
 // ============================================================
-async function parseTransaction(text, userId) {
+function parseTransaction(text, userId) {
   const trimmed = text.trim();
   let type = 'expense';
   let amountText = trimmed;
@@ -259,7 +178,7 @@ async function parseTransaction(text, userId) {
   let category = 'other';
   if (words.length > 0) {
     const firstWord = words[0].toLowerCase();
-    const catId = await getCategoryId(userId, firstWord);
+    const catId = getCategoryId(firstWord);
     if (catId !== 'other' || DEFAULT_CATEGORIES.includes(firstWord)) {
       category = catId;
       const remaining = words.slice(1).join(' ');
@@ -429,7 +348,7 @@ async function generateMonthlyReport(userId, month, year) {
   
   const balance = totalIncome - totalExpense;
   
-  // Hitung kategori terbanyak (custom + default)
+  // Hitung kategori terbanyak
   const categoryMap = {};
   const expenseTxs = monthTxs.filter(t => t.type === 'expense');
   for (const tx of expenseTxs) {
@@ -461,8 +380,9 @@ async function generateMonthlyReport(userId, month, year) {
   
   if (topCategory) {
     const catLabel = getCategoryLabel(topCategory);
-    report += `🏷️ *Kategori Terbanyak:* ${catLabel} (Rp ${topCategoryAmount.toLocaleString('id-ID')})`;
+    report += `🏷️ *Kategori Terbanyak:* ${catLabel} (Rp ${topCategoryAmount.toLocaleString('id-ID')})\n`;
   }
+  
   report += `📌 *Total Transaksi:* ${monthTxs.length} transaksi`;
   
   return report;
@@ -600,19 +520,14 @@ if (BOT_TOKEN && Telegraf) {
 
       if (registered) {
         await ctx.reply(
-            `👋 *Halo! Selamat datang kembali di CatatanKu!*\n\n` +
-            `📝 *Cara pakai:*\n` +
-            `➜ \`-5000\` → pengeluaran Rp 5.000\n` +
-            `➜ \`+20000 makan siang\` → pemasukan Rp 20.000\n` +
-            `➜ \`-15000 transport\` → pengeluaran transportasi\n\n` +
-            `🏷️ *Fitur Kategori Kustom:*\n` +
-            `➜ /addcategory "Investasi" → tambah kategori\n` +
-            `➜ /listcategories → lihat semua kategori\n` +
-            `➜ /removecategory "Investasi" → hapus kategori\n\n` +
-            `🔗 *Fitur Lainya:*\n` +
-            `💰 /budget 3000000 → set budget bulanan Rp 3.000.000\n` +
-            `📊 /report → laporan keuangan bulan ini\n\n` +
-            `📸 Kirim *foto struk* untuk scan otomatis!`, // <-- KOMA DI SINI
+          `👋 *Halo! Selamat datang kembali di CatatanKu!*\n\n` +
+          `📝 *Cara pakai:*\n` +
+          `➜ \`-5000\` → pengeluaran Rp 5.000\n` +
+          `➜ \`+20000 makan siang\` → pemasukan Rp 20.000\n` +
+          `➜ \`-15000 transport\` → pengeluaran transportasi\n\n` +
+          `📸 Kirim *foto struk* untuk scan otomatis!\n\n` +
+          `💰 /budget 3000000 → set budget bulanan Rp 3.000.000\n` +
+          `📊 /report → laporan keuangan bulan ini`,
           {
             parse_mode: 'Markdown',
             reply_markup: miniAppKeyboard([
@@ -633,92 +548,6 @@ if (BOT_TOKEN && Telegraf) {
           }
         );
       }
-    });
-
-    // ============================================================
-    // COMMAND: /addcategory
-    // ============================================================
-    bot.command('addcategory', async (ctx) => {
-      const userId = ctx.from.id.toString();
-      const args = ctx.message.text.replace('/addcategory', '').trim();
-
-      if (!args) {
-        return ctx.reply(
-          `🏷️ *Cara menambah kategori:*\n\n` +
-          `/addcategory "Nama Kategori"\n\n` +
-          `Contoh: /addcategory "Investasi"\n` +
-          `Kategori akan otomatis terdeteksi saat transaksi.\n\n` +
-          `*Kategori Default:*\n` +
-          `Makan, Belanja, Transportasi, Tagihan, Hiburan, Kesehatan, Hadiah, Lainnya`,
-          { parse_mode: 'Markdown' }
-        );
-      }
-
-      const match = args.match(/^"([^"]+)"$/);
-      if (!match) {
-        return ctx.reply('❌ Format salah. Gunakan: `/addcategory "Nama Kategori"`', { parse_mode: 'Markdown' });
-      }
-
-      const categoryName = match[1];
-      const result = await addCustomCategory(userId, categoryName);
-      await ctx.reply(result.message, { parse_mode: 'Markdown' });
-    });
-
-    // ============================================================
-    // COMMAND: /listcategories
-    // ============================================================
-    bot.command('listcategories', async (ctx) => {
-      const userId = ctx.from.id.toString();
-      
-      try {
-        const custom = await getCustomCategories(userId);
-        let msg = `🏷️ *Daftar Kategori*\n\n`;
-        msg += `📌 *Kategori Default:*\n`;
-        for (const cat of DEFAULT_CATEGORIES) {
-          msg += `  • ${getCategoryLabel(cat)}\n`;
-        }
-        
-        if (custom.length > 0) {
-          msg += `\n⭐ *Kategori Kustom:*\n`;
-          for (const cat of custom) {
-            msg += `  • ${cat}\n`;
-          }
-        } else {
-          msg += `\n❌ *Belum ada kategori kustom.*\n`;
-          msg += `Gunakan /addcategory "Nama" untuk menambahkan.`;
-        }
-        
-        await ctx.reply(msg, { parse_mode: 'Markdown' });
-      } catch (e) {
-        console.error('❌ Error list categories:', e.message);
-        await ctx.reply('❌ Gagal mengambil daftar kategori.');
-      }
-    });
-
-    // ============================================================
-    // COMMAND: /removecategory
-    // ============================================================
-    bot.command('removecategory', async (ctx) => {
-      const userId = ctx.from.id.toString();
-      const args = ctx.message.text.replace('/removecategory', '').trim();
-
-      if (!args) {
-        return ctx.reply(
-          `🏷️ *Cara menghapus kategori:*\n\n` +
-          `/removecategory "Nama Kategori"\n\n` +
-          `Contoh: /removecategory "Investasi"`,
-          { parse_mode: 'Markdown' }
-        );
-      }
-
-      const match = args.match(/^"([^"]+)"$/);
-      if (!match) {
-        return ctx.reply('❌ Format salah. Gunakan: `/removecategory "Nama Kategori"`', { parse_mode: 'Markdown' });
-      }
-
-      const categoryName = match[1];
-      const result = await removeCustomCategory(userId, categoryName);
-      await ctx.reply(result.message, { parse_mode: 'Markdown' });
     });
 
     // ============================================================
@@ -800,7 +629,7 @@ if (BOT_TOKEN && Telegraf) {
             }
             draft.amount = amount;
           } else if (field === 'kategori') {
-            const catId = await getCategoryId(userId, input);
+            const catId = getCategoryId(input);
             draft.category = catId;
           } else if (field === 'tanggal') {
             let dateStr = input;
@@ -874,7 +703,7 @@ if (BOT_TOKEN && Telegraf) {
           return;
         }
 
-        const tx = await parseTransaction(text, userId);
+        const tx = parseTransaction(text, userId);
         if (!tx) {
           await ctx.reply(
             '❌ Format tidak dikenali.\n\nContoh: `-5000` atau `+20000 makan siang`',
@@ -983,8 +812,7 @@ if (BOT_TOKEN && Telegraf) {
 
           // Gunakan kategori dari OCR, atau default ke 'other'
           let category = ocrResult.category || 'other';
-          const allCats = await getAllCategories(userId);
-          if (!allCats.includes(category)) {
+          if (!DEFAULT_CATEGORIES.includes(category)) {
             category = 'other';
           }
 
@@ -1105,7 +933,7 @@ if (BOT_TOKEN && Telegraf) {
 
       const fieldLabels = {
         jumlah: 'Jumlah (contoh: 50000)',
-        kategori: 'Kategori (Makan, Belanja, Transportasi, Tagihan, Hiburan, Kesehatan, Hadiah, Lainnya, atau kustom)',
+        kategori: 'Kategori (Makan, Belanja, Transportasi, Tagihan, Hiburan, Kesehatan, Hadiah, Lainnya)',
         catatan: 'Catatan (deskripsi transaksi)',
         tanggal: 'Tanggal (format: YYYY-MM-DD atau DD/MM/YYYY)'
       };
@@ -1374,25 +1202,6 @@ app.get('/api/summary/:userId', async (req, res) => {
   }
 });
 
-// API untuk mengambil daftar kategori (default + custom)
-app.get('/api/categories/:userId', async (req, res) => {
-  try {
-    const userId = req.params.userId;
-    const registered = await isUserRegistered(userId);
-    if (!registered) {
-      return res.status(401).json({ error: 'User tidak terdaftar' });
-    }
-    const custom = await getCustomCategories(userId);
-    const categories = {
-      default: DEFAULT_CATEGORIES.map(id => ({ id, label: CATEGORY_LABELS[id] })),
-      custom: custom.map(name => ({ id: name, label: name }))
-    };
-    res.json(categories);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
 // ============================================================
 // ENDPOINT: DATA CHART UNTUK GRAFIK
 // ============================================================
@@ -1519,7 +1328,7 @@ app.get('/api/test', (req, res) => {
 });
 
 // ============================================================
-// EKSPOR KE GOOGLE SHEETS (DENGAN LOGGING LENGKAP)
+// EKSPOR KE GOOGLE SHEETS
 // ============================================================
 if (exportToGoogleSheets) {
   app.get('/api/export-sheets/:userId', async (req, res) => {
@@ -1634,7 +1443,6 @@ app.delete('/api/admin/users/:userId', async (req, res) => {
     const userId = req.params.userId;
     await kv.del(`user:${userId}`);
     await kv.del(`transactions:${userId}`);
-    await kv.del(`${CUSTOM_CATEGORY_KEY}:${userId}`);
     await kv.del(`${BUDGET_LIMIT_KEY}:${userId}`);
     res.json({ success: true });
   } catch (e) {
