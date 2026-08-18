@@ -461,7 +461,7 @@ async function generateMonthlyReport(userId, month, year) {
   
   if (topCategory) {
     const catLabel = getCategoryLabel(topCategory);
-    report += `🏷️ *Kategori Terbanyak:* ${catLabel} (Rp ${topCategoryAmount.toLocaleString('id-ID')})\n`;
+    report += `🏷️ *Kategori Terbanyak:* ${catLabel} (Rp ${topCategoryAmount.toLocaleString('id-ID')})`;
   }
   
   report += `\n📌 *Total Transaksi:* ${monthTxs.length} transaksi`;
